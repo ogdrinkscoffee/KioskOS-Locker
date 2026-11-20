@@ -1,0 +1,3 @@
+-keep class com.kiosk.launcher.admin.KioskDeviceAdminReceiver { *; }
+-keep class com.kiosk.launcher.receiver.BootCompletedReceiver { *; }
+-keep class com.kiosk.launcher.service.KioskGuardAccessibilityService { *; }

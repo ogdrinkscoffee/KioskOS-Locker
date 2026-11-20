@@ -1,0 +1,302 @@
+{
+  "entities": {
+    "UserAccount": {
+      "title": "UserAccount",
+      "description": "Authenticated account owner profile linking PC Web Remote and Android Kiosk devices.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 254
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "lastActiveDeviceId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "displayName", "lastActiveDeviceId", "createdAt", "updatedAt"]
+    },
+    "DeviceSyncSnapshot": {
+      "title": "DeviceSyncSnapshot",
+      "description": "Synced kiosk status telemetry, BlockP/AppBlock policies, and salted SHA-256 admin passcode verifier.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "deviceId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "deviceLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "platform": {
+          "type": "string",
+          "enum": ["android", "web_simulator"]
+        },
+        "isOnline": {
+          "type": "boolean"
+        },
+        "isDeviceOwner": {
+          "type": "boolean"
+        },
+        "kioskMode": {
+          "type": "string",
+          "enum": ["multi_app", "single_app", "kiosk_browser"]
+        },
+        "singleAppPackage": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "kioskTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "activeScreen": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "lockTaskActive": {
+          "type": "boolean"
+        },
+        "adminPinSalt": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 64
+        },
+        "adminPinHash": {
+          "type": "string",
+          "minLength": 64,
+          "maxLength": 64,
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "allowedPackages": {
+          "type": "array"
+        },
+        "allowedDomains": {
+          "type": "array"
+        },
+        "hardwareLocks": {
+          "type": "object"
+        },
+        "blockerShields": {
+          "type": "object"
+        },
+        "appTimeLimits": {
+          "type": "object"
+        },
+        "appUsageSeconds": {
+          "type": "object"
+        },
+        "downtimeSchedule": {
+          "type": "object"
+        },
+        "focusBlockUntilMs": {
+          "type": "number"
+        },
+        "panicLockUntilMs": {
+          "type": "number"
+        },
+        "panicCount": {
+          "type": "number"
+        },
+        "blockedAttemptsToday": {
+          "type": "number"
+        },
+        "tamperWarningsCount": {
+          "type": "number"
+        },
+        "tamperEscalationTier": {
+          "type": "number"
+        },
+        "pinLockedUntilMs": {
+          "type": "number"
+        },
+        "lastModifiedBy": {
+          "type": "string",
+          "enum": ["mobile_app", "web_simulator", "pc_web"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "deviceId",
+        "deviceLabel",
+        "platform",
+        "isOnline",
+        "isDeviceOwner",
+        "kioskMode",
+        "singleAppPackage",
+        "kioskTitle",
+        "activeScreen",
+        "lockTaskActive",
+        "adminPinSalt",
+        "adminPinHash",
+        "allowedPackages",
+        "allowedDomains",
+        "hardwareLocks",
+        "blockerShields",
+        "appTimeLimits",
+        "appUsageSeconds",
+        "downtimeSchedule",
+        "focusBlockUntilMs",
+        "panicLockUntilMs",
+        "panicCount",
+        "blockedAttemptsToday",
+        "tamperWarningsCount",
+        "tamperEscalationTier",
+        "pinLockedUntilMs",
+        "lastModifiedBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "GrowthProgress": {
+      "title": "GrowthProgress",
+      "description": "Synced self-improvement state including clean streak, habits, tasks, goals, focus sessions, affirmations, and notes.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "profileId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "cleanStreakDays": {
+          "type": "number"
+        },
+        "longestCleanStreakDays": {
+          "type": "number"
+        },
+        "lastCleanCheckInDate": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "cleanCheckInDates": {
+          "type": "array"
+        },
+        "urgeVictories": {
+          "type": "number"
+        },
+        "whyIStarted": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "affirmations": {
+          "type": "array"
+        },
+        "activeAffirmationIndex": {
+          "type": "number"
+        },
+        "lastAffirmationCommittedDate": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "focusSessions": {
+          "type": "array"
+        },
+        "habits": {
+          "type": "array"
+        },
+        "tasks": {
+          "type": "array"
+        },
+        "goals": {
+          "type": "array"
+        },
+        "notes": {
+          "type": "array"
+        },
+        "lastUpdatedSource": {
+          "type": "string",
+          "enum": ["mobile_app", "web_simulator", "pc_web"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "profileId",
+        "cleanStreakDays",
+        "longestCleanStreakDays",
+        "lastCleanCheckInDate",
+        "cleanCheckInDates",
+        "urgeVictories",
+        "whyIStarted",
+        "affirmations",
+        "activeAffirmationIndex",
+        "lastAffirmationCommittedDate",
+        "focusSessions",
+        "habits",
+        "tasks",
+        "goals",
+        "notes",
+        "lastUpdatedSource",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserAccount" },
+      "description": "Account profile storing verified owner identity and active paired device ID."
+    },
+    "/users/{userId}/devices/{deviceId}": {
+      "schema": { "$ref": "#/entities/DeviceSyncSnapshot" },
+      "description": "Synced mobile kiosk telemetry, security settings, and salted admin password verifier."
+    },
+    "/users/{userId}/growth/{profileId}": {
+      "schema": { "$ref": "#/entities/GrowthProgress" },
+      "description": "Synced self-improvement clean streak, habits, tasks, goals, notes, and focus logs."
+    }
+  }
+}

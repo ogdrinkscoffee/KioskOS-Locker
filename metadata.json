@@ -1,0 +1,6 @@
+{
+  "name": "KioskOS — Android Device Owner Kiosk Launcher",
+  "description": "Native Kotlin Android Kiosk Launcher with DeviceAdminReceiver, Device Owner UserManager restrictions, PIN-protected app allowlisting, LockTask launching, and an interactive web simulator.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
