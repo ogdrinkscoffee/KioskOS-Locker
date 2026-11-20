@@ -3,6 +3,7 @@
  * Proprietary and confidential. Unauthorized copying, reverse-engineering,
  * modification, or redistribution of this file is strictly prohibited.
  */
+import { LegalFooter } from './components/LegalFooter';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Cloud, Download, Moon, Sun } from 'lucide-react';
 import {
@@ -1319,6 +1320,7 @@ export default function App() {
 
         {activeTab === 'adb' && <AdbProvisioningView />}
       </main>
+      <LegalFooter/>
     </div>
   );
 }
