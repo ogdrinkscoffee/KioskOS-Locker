@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 [Your Name / Studio Name]. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying, reverse-engineering,
+ * modification, or redistribution of this file is strictly prohibited.
+ */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Cloud, Download, Moon, Sun } from 'lucide-react';
 import {
