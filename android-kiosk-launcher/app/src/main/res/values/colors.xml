@@ -6,4 +6,5 @@
     <color name="kiosk_muted">#475569</color>
     <color name="kiosk_accent">#0284C7</color>
     <color name="kiosk_border">#E2E8F0</color>
+    <color name="ic_launcher_background">#0E1525</color>
 </resources>
