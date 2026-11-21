@@ -33,7 +33,7 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
   return (
     <section
       aria-label="Kiosk Accountability Dashboard"
-      className="mt-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 space-y-3"
+      className="mt-3 surface p-3.5 space-y-3"
       data-testid="kiosk-accountability-dashboard"
     >
       {/* Current Streak Summary */}

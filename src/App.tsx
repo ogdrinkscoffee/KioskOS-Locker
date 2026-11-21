@@ -5,7 +5,18 @@
  */
 import { LegalFooter } from './components/LegalFooter';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Cloud, Download, Moon, Sun } from 'lucide-react';
+import {
+  Cloud,
+  Download,
+  FileCode2,
+  MonitorSmartphone,
+  Moon,
+  ShieldCheck,
+  Smartphone,
+  Sun,
+  Terminal,
+  TrendingUp,
+} from 'lucide-react';
 import {
   Timestamp,
   collection,
@@ -23,6 +34,7 @@ import { PolicyInspectorPanel } from './components/PolicyInspectorPanel';
 import { SelfImprovementWorkspace } from './components/SelfImprovementWorkspace';
 import { SourceExplorerView } from './components/SourceExplorerView';
 import { AdbProvisioningView } from './components/AdbProvisioningView';
+import { PolicySummary } from './components/PolicySummary';
 import { PcRemoteWorkspace } from './components/PcRemoteWorkspace';
 import { ANDROID_PROJECT_FILES } from './data/androidProjectFiles';
 import { buildZipArchive } from './utils/zipBuilder';
@@ -742,7 +754,14 @@ export default function App() {
     }
   };
 
+  // Only a complete module (manifest present) may produce a downloadable archive.
+  const hasAndroidSources = ANDROID_PROJECT_FILES.some((file) =>
+    file.path.endsWith('AndroidManifest.xml')
+  );
+
   const handleDownloadZip = () => {
+    // Never emit an archive built from missing or placeholder sources.
+    if (!hasAndroidSources) return;
     const zipBytes = buildZipArchive(
       ANDROID_PROJECT_FILES.map((file) => ({
         path: `android-kiosk-launcher/${file.path}`,
@@ -995,17 +1014,17 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors">
+    <div className="flex min-h-screen flex-col text-slate-900 antialiased dark:text-slate-100">
       {/* 3-Zone Single-Line Top Bar Contract */}
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3 sm:gap-8">
+      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/85 backdrop-blur-md dark:border-white/10 dark:bg-[#070b11]/85">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 sm:h-16 sm:flex-nowrap sm:px-6 sm:py-0">
           <a
             href="#top"
             onClick={(e) => {
               e.preventDefault();
               setActiveTab('simulator');
             }}
-            className="inline-flex items-center gap-2.5 text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 whitespace-nowrap shrink-0"
+            className="inline-flex shrink-0 items-center gap-2.5 whitespace-nowrap text-base font-semibold tracking-tight text-slate-900 dark:text-white"
           >
             <img
               src="/app-icon.svg"
@@ -1019,117 +1038,127 @@ export default function App() {
 
           <nav
             aria-label="Workspace sections"
-            className="flex items-center gap-2.5 sm:gap-7 overflow-x-auto"
+            className="order-last -mx-1 w-full overflow-x-auto px-1 sm:order-none sm:mx-0 sm:ml-auto sm:w-auto sm:px-0"
           >
-            {(
-              [
-                { id: 'simulator', label: 'Simulator', shortLabel: 'Simulator' },
-                { id: 'growth', label: 'Self-Improvement', shortLabel: 'Growth' },
-                { id: 'policy', label: 'Policy Inspector', shortLabel: 'Policy' },
-                { id: 'pc', label: 'PC Remote', shortLabel: 'PC' },
-                { id: 'source', label: 'Source Explorer', shortLabel: 'Source' },
-                { id: 'adb', label: 'ADB Provisioning', shortLabel: 'ADB' },
-              ] as const
-            ).map((tab) => {
-              const active = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`py-1.5 text-xs sm:text-sm font-medium whitespace-nowrap shrink-0 border-b-2 transition-colors ${
-                    active
-                      ? 'border-sky-600 dark:border-sky-400 text-slate-900 dark:text-slate-100'
-                      : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
-                  }`}
-                >
-                  <span className="sm:hidden">{tab.shortLabel}</span>
-                  <span className="hidden sm:inline">{tab.label}</span>
-                </button>
-              );
-            })}
+            <div className="flex w-max items-center gap-0.5 rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 dark:border-white/10 dark:bg-white/[0.04]">
+              {(
+                [
+                  { id: 'simulator', label: 'Simulator', shortLabel: 'Sim', Icon: Smartphone },
+                  { id: 'growth', label: 'Growth', shortLabel: 'Grow', Icon: TrendingUp },
+                  { id: 'policy', label: 'Policy', shortLabel: 'Policy', Icon: ShieldCheck },
+                  { id: 'pc', label: 'PC Sync', shortLabel: 'PC', Icon: MonitorSmartphone },
+                  { id: 'source', label: 'Source', shortLabel: 'Code', Icon: FileCode2 },
+                  { id: 'adb', label: 'Provision', shortLabel: 'ADB', Icon: Terminal },
+                ] as const
+              ).map((tab) => {
+                const active = activeTab === tab.id;
+                const Icon = tab.Icon;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    aria-current={active ? 'page' : undefined}
+                    className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors ${
+                      active
+                        ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white'
+                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                    }`}
+                  >
+                    <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
+                    <span className="hidden sm:inline">{tab.label}</span>
+                    <span className="sm:hidden">{tab.shortLabel}</span>
+                  </button>
+                );
+              })}
+            </div>
           </nav>
 
-          <div className="shrink-0 hidden md:flex items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
             <button
               type="button"
               onClick={() => setActiveTab('pc')}
-              className={`min-h-[38px] px-3 py-2 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors ${
+              className={`hidden min-h-9 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-colors sm:inline-flex ${
                 user
-                  ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60'
-                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300'
+                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.08]'
               }`}
             >
-              <Cloud className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{user ? 'Synced' : 'PC Sync'}</span>
+              <Cloud className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{user ? 'Synced' : 'Sync'}</span>
             </button>
             <button
               type="button"
-              onClick={handleDownloadZip}
-              className="min-h-[38px] px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold inline-flex items-center gap-2 whitespace-nowrap shrink-0 transition-colors"
+              data-testid="theme-toggle-button"
+              aria-pressed={isDark}
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={isDark ? 'Light mode' : 'Dark mode'}
+              onClick={() => setThemeMode((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.08]"
             >
-              <Download className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Download Android Project</span>
+              {isDark ? (
+                <Sun className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <Moon className="h-4 w-4" aria-hidden="true" />
+              )}
+            </button>
+            <a
+              href="/downloads/KioskOS-debug.apk"
+              download="KioskOS-debug.apk"
+              aria-label="Download the KioskOS Android APK"
+              title="Download the signed debug APK (5.7 MB)"
+              className="btn-primary whitespace-nowrap"
+            >
+              <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">Download APK</span>
+            </a>
+            <button
+              type="button"
+              onClick={handleDownloadZip}
+              disabled={!hasAndroidSources}
+              aria-label="Download Android project"
+              title={
+                hasAndroidSources
+                  ? 'Download the Kotlin project as a zip'
+                  : 'Native app module is incomplete — AndroidManifest.xml is missing'
+              }
+              className="btn-quiet whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">Source zip</span>
             </button>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main id="top" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 text-balance">
-              Android Device Owner Kiosk Launcher
-            </h1>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-3xl">
-              Native Kotlin project (<code className="font-mono text-slate-800 dark:text-slate-200">com.kiosk.launcher</code>)
-              with <code className="font-mono text-slate-800 dark:text-slate-200">DeviceAdminReceiver</code>,{' '}
-              <code className="font-mono text-slate-800 dark:text-slate-200">HOME</code> lockdown,{' '}
-              <code className="font-mono text-slate-800 dark:text-slate-200">UserManager</code> restrictions,
-              PIN-protected app allowlisting, and integrated Self-Improvement &amp; Rich Notes hub.
-            </p>
+      <main id="top" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+        <div className="mb-7 max-w-2xl">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-700 dark:text-sky-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-sky-500" aria-hidden="true" />
+            Device Owner · Native Kotlin
           </div>
-
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <button
-              type="button"
-              data-testid="theme-toggle-button"
-              aria-pressed={isDark}
-              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-              onClick={() => setThemeMode((prev) => (prev === 'dark' ? 'light' : 'dark'))}
-              className="min-h-[38px] px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors"
-            >
-              {isDark ? (
-                <>
-                  <Sun className="w-3.5 h-3.5 text-amber-400" aria-hidden="true" />
-                  <span>Light Mode</span>
-                </>
-              ) : (
-                <>
-                  <Moon className="w-3.5 h-3.5 text-slate-700" aria-hidden="true" />
-                  <span>Dark Mode</span>
-                </>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleDownloadZip}
-              className="md:hidden min-h-[38px] px-3.5 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold inline-flex items-center gap-2 whitespace-nowrap shrink-0"
-            >
-              <Download className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Download Android Project</span>
-            </button>
-          </div>
+          <h1 className="mt-2.5 text-[27px] font-semibold leading-[1.15] tracking-tight text-slate-900 dark:text-white sm:text-[33px]">
+            Android Device Owner Kiosk Launcher
+          </h1>
+          <p className="mt-2.5 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+            Lock a phone down, allowlist what stays, and test every policy in the simulator before you
+            provision.
+          </p>
+          <ul className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <li>PIN-protected allowlist</li>
+            <li>LockTask lockdown</li>
+            <li>Blockers &amp; downtime</li>
+            <li>Cross-device sync</li>
+          </ul>
         </div>
 
         {activeTab === 'simulator' && (
           <div
-            className={`grid grid-cols-1 gap-8 items-start ${
+            className={`grid grid-cols-1 gap-6 items-start ${
               state.orientation === 'landscape'
-                ? 'xl:grid-cols-[660px_1fr]'
-                : 'lg:grid-cols-[420px_1fr]'
+                ? 'xl:grid-cols-[640px_minmax(0,1fr)]'
+                : 'lg:grid-cols-[400px_minmax(0,1fr)]'
             }`}
           >
             <AndroidDeviceSimulator
@@ -1179,28 +1208,7 @@ export default function App() {
               }}
               onOpenFullSelfImprovement={() => setActiveTab('growth')}
             />
-            <PolicyInspectorPanel
-              state={state}
-              onToggleDeviceOwner={handleToggleDeviceOwner}
-              onSimulateReboot={handleSimulateReboot}
-              onToggleOrientation={handleToggleOrientation}
-              onToggleFontScale={handleToggleFontScale}
-              onToggleHardwarePolicy={handleToggleHardwarePolicy}
-              onToggleBlockerShield={handleToggleBlockerShield}
-              onSetFamilyDnsMode={handleSetFamilyDnsMode}
-              onTestInAppBrowser={handleTestInAppBrowser}
-              onSetAppTimeLimit={handleSetAppTimeLimit}
-              onResetAppUsage={handleResetAppUsage}
-              onUpdateDowntimeSchedule={handleUpdateDowntimeSchedule}
-              onSetFocusBlockSession={handleSetFocusBlockSession}
-              onAdvanceAppUsage={handleAdvanceAppUsage}
-              onTriggerPanic={handleTriggerPanic}
-              onClearPanicLockdown={handleClearPanicLockdown}
-              onResetTamperDiagnostics={handleResetTamperDiagnostics}
-              onSimulateRapidAdminToggles={handleSimulateRapidAdminToggles}
-              onSetKioskMode={(mode) => handleSetKioskMode(mode)}
-              onResetAll={handleResetAll}
-            />
+            <PolicySummary state={state} onOpenPolicyInspector={() => setActiveTab('policy')} />
           </div>
         )}
 

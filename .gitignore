@@ -1,8 +1,21 @@
-node_modules/
-build/
-dist/
-coverage/
+node_modules
+dist
+dist-ssr
+*.local
 .DS_Store
-*.log
-.env*
-!.env.example
+
+# Android build output (the shipped APK lives in public/downloads)
+android-kiosk-launcher/.gradle/
+android-kiosk-launcher/build/
+android-kiosk-launcher/app/build/
+android-kiosk-launcher/local.properties
+android-kiosk-launcher/.kotlin/
+
+# Release signing material must never be committed
+android-kiosk-launcher/keystore.properties
+android-kiosk-launcher/*.jks
+android-kiosk-launcher/*.keystore
+
+# Exported deliverables are regenerable, keep them out of history
+artifacts/*.zip
+artifacts/*.bundle

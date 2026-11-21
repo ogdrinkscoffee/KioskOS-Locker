@@ -270,7 +270,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
       {/* AI Daily Prompt Panel */}
       <section
         aria-label="AI Daily Prompt"
-        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 sm:p-5 space-y-3"
+        className="surface p-4 sm:p-5 space-y-3"
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -340,7 +340,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-[290px_1fr] gap-5 items-start">
       {/* Notes Sidebar */}
-      <aside className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3">
+      <aside className="surface p-4 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Notebooks &amp; Diary</h3>
           <button
@@ -472,7 +472,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
       </aside>
 
       {/* Notion-Style Rich Editor */}
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden min-w-0">
+      <section className="surface overflow-hidden min-w-0">
         {!activeNote ? (
           <div className="p-10 text-center text-sm text-slate-500 dark:text-slate-400">
             Select or create a note to start writing.

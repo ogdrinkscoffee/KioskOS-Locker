@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Activity,
   CheckCircle2,
   Eye,
   EyeOff,
@@ -9,6 +10,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Smartphone,
+  Timer,
   Unlock,
 } from 'lucide-react';
 import {
@@ -161,6 +163,16 @@ const BLOCKER_SHIELD_ROWS: {
   },
 ];
 
+type PolicySection = 'device' | 'access' | 'limits' | 'locks' | 'diagnostics';
+
+const POLICY_SECTIONS: { id: PolicySection; label: string; Icon: React.ElementType }[] = [
+  { id: 'device', label: 'Device', Icon: Smartphone },
+  { id: 'access', label: 'Shields', Icon: ShieldCheck },
+  { id: 'limits', label: 'Limits', Icon: Timer },
+  { id: 'locks', label: 'Locks', Icon: Lock },
+  { id: 'diagnostics', label: 'Diagnostics', Icon: Activity },
+];
+
 export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
   state,
   onToggleDeviceOwner,
@@ -207,11 +219,41 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
   ).length;
 
   const activeBlockerCount = BLOCKER_SHIELD_ROWS.filter((row) => shields[row.key]).length;
+  const [policySection, setPolicySection] = useState<PolicySection>('device');
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      <div
+        role="tablist"
+        aria-label="Policy groups"
+        className="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 dark:border-white/10 dark:bg-white/[0.04]"
+      >
+        {POLICY_SECTIONS.map((tab) => {
+          const active = policySection === tab.id;
+          const Icon = tab.Icon;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setPolicySection(tab.id)}
+              className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors ${
+                active
+                  ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white'
+                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {policySection === 'device' && (<>
       {/* Device Controls */}
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+      <section className="surface p-5">
         <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
           <div>
             <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Device Policy Controller</h2>
@@ -329,8 +371,11 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
         </div>
       </section>
 
+      </>)}
+
+      {policySection === 'access' && (<>
       {/* BlockP / BlockerX / BlockerHero Porn & In-App Browser Shields */}
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+      <section className="surface p-5">
         <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800">
           <div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
@@ -456,8 +501,11 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
         </div>
       </section>
 
+      </>)}
+
+      {policySection === 'limits' && (<>
       {/* App Time Limits, Scheduled Quiet Hours & Freedom Focus Lock */}
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+      <section className="surface p-5">
         <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800">
           <div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
@@ -631,8 +679,11 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
         </div>
       </section>
 
+      </>)}
+
+      {policySection === 'locks' && (<>
       {/* Enforced UserManager Restrictions */}
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+      <section className="surface p-5">
         <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800">
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 break-words min-w-0">
             DevicePolicyManager.addUserRestriction()
@@ -682,7 +733,7 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
       </section>
 
       {/* Hardware, Peripheral & Anti-Tamper Restrictions */}
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+      <section className="surface p-5">
         <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800">
           <div className="min-w-0">
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
@@ -743,7 +794,7 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
       </section>
 
       {/* LockTask Whitelist & Settings Guard */}
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+      <section className="surface p-5">
         <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800">
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
             LockTask Allowlist &amp; Settings Guard
@@ -778,8 +829,11 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
         </div>
       </section>
 
+      </>)}
+
+      {policySection === 'diagnostics' && (<>
       {/* Bypass & Tamper Diagnostics */}
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+      <section className="surface p-5">
         <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800">
           <div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
@@ -944,7 +998,7 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
       </section>
 
       {/* Android Policy Event Log */}
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+      <section className="surface p-5">
         <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Kotlin Policy Execution Trace</h3>
           <span className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">{state.events.length} events</span>
@@ -997,6 +1051,7 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
           })}
         </div>
       </section>
+      </>)}
     </div>
   );
 };

@@ -1,16 +1,15 @@
 import React, { useMemo, useState } from 'react';
-import { Check, Copy, FileCode2, Search } from 'lucide-react';
-import { ANDROID_PROJECT_FILES, AndroidProjectFile } from '../data/androidProjectFiles';
-
-const GROUPS: AndroidProjectFile['group'][] = [
-  'Manifest & Policy',
-  'Kotlin Core',
-  'UI & Layouts',
-  'Gradle & Tests',
-];
+import { Check, Copy, FileCode2, FolderTree, Search } from 'lucide-react';
+import {
+  ANDROID_PROJECT_FILES,
+  ANDROID_PROJECT_GROUPS,
+  ANDROID_PROJECT_GROUP_LABELS,
+  ANDROID_PROJECT_ROOT,
+  AndroidProjectFile,
+} from '../data/androidProjectFiles';
 
 export const SourceExplorerView: React.FC = () => {
-  const [selectedId, setSelectedId] = useState<string>(ANDROID_PROJECT_FILES[0].id);
+  const [selectedId, setSelectedId] = useState<string>(ANDROID_PROJECT_FILES[0]?.id ?? '');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -18,15 +17,15 @@ export const SourceExplorerView: React.FC = () => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return ANDROID_PROJECT_FILES;
     return ANDROID_PROJECT_FILES.filter(
-      (f) =>
-        f.name.toLowerCase().includes(q) ||
-        f.path.toLowerCase().includes(q) ||
-        f.summary.toLowerCase().includes(q)
+      (file) =>
+        file.name.toLowerCase().includes(q) ||
+        file.path.toLowerCase().includes(q) ||
+        file.summary.toLowerCase().includes(q)
     );
   }, [searchQuery]);
 
-  const activeFile =
-    ANDROID_PROJECT_FILES.find((f) => f.id === selectedId) ?? ANDROID_PROJECT_FILES[0];
+  const activeFile: AndroidProjectFile | undefined =
+    ANDROID_PROJECT_FILES.find((file) => file.id === selectedId) ?? ANDROID_PROJECT_FILES[0];
 
   const handleCopy = async (file: AndroidProjectFile) => {
     try {
@@ -38,15 +37,31 @@ export const SourceExplorerView: React.FC = () => {
     }
   };
 
-  const lines = activeFile.content.split('\n');
+  if (ANDROID_PROJECT_FILES.length === 0) {
+    return (
+      <div className="surface mx-auto max-w-xl p-8 text-center">
+        <FolderTree className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600" aria-hidden="true" />
+        <h2 className="mt-4 text-sm font-semibold text-slate-900 dark:text-white">
+          Native sources aren’t in this build
+        </h2>
+        <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+          The <span className="font-mono">{ANDROID_PROJECT_ROOT}/</span> folder isn’t part of this
+          checkout, so there is nothing real to show or download. Add the folder at the project root
+          and this explorer fills itself from it — no placeholder code is ever displayed.
+        </p>
+      </div>
+    );
+  }
+
+  const activeContent = activeFile.content;
+  const lines = activeContent.split('\n');
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6 items-start">
-      {/* File Tree Sidebar */}
-      <aside className="min-w-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+    <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
+      <aside className="surface p-3">
         <div className="relative mb-3">
           <Search
-            className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2"
+            className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
             aria-hidden="true"
           />
           <label htmlFor="source-file-search" className="sr-only">
@@ -56,47 +71,48 @@ export const SourceExplorerView: React.FC = () => {
             id="source-file-search"
             type="search"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Filter Kotlin, XML, Gradle files..."
-            className="w-full h-9 pl-9 pr-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-2 focus:outline-sky-600"
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Filter files"
+            className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100"
           />
         </div>
 
         {filteredFiles.length === 0 ? (
-          <p className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">
-            No files match "{searchQuery}".
+          <p className="px-2 py-6 text-center text-xs text-slate-500 dark:text-slate-400">
+            No file matches “{searchQuery}”.
           </p>
         ) : (
-          <div className="space-y-4 max-h-[620px] overflow-y-auto pr-1">
-            {GROUPS.map((group) => {
-              const items = filteredFiles.filter((f) => f.group === group);
+          <div className="max-h-[64vh] space-y-4 overflow-y-auto pr-1">
+            {ANDROID_PROJECT_GROUPS.map((group) => {
+              const items = filteredFiles.filter((file) => file.group === group);
               if (items.length === 0) return null;
               return (
                 <div key={group}>
-                  <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-2 mb-1">
-                    {group}
+                  <div className="eyebrow px-2 pb-1">
+                    {ANDROID_PROJECT_GROUP_LABELS[group]} · {items.length}
                   </div>
-                  <div className="space-y-0.5">
+                  <div className="space-y-px">
                     {items.map((file) => {
-                      const isActive = file.id === activeFile.id;
+                      const isActive = file.id === activeFile?.id;
                       return (
                         <button
                           key={file.id}
                           type="button"
                           onClick={() => setSelectedId(file.id)}
-                          className={`w-full px-2.5 py-2 rounded-lg text-left flex items-center gap-2 transition-colors ${
+                          aria-current={isActive ? 'true' : undefined}
+                          className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left transition-colors ${
                             isActive
-                              ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-900 dark:text-sky-200 font-semibold'
-                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/70'
+                              ? 'bg-slate-100 text-slate-900 dark:bg-white/10 dark:text-white'
+                              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/[0.06] dark:hover:text-white'
                           }`}
                         >
                           <FileCode2
-                            className={`w-3.5 h-3.5 shrink-0 ${
-                              isActive ? 'text-sky-600 dark:text-sky-400' : 'text-slate-400 dark:text-slate-500'
+                            className={`h-3.5 w-3.5 shrink-0 ${
+                              isActive ? 'text-sky-600 dark:text-sky-400' : 'text-slate-400'
                             }`}
                             aria-hidden="true"
                           />
-                          <span className="text-xs truncate">{file.name}</span>
+                          <span className="truncate text-xs">{file.name}</span>
                         </button>
                       );
                     })}
@@ -108,48 +124,46 @@ export const SourceExplorerView: React.FC = () => {
         )}
       </aside>
 
-      {/* Code Viewer */}
-      <section className="min-w-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+      <section className="surface min-w-0 overflow-hidden">
+        <header className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200/80 px-5 py-3.5 dark:border-white/10">
           <div className="min-w-0">
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-              <span>{activeFile.group}</span>
-              <span aria-hidden="true">·</span>
-              <span className="tabular-nums">{lines.length} lines</span>
-            </div>
-            <h2 className="font-mono text-sm font-semibold text-slate-900 dark:text-slate-100 mt-0.5 truncate">
-              android-kiosk-launcher/{activeFile.path}
+            <h2 className="truncate font-mono text-[13px] font-medium text-slate-900 dark:text-white">
+              {ANDROID_PROJECT_ROOT}/{activeFile.path}
             </h2>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">{activeFile.summary}</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {activeFile.summary}
+              <span aria-hidden="true"> · </span>
+              <span className="tabular-nums">{lines.length} lines</span>
+            </p>
           </div>
           <button
             type="button"
             onClick={() => handleCopy(activeFile)}
-            className="min-h-[38px] px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-medium text-slate-800 dark:text-slate-200 inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
+            className="btn-quiet shrink-0 !min-h-8 !px-2.5 !text-[11px]"
           >
             {copiedId === activeFile.id ? (
               <>
-                <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                <Check className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
                 <span>Copied</span>
               </>
             ) : (
               <>
-                <Copy className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
-                <span>Copy File</span>
+                <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Copy</span>
               </>
             )}
           </button>
-        </div>
+        </header>
 
-        <div className="bg-slate-950 text-slate-100 overflow-x-auto max-h-[620px] overflow-y-auto p-4 font-mono text-xs leading-6 border-t border-slate-900">
+        <div className="max-h-[64vh] overflow-auto bg-[#0a0f16] px-4 py-3 font-mono text-[11.5px] leading-6">
           <table className="w-full border-collapse">
             <tbody>
               {lines.map((line, index) => (
-                <tr key={index} className="hover:bg-slate-900/70">
-                  <td className="select-none pr-4 text-right text-slate-500 w-10 align-top tabular-nums">
+                <tr key={index} className="hover:bg-white/[0.04]">
+                  <td className="w-9 select-none pr-4 text-right align-top text-slate-600 tabular-nums">
                     {index + 1}
                   </td>
-                  <td className="whitespace-pre text-slate-100">{line || ' '}</td>
+                  <td className="whitespace-pre text-slate-200">{line || ' '}</td>
                 </tr>
               ))}
             </tbody>

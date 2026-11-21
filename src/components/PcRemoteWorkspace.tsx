@@ -238,14 +238,14 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Top Account & Offline-First Guarantee Header */}
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+      <section className="surface p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 max-w-2xl">
             <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
               <Laptop className="w-5 h-5 text-sky-600 dark:text-sky-400 shrink-0" aria-hidden="true" />
-              <h2 className="text-lg font-bold tracking-tight">
+              <h2 className="text-base font-semibold tracking-tight">
                 PC Web Dashboard &amp; Cross-Device Sync
               </h2>
             </div>
@@ -383,8 +383,8 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
 
       {!user ? (
         /* Signed-Out / Local Preview Card */
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
+        <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <div className="surface p-5 space-y-3">
             <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100">
               <Smartphone className="w-4 h-4 text-sky-600 dark:text-sky-400" aria-hidden="true" />
               <span>Local Mobile Status (Offline-Ready Preview)</span>
@@ -423,7 +423,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
+          <div className="surface p-5 space-y-3">
             <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100">
               <Lock className="w-4 h-4 text-slate-700 dark:text-slate-300" aria-hidden="true" />
               <span>How PC Web Remote + Password Lock Works</span>
@@ -456,7 +456,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
       ) : (
         <>
           {/* Section 1: Live Phone Status Telemetry */}
-          <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+          <section className="surface p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 inline-flex items-center gap-2">
@@ -543,7 +543,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
           </section>
 
           {/* Section 2: Synced Self-Improvement Tracker */}
-          <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+          <section className="surface p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 inline-flex items-center gap-2">
@@ -635,7 +635,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
           </section>
 
           {/* Section 3: Password-Gated Remote Admin Settings */}
-          <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+          <section className="surface p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 inline-flex items-center gap-2">
@@ -1085,7 +1085,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
           </section>
 
           {/* Section 4: Pair Physical Android APK */}
-          <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
+          <section className="surface p-5 space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="text-sm font-bold text-slate-900 dark:text-slate-100 inline-flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />

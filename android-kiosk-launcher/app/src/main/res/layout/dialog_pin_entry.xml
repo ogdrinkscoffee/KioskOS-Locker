@@ -1,36 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:paddingHorizontal="24dp"
-    android:paddingTop="12dp">
+    android:paddingStart="24dp"
+    android:paddingTop="4dp"
+    android:paddingEnd="24dp">
 
     <TextView
-        android:id="@+id/pinSubtitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="@color/kiosk_muted"
-        android:textSize="13sp" />
+        android:text="4-digit PIN"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp" />
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/pinInputLayout"
+    <EditText
+        android:id="@+id/pinInput"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="14dp"
-        android:hint="@string/admin_pin_prompt_title"
-        app:counterEnabled="true"
-        app:counterMaxLength="50"
-        app:endIconMode="password_toggle">
+        android:layout_marginTop="8dp"
+        android:backgroundTint="@color/divider"
+        android:gravity="center"
+        android:hint="••••"
+        android:inputType="number|numberPassword"
+        android:maxLength="4"
+        android:textColor="@color/text_primary"
+        android:textColorHint="@color/text_secondary"
+        android:textSize="24sp" />
 
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/pinInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:imeOptions="actionDone"
-            android:inputType="textPassword"
-            android:maxLength="50" />
-    </com.google.android.material.textfield.TextInputLayout>
+    <TextView
+        android:id="@+id/pinError"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="Incorrect PIN"
+        android:textColor="@color/danger"
+        android:textSize="12sp"
+        android:visibility="gone" />
 
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="Default PIN is 1234 until you change it in Admin."
+        android:textColor="@color/text_secondary"
+        android:textSize="11sp" />
 </LinearLayout>

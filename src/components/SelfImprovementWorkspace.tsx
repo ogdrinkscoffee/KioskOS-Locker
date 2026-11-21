@@ -87,7 +87,7 @@ interface SelfImprovementWorkspaceProps {
   onDeleteNote: (noteId: string) => void;
 }
 
-type SubTab = 'habits' | 'tasks' | 'goals' | 'notes';
+type SubTab = 'overview' | 'habits' | 'tasks' | 'goals' | 'notes';
 
 export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> = ({
   state,
@@ -115,7 +115,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
   onUpdateNote,
   onDeleteNote,
 }) => {
-  const [subTab, setSubTab] = useState<SubTab>('habits');
+  const [subTab, setSubTab] = useState<SubTab>('overview');
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(state.notes[0]?.id ?? null);
 
   // Urge grounding pause state
@@ -251,9 +251,46 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Segmented Sub-Navigation */}
+      <div
+        role="tablist"
+        aria-label="Self-improvement sections"
+        className="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 dark:border-white/10 dark:bg-white/[0.04]"
+      >
+        {(
+          [
+            { id: 'overview', label: 'Overview' },
+            { id: 'habits', label: 'Habits' },
+            { id: 'tasks', label: 'Tasks' },
+            { id: 'goals', label: 'Goals' },
+            { id: 'notes', label: 'Notes' },
+          ] as const
+        ).map((tab) => {
+          const active = subTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setSubTab(tab.id)}
+              className={`rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors whitespace-nowrap ${
+                active
+                  ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white'
+                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Overview: streak, affirmation, focus timer and analytics */}
+      {subTab === 'overview' && (<>
       {/* Recovery & Clean Streak Anchor */}
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+      <section className="surface p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-1 max-w-2xl">
             <div className="flex items-center gap-2 text-xs font-semibold text-sky-700 dark:text-sky-400">
@@ -379,7 +416,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
       </section>
 
       {/* Daily Affirmation Anchor */}
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+      <section className="surface p-5 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-1.5 max-w-2xl min-w-0">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
@@ -514,7 +551,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
       {/* Focus Mode Timer */}
       <section
         aria-label="Focus Mode Timer"
-        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4"
+        className="surface p-5 space-y-4"
       >
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1 min-w-0">
@@ -693,7 +730,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
         aria-label="30-Day Recovery and Habit Progress Charts"
         className="grid grid-cols-1 lg:grid-cols-2 gap-5"
       >
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 min-w-0">
+        <div className="surface p-5 min-w-0">
           <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
             <div>
               <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Clean Streak Progress (Last 30 Days)</h3>
@@ -756,7 +793,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 min-w-0">
+        <div className="surface p-5 min-w-0">
           <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
             <div>
               <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Habit Completion Rate (Last 30 Days)</h3>
@@ -817,45 +854,11 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
         </div>
       </section>
 
-      {/* Segmented Sub-Navigation */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div
-          role="tablist"
-          aria-label="Self-improvement sections"
-          className="inline-flex max-w-full overflow-x-auto items-center gap-1 p-1 bg-slate-200/70 dark:bg-slate-800/80 rounded-lg"
-        >
-          {(
-            [
-              { id: 'habits', label: 'Habit Tracker' },
-              { id: 'tasks', label: 'Task Tracker' },
-              { id: 'goals', label: 'Goal Setter' },
-              { id: 'notes', label: 'Notes & Diary' },
-            ] as const
-          ).map((tab) => {
-            const active = subTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => setSubTab(tab.id)}
-                className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap ${
-                  active
-                    ? 'bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      </>)}
 
       {/* 1. HABIT TRACKER */}
       {subTab === 'habits' && (
-        <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-5">
+        <section className="surface p-5 space-y-5">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -973,7 +976,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
 
       {/* 2. TASK TRACKER */}
       {subTab === 'tasks' && (
-        <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-5">
+        <section className="surface p-5 space-y-5">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -1041,7 +1044,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                   onClick={() => setTaskFilter(f)}
                   className={`px-3 py-1 rounded text-xs font-medium capitalize ${
                     taskFilter === f
-                      ? 'bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 shadow-sm'
+                      ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white'
                       : 'text-slate-600 dark:text-slate-400'
                   }`}
                 >
@@ -1123,7 +1126,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
               setNewGoalWhy('');
               setNewGoalMilestones('');
             }}
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3"
+            className="surface p-5 space-y-3"
           >
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Create New Goal</h3>
             <div>
@@ -1213,7 +1216,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
               const pct = getGoalProgressPercent(goal);
               const draftMilestone = milestoneInputs[goal.id] ?? '';
               return (
-                <div key={goal.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
+                <div key={goal.id} className="surface p-5 space-y-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
