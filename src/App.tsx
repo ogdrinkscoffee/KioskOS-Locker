@@ -6,9 +6,11 @@
 import { LegalFooter } from './components/LegalFooter';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Check,
   Cloud,
   Download,
   FileCode2,
+  Languages,
   MonitorSmartphone,
   Moon,
   ShieldCheck,
@@ -37,6 +39,7 @@ import { AdbProvisioningView } from './components/AdbProvisioningView';
 import { PolicySummary } from './components/PolicySummary';
 import { PcRemoteWorkspace } from './components/PcRemoteWorkspace';
 import { ANDROID_PROJECT_FILES } from './data/androidProjectFiles';
+import { useI18n } from './i18n/LocaleProvider';
 import { buildZipArchive } from './utils/zipBuilder';
 import {
   OperationType,
@@ -315,8 +318,11 @@ function loadInitialSelfImprovement(): SelfImprovementState {
 }
 
 export default function App() {
+  const { t, locale, setLocale, tr } = useI18n();
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('simulator');
   const [themeMode, setThemeMode] = useState<ThemeMode>(loadInitialTheme);
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
+  const langMenuRef = useRef<HTMLDivElement | null>(null);
   const isDark = themeMode === 'dark';
   const [state, setState] = useState<KioskState>(loadInitialState);
   const [selfImprovement, setSelfImprovement] = useState<SelfImprovementState>(
@@ -352,6 +358,22 @@ export default function App() {
       // Ignore storage quota errors
     }
   }, [isDark, themeMode]);
+
+  useEffect(() => {
+    if (!langMenuOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!langMenuRef.current?.contains(event.target as Node)) setLangMenuOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setLangMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [langMenuOpen]);
 
   useEffect(() => {
     try {
@@ -424,7 +446,7 @@ export default function App() {
             await setDoc(userRef, {
               uid: targetUser.uid,
               email: (targetUser.email ?? '').slice(0, 254),
-              displayName: (targetUser.displayName ?? 'Kiosk Owner').slice(0, 100),
+              displayName: (targetUser.displayName ?? tr("Kiosk Owner")).slice(0, 100),
               lastActiveDeviceId: selectedDeviceId,
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
@@ -432,7 +454,7 @@ export default function App() {
           } else {
             await updateDoc(userRef, {
               email: (targetUser.email ?? '').slice(0, 254),
-              displayName: (targetUser.displayName ?? 'Kiosk Owner').slice(0, 100),
+              displayName: (targetUser.displayName ?? tr("Kiosk Owner")).slice(0, 100),
               lastActiveDeviceId: selectedDeviceId,
               updatedAt: serverTimestamp(),
             });
@@ -447,7 +469,7 @@ export default function App() {
           deviceId: selectedDeviceId,
           deviceLabel:
             syncedDevices.find((d) => d.deviceId === selectedDeviceId)?.deviceLabel ??
-            'Pixel Kiosk Mobile',
+            tr("Pixel Kiosk Mobile"),
           platform:
             syncedDevices.find((d) => d.deviceId === selectedDeviceId)?.platform ??
             'web_simulator',
@@ -502,7 +524,7 @@ export default function App() {
           setPendingOfflineSync(true);
           setSyncError('Offline or Firestore unreachable — changes remain saved locally and will sync later.');
         } else {
-          setSyncError(err instanceof Error ? err.message : 'Sync failed.');
+          setSyncError(err instanceof Error ? err.message : tr("Sync failed."));
           handleFirestoreError(err, OperationType.WRITE, `${userPath} / ${devicePath} / ${growthPath}`);
         }
       } finally {
@@ -525,7 +547,7 @@ export default function App() {
           await setDoc(userRef, {
             uid: user.uid,
             email: (user.email ?? '').slice(0, 254),
-            displayName: (user.displayName ?? 'Kiosk Owner').slice(0, 100),
+            displayName: (user.displayName ?? tr("Kiosk Owner")).slice(0, 100),
             lastActiveDeviceId: selectedDeviceId,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
@@ -670,7 +692,7 @@ export default function App() {
     try {
       await signInWithGoogleAccount();
     } catch (err) {
-      setAuthError(err instanceof Error ? err.message : 'Google Sign-In cancelled or blocked.');
+      setAuthError(err instanceof Error ? err.message : tr("Google Sign-In cancelled or blocked."));
     }
   };
 
@@ -711,7 +733,7 @@ export default function App() {
       state: updatedState,
       ownerId: user.uid,
       deviceId: selectedDeviceId,
-      deviceLabel: remoteSnap?.deviceLabel ?? 'Pixel Kiosk Mobile',
+      deviceLabel: remoteSnap?.deviceLabel ?? tr("Pixel Kiosk Mobile"),
       platform: remoteSnap?.platform ?? 'web_simulator',
       isOnline: remoteSnap?.isOnline ?? true,
       adminPinSalt: nextSalt,
@@ -746,7 +768,7 @@ export default function App() {
       return { ok: true };
     } catch (err) {
       applyingRemoteDeviceRef.current = false;
-      const msg = err instanceof Error ? err.message : 'Failed to push remote update.';
+      const msg = err instanceof Error ? err.message : tr("Failed to push remote update.");
       if (!isNetworkUnavailableError(err)) {
         handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}/devices/${selectedDeviceId}`);
       }
@@ -1037,18 +1059,18 @@ export default function App() {
           </a>
 
           <nav
-            aria-label="Workspace sections"
-            className="order-last -mx-1 w-full overflow-x-auto px-1 sm:order-none sm:mx-0 sm:ml-auto sm:w-auto sm:px-0"
+            aria-label={t('nav.sectionsLabel')}
+            className="order-last -mx-1 w-full overflow-x-auto px-1 sm:order-none sm:mx-0 sm:ms-auto sm:w-auto sm:px-0"
           >
             <div className="flex w-max items-center gap-0.5 rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 dark:border-white/10 dark:bg-white/[0.04]">
               {(
                 [
-                  { id: 'simulator', label: 'Simulator', shortLabel: 'Sim', Icon: Smartphone },
-                  { id: 'growth', label: 'Growth', shortLabel: 'Grow', Icon: TrendingUp },
-                  { id: 'policy', label: 'Policy', shortLabel: 'Policy', Icon: ShieldCheck },
-                  { id: 'pc', label: 'PC Sync', shortLabel: 'PC', Icon: MonitorSmartphone },
-                  { id: 'source', label: 'Source', shortLabel: 'Code', Icon: FileCode2 },
-                  { id: 'adb', label: 'Provision', shortLabel: 'ADB', Icon: Terminal },
+                  { id: 'simulator', label: t('nav.simulator'), shortLabel: t('nav.simulatorShort'), Icon: Smartphone },
+                  { id: 'growth', label: t('nav.growth'), shortLabel: t('nav.growthShort'), Icon: TrendingUp },
+                  { id: 'policy', label: t('nav.policy'), shortLabel: t('nav.policyShort'), Icon: ShieldCheck },
+                  { id: 'pc', label: t('nav.pc'), shortLabel: t('nav.pcShort'), Icon: MonitorSmartphone },
+                  { id: 'source', label: t('nav.source'), shortLabel: t('nav.sourceShort'), Icon: FileCode2 },
+                  { id: 'adb', label: t('nav.adb'), shortLabel: t('nav.adbShort'), Icon: Terminal },
                 ] as const
               ).map((tab) => {
                 const active = activeTab === tab.id;
@@ -1074,7 +1096,7 @@ export default function App() {
             </div>
           </nav>
 
-          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          <div className="ms-auto flex shrink-0 items-center gap-1.5">
             <button
               type="button"
               onClick={() => setActiveTab('pc')}
@@ -1085,14 +1107,69 @@ export default function App() {
               }`}
             >
               <Cloud className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>{user ? 'Synced' : 'Sync'}</span>
+              <span>{user ? t('sync.synced') : t('sync.action')}</span>
             </button>
+            <div className="relative" ref={langMenuRef}>
+              <button
+                type="button"
+                data-testid="locale-toggle-button"
+                aria-label={t('lang.label')}
+                aria-haspopup="menu"
+                aria-expanded={langMenuOpen}
+                title={t('lang.label')}
+                onClick={() => setLangMenuOpen((open) => !open)}
+                className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition-colors ${
+                  langMenuOpen
+                    ? 'border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-300'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.08]'
+                }`}
+              >
+                <Languages className="h-4 w-4" aria-hidden="true" />
+              </button>
+              {langMenuOpen && (
+                <div
+                  role="menu"
+                  aria-label={t('lang.label')}
+                  data-testid="locale-menu"
+                  className="absolute end-0 top-full z-40 mt-1.5 min-w-36 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-white/10 dark:bg-[#0d131b]"
+                >
+                  {(
+                    [
+                      { code: 'en', label: t('lang.toEnglish') },
+                      { code: 'ar', label: t('lang.toArabic') },
+                    ] as const
+                  ).map((option) => (
+                    <button
+                      key={option.code}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={locale === option.code}
+                      lang={option.code}
+                      onClick={() => {
+                        setLocale(option.code);
+                        setLangMenuOpen(false);
+                      }}
+                      className={`flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-1.5 text-start text-[13px] font-medium transition-colors ${
+                        locale === option.code
+                          ? 'bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300'
+                          : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/[0.06]'
+                      }`}
+                    >
+                      <span>{option.label}</span>
+                      {locale === option.code && (
+                        <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <button
               type="button"
               data-testid="theme-toggle-button"
               aria-pressed={isDark}
-              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-              title={isDark ? 'Light mode' : 'Dark mode'}
+              aria-label={isDark ? t('theme.toLight') : t('theme.toDark')}
+              title={isDark ? t('theme.lightMode') : t('theme.darkMode')}
               onClick={() => setThemeMode((prev) => (prev === 'dark' ? 'light' : 'dark'))}
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.08]"
             >
@@ -1103,29 +1180,27 @@ export default function App() {
               )}
             </button>
             <a
-              href="/downloads/KioskOS-debug.apk"
-              download="KioskOS-debug.apk"
-              aria-label="Download the KioskOS Android APK"
-              title="Download the signed debug APK (5.7 MB)"
+              href="/downloads/KioskOS.apk"
+              download="KioskOS.apk"
+              aria-label={t('download.apkAria')}
+              title={t('download.apkTitle')}
               className="btn-primary whitespace-nowrap"
             >
               <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="hidden sm:inline">Download APK</span>
+              <span className="hidden sm:inline">{t('download.apk')}</span>
             </a>
             <button
               type="button"
               onClick={handleDownloadZip}
               disabled={!hasAndroidSources}
-              aria-label="Download Android project"
+              aria-label={t('download.zipAria')}
               title={
-                hasAndroidSources
-                  ? 'Download the Kotlin project as a zip'
-                  : 'Native app module is incomplete — AndroidManifest.xml is missing'
+                hasAndroidSources ? t('download.zipTitle') : t('download.zipMissing')
               }
               className="btn-quiet whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Download className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="hidden sm:inline">Source zip</span>
+              <span className="hidden sm:inline">{t('download.zip')}</span>
             </button>
           </div>
         </div>
@@ -1136,20 +1211,19 @@ export default function App() {
         <div className="mb-7 max-w-2xl">
           <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-700 dark:text-sky-400">
             <span className="h-1.5 w-1.5 rounded-full bg-sky-500" aria-hidden="true" />
-            Device Owner · Native Kotlin
+            {t('hero.eyebrow')}
           </div>
           <h1 className="mt-2.5 text-[27px] font-semibold leading-[1.15] tracking-tight text-slate-900 dark:text-white sm:text-[33px]">
-            Android Device Owner Kiosk Launcher
+            {t('hero.title')}
           </h1>
           <p className="mt-2.5 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-            Lock a phone down, allowlist what stays, and test every policy in the simulator before you
-            provision.
+            {t('hero.lead')}
           </p>
           <ul className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-slate-500 dark:text-slate-400">
-            <li>PIN-protected allowlist</li>
-            <li>LockTask lockdown</li>
-            <li>Blockers &amp; downtime</li>
-            <li>Cross-device sync</li>
+            <li>{t('hero.bullet.allowlist')}</li>
+            <li>{t('hero.bullet.locktask')}</li>
+            <li>{t('hero.bullet.blockers')}</li>
+            <li>{t('hero.bullet.sync')}</li>
           </ul>
         </div>
 

@@ -39,6 +39,7 @@ import {
 } from '../utils/selfImprovementEngine';
 import { CloudDeviceSnapshot, verifyAdminPasscodeHash } from '../utils/cloudSyncEngine';
 import { User, firebaseConfig } from '../firebase';
+import { useI18n } from '../i18n/LocaleProvider';
 
 interface PcRemoteWorkspaceProps {
   user: User | null;
@@ -117,6 +118,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
   onLogUrgeVictory,
   onOpenSelfImprovementTab,
 }) => {
+  const { tr } = useI18n();
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [remoteAdminUnlocked, setRemoteAdminUnlocked] = useState(false);
   const [failedVerifyCount, setFailedVerifyCount] = useState(0);
@@ -233,7 +235,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
     if (res.ok) {
       setActionFeedback({ type: 'ok', text: successMsg });
     } else {
-      setActionFeedback({ type: 'error', text: res.error ?? 'Failed to apply remote update.' });
+      setActionFeedback({ type: 'error', text: res.error ?? tr("Failed to apply remote update.") });
     }
   };
 
@@ -245,15 +247,10 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
           <div className="min-w-0 max-w-2xl">
             <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
               <Laptop className="w-5 h-5 text-sky-600 dark:text-sky-400 shrink-0" aria-hidden="true" />
-              <h2 className="text-base font-semibold tracking-tight">
-                PC Web Dashboard &amp; Cross-Device Sync
-              </h2>
+              <h2 className="text-base font-semibold tracking-tight">{"\n                "}{tr("PC Web Dashboard & Cross-Device Sync")}{"\n              "}</h2>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
-              Check your mobile kiosk status and track your self-improvement progress from any PC browser.
-              Mobile apps and kiosk lock rules remain <strong>100% functional offline</strong> and{' '}
-              <strong>never require an account</strong> to run.
-            </p>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">{"\n              "}{tr("Check your mobile kiosk status and track your self-improvement progress from any PC browser. Mobile apps and kiosk lock rules remain")}{" "}<strong>{tr("100% functional offline")}</strong>{" "}{tr("and")}{' '}
+              <strong>{tr("never require an account")}</strong>{" "}{tr("to run.")}{"\n            "}</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
@@ -261,12 +258,12 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
               {isOnline ? (
                 <>
                   <Wifi className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
-                  <span>Online</span>
+                  <span>{tr("Online")}</span>
                 </>
               ) : (
                 <>
                   <WifiOff className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-                  <span>Offline (Local Safe)</span>
+                  <span>{tr("Offline (Local Safe)")}</span>
                 </>
               )}
             </span>
@@ -283,7 +280,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                     className={`w-3.5 h-3.5 ${syncBusy ? 'animate-spin' : ''}`}
                     aria-hidden="true"
                   />
-                  <span>{syncBusy ? 'Syncing...' : 'Sync Now'}</span>
+                  <span>{syncBusy ? tr("Syncing...") : tr("Sync Now")}</span>
                 </button>
                 <button
                   type="button"
@@ -294,7 +291,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                   className="min-h-[38px] px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 inline-flex items-center gap-1.5 whitespace-nowrap"
                 >
                   <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>Sign Out</span>
+                  <span>{tr("Sign Out")}</span>
                 </button>
               </>
             ) : (
@@ -307,10 +304,10 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
               >
                 <LogIn className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 <span className="sm:hidden">
-                  {authLoading ? 'Checking...' : 'Sign In with Google'}
+                  {authLoading ? tr("Checking...") : tr("Sign In with Google")}
                 </span>
                 <span className="hidden sm:inline">
-                  {authLoading ? 'Checking Account...' : 'Create Account / Sign In with Google'}
+                  {authLoading ? tr("Checking Account...") : tr("Create Account / Sign In with Google")}
                 </span>
               </button>
             )}
@@ -331,26 +328,22 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
               <span className="text-slate-400 dark:text-slate-600" aria-hidden="true">·</span>
               <span className="tabular-nums text-slate-600 dark:text-slate-400">
                 {pendingOfflineSync
-                  ? 'Offline changes queued — will sync automatically when online'
+                  ? tr("Offline changes queued — will sync automatically when online")
                   : lastSyncedAt
                   ? `Last synced ${lastSyncedAt}`
-                  : 'Connected to Cloud Sync'}
+                  : tr("Connected to Cloud Sync")}
               </span>
             </div>
           ) : (
             <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
               <CloudOff className="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0" aria-hidden="true" />
-              <span>
-                Standalone Offline Mode active — sign in with Google above to sync with your PC and access remote recovery.
-              </span>
+              <span>{"\n                "}{tr("Standalone Offline Mode active — sign in with Google above to sync with your PC and access remote recovery.")}{"\n              "}</span>
             </div>
           )}
 
           {user && syncedDevices.length > 0 && (
             <div className="flex items-center gap-2">
-              <label htmlFor="pc-device-select" className="text-xs text-slate-600 dark:text-slate-400">
-                Device:
-              </label>
+              <label htmlFor="pc-device-select" className="text-xs text-slate-600 dark:text-slate-400">{"\n                "}{tr("Device:")}{"\n              "}</label>
               <select
                 id="pc-device-select"
                 value={selectedDeviceId}
@@ -362,7 +355,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
               >
                 {syncedDevices.map((d) => (
                   <option key={d.deviceId} value={d.deviceId}>
-                    {d.deviceLabel} ({d.platform === 'android' ? 'Android APK' : 'Simulator'})
+                    {d.deviceLabel} ({d.platform === 'android' ? tr("Android APK") : tr("Simulator")})
                   </option>
                 ))}
               </select>
@@ -387,38 +380,34 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
           <div className="surface p-5 space-y-3">
             <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100">
               <Smartphone className="w-4 h-4 text-sky-600 dark:text-sky-400" aria-hidden="true" />
-              <span>Local Mobile Status (Offline-Ready Preview)</span>
+              <span>{tr("Local Mobile Status (Offline-Ready Preview)")}</span>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400">
-              Right now you are viewing this device&apos;s local offline state without an account. Create
-              or sign in to a Google account above to view &amp; manage this phone remotely from any PC.
-            </p>
+            <p className="text-xs text-slate-600 dark:text-slate-400">{"\n              "}{tr("Right now you are viewing this device's local offline state without an account. Create or sign in to a Google account above to view & manage this phone remotely from any PC.")}{"\n            "}</p>
             <div className="grid grid-cols-2 gap-3 pt-1">
               <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700">
-                <div className="text-[11px] text-slate-600 dark:text-slate-400">Kiosk Mode</div>
+                <div className="text-[11px] text-slate-600 dark:text-slate-400">{tr("Kiosk Mode")}</div>
                 <div className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-1">
                   {localKioskState.kioskMode === 'single_app'
-                    ? 'Single-App'
+                    ? tr("Single-App")
                     : localKioskState.kioskMode === 'kiosk_browser'
-                    ? 'Locked Browser'
-                    : 'Multi-App HOME'}
+                    ? tr("Locked Browser")
+                    : tr("Multi-App HOME")}
                 </div>
               </div>
               <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700">
-                <div className="text-[11px] text-slate-600 dark:text-slate-400">Protection Shields</div>
+                <div className="text-[11px] text-slate-600 dark:text-slate-400">{tr("Protection Shields")}</div>
                 <div className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
-                  {shieldsCount} / 4 Enforced
+                  {shieldsCount} / 4 {tr('Enforced')}
                 </div>
               </div>
               <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700">
-                <div className="text-[11px] text-slate-600 dark:text-slate-400">Clean Streak</div>
+                <div className="text-[11px] text-slate-600 dark:text-slate-400">{tr("Clean Streak")}</div>
                 <div className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
-                  {selfImprovement.cleanStreakDays} Days
-                </div>
+                  {selfImprovement.cleanStreakDays}{" "}{tr("Days")}{"\n                "}</div>
               </div>
               <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700">
-                <div className="text-[11px] text-slate-600 dark:text-slate-400">Offline Guarantee</div>
-                <div className="text-xs font-bold text-emerald-700 dark:text-emerald-400 mt-1">100% Local Ready</div>
+                <div className="text-[11px] text-slate-600 dark:text-slate-400">{tr("Offline Guarantee")}</div>
+                <div className="text-xs font-bold text-emerald-700 dark:text-emerald-400 mt-1">{tr("100% Local Ready")}</div>
               </div>
             </div>
           </div>
@@ -426,29 +415,23 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
           <div className="surface p-5 space-y-3">
             <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100">
               <Lock className="w-4 h-4 text-slate-700 dark:text-slate-300" aria-hidden="true" />
-              <span>How PC Web Remote + Password Lock Works</span>
+              <span>{tr("How PC Web Remote + Password Lock Works")}</span>
             </div>
             <ul className="space-y-2 text-xs text-slate-700 dark:text-slate-300">
               <li className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
                 <span>
-                  <strong>Account Sync:</strong> Sign in with Google on PC Web (and optionally enable PC Cloud
-                  Sync inside your Android APK Admin Settings) to sync progress and phone telemetry.
-                </span>
+                  <strong>{tr("Account Sync:")}</strong>{" "}{tr("Sign in with Google on PC Web (and optionally enable PC Cloud Sync inside your Android APK Admin Settings) to sync progress and phone telemetry.")}{"\n                "}</span>
               </li>
               <li className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
                 <span>
-                  <strong>No Password Required to Check Progress:</strong> View phone lock state, blocked
-                  attempts, clean streak, focus sessions, and daily habits right from your PC.
-                </span>
+                  <strong>{tr("No Password Required to Check Progress:")}</strong>{" "}{tr("View phone lock state, blocked attempts, clean streak, focus sessions, and daily habits right from your PC.")}{"\n                "}</span>
               </li>
               <li className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
                 <span>
-                  <strong>Admin Password Gate for Settings:</strong> Modifying apps, DNS shields, time limits,
-                  or clearing emergency lockouts on PC requires your phone&apos;s salted Admin Password.
-                </span>
+                  <strong>{tr("Admin Password Gate for Settings:")}</strong>{" "}{tr("Modifying apps, DNS shields, time limits, or clearing emergency lockouts on PC requires your phone's salted Admin Password.")}{"\n                "}</span>
               </li>
             </ul>
           </div>
@@ -461,49 +444,45 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 inline-flex items-center gap-2">
                   <Smartphone className="w-4 h-4 text-sky-600 dark:text-sky-400" aria-hidden="true" />
-                  <span>
-                    Phone Status: {remoteDevice?.deviceLabel ?? 'Simulator Device'}
+                  <span>{"\n                    "}{tr("Phone Status:")}{" "}{remoteDevice?.deviceLabel ?? tr("Simulator Device")}
                   </span>
                 </h3>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                  Live Device Owner telemetry synced under your account. View-only status requires no Admin Password.
-                </p>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{"\n                  "}{tr("Live Device Owner telemetry synced under your account. View-only status requires no Admin Password.")}{"\n                "}</p>
               </div>
               <span className="text-xs font-mono text-slate-500 dark:text-slate-400 tabular-nums">
                 {remoteDevice
                   ? `Last write: ${remoteDevice.lastModifiedBy}`
-                  : 'Initializing first cloud sync...'}
+                  : tr("Initializing first cloud sync...")}
               </span>
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700">
-                <div className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Device Owner &amp; Mode</div>
+                <div className="text-[11px] font-medium text-slate-600 dark:text-slate-400">{tr("Device Owner & Mode")}</div>
                 <div className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-1">
-                  {effectiveKioskForReadout.isDeviceOwner ? 'DO Enforced' : 'Standard Mode'}
+                  {effectiveKioskForReadout.isDeviceOwner ? tr("DO Enforced") : tr("Standard Mode")}
                 </div>
                 <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 truncate">
                   {effectiveKioskForReadout.kioskMode === 'single_app'
-                    ? 'Single-App Lock'
+                    ? tr("Single-App Lock")
                     : effectiveKioskForReadout.kioskMode === 'kiosk_browser'
-                    ? 'Locked Kiosk Browser'
-                    : 'Multi-App Kiosk HOME'}
+                    ? tr("Locked Kiosk Browser")
+                    : tr("Multi-App Kiosk HOME")}
                 </div>
               </div>
 
               <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700">
-                <div className="text-[11px] font-medium text-slate-600 dark:text-slate-400">BlockP &amp; DNS Shields</div>
+                <div className="text-[11px] font-medium text-slate-600 dark:text-slate-400">{tr("BlockP & DNS Shields")}</div>
                 <div className="text-sm font-bold text-emerald-700 dark:text-emerald-400 mt-1 tabular-nums">
                   {shieldsCount} / 4 Active
                 </div>
-                <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 truncate">
-                  DNS: {effectiveKioskForReadout.blockerShields.familyDnsMode}
+                <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 truncate">{"\n                  "}{tr("DNS:")}{" "}{effectiveKioskForReadout.blockerShields.familyDnsMode}
                   {strictMinsLeft > 0 ? ` · Strict ${strictMinsLeft}m` : ''}
                 </div>
               </div>
 
               <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700">
-                <div className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Emergency Panic &amp; Focus</div>
+                <div className="text-[11px] font-medium text-slate-600 dark:text-slate-400">{tr("Emergency Panic & Focus")}</div>
                 <div
                   className={`text-sm font-bold mt-1 tabular-nums ${
                     panicMinsLeft > 0 ? 'text-red-700 dark:text-red-400' : 'text-slate-900 dark:text-slate-100'
@@ -513,16 +492,15 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                     ? `Panic Lock (${panicMinsLeft}m)`
                     : focusMinsLeft > 0
                     ? `Focus Lock (${focusMinsLeft}m)`
-                    : 'Normal Dashboard'}
+                    : tr("Normal Dashboard")}
                 </div>
-                <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 tabular-nums">
-                  Panic count: {effectiveKioskForReadout.panicCount} · Apps:{' '}
+                <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 tabular-nums">{"\n                  "}{tr("Panic count:")}{" "}{effectiveKioskForReadout.panicCount}{" "}{tr("· Apps:")}{' '}
                   {effectiveKioskForReadout.allowedPackages.length}
                 </div>
               </div>
 
               <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700">
-                <div className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Security &amp; Tamper</div>
+                <div className="text-[11px] font-medium text-slate-600 dark:text-slate-400">{tr("Security & Tamper")}</div>
                 <div
                   className={`text-sm font-bold mt-1 tabular-nums ${
                     effectiveKioskForReadout.tamperWarningsCount > 0 || pinLockoutSecs > 0
@@ -534,8 +512,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                     ? `PIN Locked (${pinLockoutSecs}s)`
                     : `${effectiveKioskForReadout.tamperWarningsCount} Warnings`}
                 </div>
-                <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 tabular-nums">
-                  Blocked today: {effectiveKioskForReadout.blockedAttemptsToday} · Tier{' '}
+                <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 tabular-nums">{"\n                  "}{tr("Blocked today:")}{" "}{effectiveKioskForReadout.blockedAttemptsToday}{" "}{tr("· Tier")}{' '}
                   {effectiveKioskForReadout.tamperEscalationTier}
                 </div>
               </div>
@@ -548,32 +525,24 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 inline-flex items-center gap-2">
                   <Flame className="w-4 h-4 text-sky-600 dark:text-sky-400" aria-hidden="true" />
-                  <span>Self-Improvement Sync (PC &harr; Mobile)</span>
+                  <span>{tr("Self-Improvement Sync (PC ↔ Mobile)")}</span>
                 </h3>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                  Log clean days, urge victories, and habit completions from PC — synced automatically with mobile.
-                </p>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{"\n                  "}{tr("Log clean days, urge victories, and habit completions from PC — synced automatically with mobile.")}{"\n                "}</p>
               </div>
               <button
                 type="button"
                 onClick={onOpenSelfImprovementTab}
                 className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-100 whitespace-nowrap"
-              >
-                Open Full Analytics &amp; Notes
-              </button>
+              >{"\n                "}{tr("Open Full Analytics & Notes")}{"\n              "}</button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 flex flex-col justify-between gap-3">
                 <div>
-                  <div className="text-xs font-medium text-slate-600 dark:text-slate-400">Clean Recovery Streak</div>
+                  <div className="text-xs font-medium text-slate-600 dark:text-slate-400">{tr("Clean Recovery Streak")}</div>
                   <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
-                    {selfImprovement.cleanStreakDays} Days
-                  </div>
-                  <div className="text-xs text-slate-600 dark:text-slate-400 mt-1 tabular-nums">
-                    Best: {selfImprovement.longestCleanStreakDays}d · {selfImprovement.urgeVictories}{' '}
-                    urges resisted
-                  </div>
+                    {selfImprovement.cleanStreakDays}{" "}{tr("Days")}{"\n                  "}</div>
+                  <div className="text-xs text-slate-600 dark:text-slate-400 mt-1 tabular-nums">{"\n                    "}{tr("Best:")}{" "}{selfImprovement.longestCleanStreakDays}d · {selfImprovement.urgeVictories}{' '}{"\n                    "}{tr("urges resisted")}{"\n                  "}</div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
@@ -582,27 +551,22 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                     disabled={selfImprovement.lastCleanCheckInDate === today}
                     className="px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-sky-600 hover:bg-slate-800 dark:hover:bg-sky-500 disabled:bg-emerald-700 dark:disabled:bg-emerald-700 text-white text-xs font-semibold whitespace-nowrap"
                   >
-                    {selfImprovement.lastCleanCheckInDate === today ? 'Logged Today' : '+1 Clean Day'}
+                    {selfImprovement.lastCleanCheckInDate === today ? tr("Logged Today") : tr("+1 Clean Day")}
                   </button>
                   <button
                     type="button"
                     onClick={onLogUrgeVictory}
                     className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap"
-                  >
-                    +Urge Resisted
-                  </button>
+                  >{"\n                    "}{tr("+Urge Resisted")}{"\n                  "}</button>
                 </div>
               </div>
 
               <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 md:col-span-2 space-y-2.5">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                    Today&apos;s Habits ({selfImprovement.habits.filter((h) => h.completedDates.includes(today)).length}/
+                  <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">{"\n                    "}{tr("Today's Habits (")}{selfImprovement.habits.filter((h) => h.completedDates.includes(today)).length}/
                     {selfImprovement.habits.length})
                   </span>
-                  <span className="text-xs text-slate-600 dark:text-slate-400 tabular-nums">
-                    Focus today: {focusSummary.minutes}m ({focusSummary.sessions} sessions)
-                  </span>
+                  <span className="text-xs text-slate-600 dark:text-slate-400 tabular-nums">{"\n                    "}{tr("Focus today:")}{" "}{focusSummary.minutes}m ({focusSummary.sessions}{" "}{tr("sessions)")}{"\n                  "}</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {selfImprovement.habits.slice(0, 6).map((habit) => {
@@ -612,7 +576,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                         key={habit.id}
                         type="button"
                         onClick={() => onToggleHabitToday(habit.id)}
-                        className={`p-2.5 rounded-lg border text-left text-xs flex items-center justify-between gap-2 transition-colors ${
+                        className={`p-2.5 rounded-lg border text-start text-xs flex items-center justify-between gap-2 transition-colors ${
                           done
                             ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800 text-emerald-950 dark:text-emerald-200'
                             : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -624,7 +588,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                             done ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'
                           }`}
                         >
-                          {done ? 'Done' : 'Pending'}
+                          {done ? tr("Done") : tr("Pending")}
                         </span>
                       </button>
                     );
@@ -644,11 +608,9 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                   ) : (
                     <Lock className="w-4 h-4 text-slate-700 dark:text-slate-300" aria-hidden="true" />
                   )}
-                  <span>Remote Admin Settings (Password Protected)</span>
+                  <span>{tr("Remote Admin Settings (Password Protected)")}</span>
                 </h3>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                  Change kiosk modes, unblock apps, troubleshoot mobile lockouts, or update shields — ONLY with your device Admin Password.
-                </p>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{"\n                  "}{tr("Change kiosk modes, unblock apps, troubleshoot mobile lockouts, or update shields — ONLY with your device Admin Password.")}{"\n                "}</p>
               </div>
               {remoteAdminUnlocked && (
                 <button
@@ -658,9 +620,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                     setActionFeedback(null);
                   }}
                   className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-100 whitespace-nowrap"
-                >
-                  Lock Admin Panel
-                </button>
+                >{"\n                  "}{tr("Lock Admin Panel")}{"\n                "}</button>
               )}
             </div>
 
@@ -670,19 +630,16 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                 data-testid="pc-admin-password-gate"
                 className="max-w-md space-y-3"
               >
-                <p className="text-xs text-slate-700 dark:text-slate-300">
-                  Enter the device&apos;s Admin Password (default <code className="font-mono font-semibold">1234</code>{' '}
-                  unless changed on phone) verified via salted SHA-256 hash:
-                </p>
+                <p className="text-xs text-slate-700 dark:text-slate-300">{"\n                  "}{tr("Enter the device's Admin Password (default")}{" "}<code className="font-mono font-semibold">1234</code>{' '}{"\n                  "}{tr("unless changed on phone) verified via salted SHA-256 hash:")}{"\n                "}</p>
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
                     <KeyRound
-                      className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2"
+                      className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute start-3 top-1/2 -translate-y-1/2"
                       aria-hidden="true"
                     />
                     <input
                       type="password"
-                      aria-label="Remote Admin Password"
+                      aria-label={tr("Remote Admin Password")}
                       data-testid="pc-admin-password-input"
                       maxLength={MAX_ADMIN_PIN_LENGTH}
                       value={adminPasswordInput}
@@ -690,17 +647,15 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                         setPasswordError(null);
                         setAdminPasswordInput(e.target.value);
                       }}
-                      placeholder="Enter Admin Password (4–50 chars)"
-                      className="w-full h-10 pl-8 pr-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 font-mono text-xs focus:outline-2 focus:outline-sky-600"
+                      placeholder={tr("Enter Admin Password (4–50 chars)")}
+                      className="w-full h-10 ps-8 pe-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 font-mono text-xs focus:outline-2 focus:outline-sky-600"
                     />
                   </div>
                   <button
                     type="submit"
                     data-testid="pc-admin-unlock-button"
                     className="h-10 px-4 rounded-lg bg-slate-900 dark:bg-sky-600 hover:bg-slate-800 dark:hover:bg-sky-500 text-white text-xs font-semibold whitespace-nowrap shrink-0"
-                  >
-                    Unlock Settings
-                  </button>
+                  >{"\n                    "}{tr("Unlock Settings")}{"\n                  "}</button>
                 </div>
                 {passwordError && (
                   <p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">
@@ -724,17 +679,13 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                       type="button"
                       onClick={() => setActionFeedback(null)}
                       className="font-semibold px-1.5 shrink-0"
-                    >
-                      Close
-                    </button>
+                    >{"\n                      "}{tr("Close")}{"\n                    "}</button>
                   </div>
                 )}
 
                 {/* Troubleshooting & Recovery Actions */}
                 <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-2.5">
-                  <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                    Mobile Issue Recovery &amp; Emergency Overrides
-                  </div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-slate-100">{"\n                    "}{tr("Mobile Issue Recovery & Emergency Overrides")}{"\n                  "}</div>
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
@@ -746,8 +697,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                         )
                       }
                       className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap"
-                    >
-                      Clear Panic Lock {panicMinsLeft > 0 ? `(${panicMinsLeft}m)` : ''}
+                    >{"\n                      "}{tr("Clear Panic Lock")}{" "}{panicMinsLeft > 0 ? `(${panicMinsLeft}m)` : ''}
                     </button>
                     <button
                       type="button"
@@ -758,8 +708,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                         )
                       }
                       className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap"
-                    >
-                      End Focus Lock {focusMinsLeft > 0 ? `(${focusMinsLeft}m)` : ''}
+                    >{"\n                      "}{tr("End Focus Lock")}{" "}{focusMinsLeft > 0 ? `(${focusMinsLeft}m)` : ''}
                     </button>
                     <button
                       type="button"
@@ -776,16 +725,14 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                         )
                       }
                       className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap"
-                    >
-                      Clear Tamper Lockout
-                    </button>
+                    >{"\n                      "}{tr("Clear Tamper Lockout")}{"\n                    "}</button>
                   </div>
                 </div>
 
                 {/* Boot Mode & Title */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-800 space-y-2.5">
-                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100">Kiosk Operation Mode</div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100">{tr("Kiosk Operation Mode")}</div>
                     <div className="flex flex-wrap gap-1.5">
                       {(
                         [
@@ -800,7 +747,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                           onClick={() =>
                             void applySettingAction(
                               (curr) => ({ ...curr, kioskMode: mode.id }),
-                              `Switched remote kiosk boot mode to ${mode.label}.`
+                              `Switched remote kiosk boot mode to ${tr(mode.label)}.`
                             )
                           }
                           className={`px-3 py-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap ${
@@ -809,7 +756,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                               : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                           }`}
                         >
-                          {mode.label}
+                          {tr(mode.label)}
                         </button>
                       ))}
                     </div>
@@ -818,7 +765,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
-                      const clean = titleDraft.trim() || 'Kiosk Home';
+                      const clean = titleDraft.trim() || tr("Kiosk Home");
                       void applySettingAction(
                         (curr) => ({ ...curr, kioskTitle: clean }),
                         `Updated phone Kiosk Header Title to "${clean}".`
@@ -826,9 +773,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                     }}
                     className="p-4 rounded-lg border border-slate-200 dark:border-slate-800 space-y-2.5"
                   >
-                    <label htmlFor="pc-kiosk-title" className="block text-xs font-bold text-slate-900 dark:text-slate-100">
-                      Kiosk Dashboard Header Title
-                    </label>
+                    <label htmlFor="pc-kiosk-title" className="block text-xs font-bold text-slate-900 dark:text-slate-100">{"\n                      "}{tr("Kiosk Dashboard Header Title")}{"\n                    "}</label>
                     <div className="flex items-center gap-2">
                       <input
                         id="pc-kiosk-title"
@@ -841,9 +786,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                       <button
                         type="submit"
                         className="h-9 px-3 rounded-lg bg-slate-900 dark:bg-sky-600 hover:bg-slate-800 dark:hover:bg-sky-500 text-white text-xs font-semibold whitespace-nowrap"
-                      >
-                        Save
-                      </button>
+                      >{"\n                        "}{tr("Save")}{"\n                      "}</button>
                     </div>
                   </form>
                 </div>
@@ -851,9 +794,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                 {/* BlockP Shields & Family DNS */}
                 <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-800 space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                      Porn, In-App Browser &amp; Family DNS Shields
-                    </span>
+                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{"\n                      "}{tr("Porn, In-App Browser & Family DNS Shields")}{"\n                    "}</span>
                     <div className="flex flex-wrap items-center gap-1.5">
                       {(
                         [
@@ -881,7 +822,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                                   familyDnsMode: dns.id as FamilyDnsMode,
                                 },
                               }),
-                              `Set Family DNS mode to ${dns.label}.`
+                              `Set Family DNS mode to ${tr(dns.label)}.`
                             );
                           }}
                           className={`px-2.5 py-1 rounded-lg border text-xs font-semibold whitespace-nowrap ${
@@ -890,7 +831,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                               : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                           }`}
                         >
-                          {dns.label}
+                          {tr(dns.label)}
                         </button>
                       ))}
                     </div>
@@ -906,9 +847,9 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                         >
                           <div className="min-w-0">
                             <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">
-                              {shield.label}
+                              {tr(shield.label)}
                             </div>
-                            <div className="text-[11px] text-slate-600 dark:text-slate-400 truncate">{shield.detail}</div>
+                            <div className="text-[11px] text-slate-600 dark:text-slate-400 truncate">{tr(shield.detail)}</div>
                           </div>
                           <button
                             type="button"
@@ -930,7 +871,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                                     [shield.key]: !active,
                                   },
                                 }),
-                                `${shield.label} ${!active ? 'enabled' : 'disabled'} remotely.`
+                                `${tr(shield.label)} ${!active ? tr("enabled") : tr("disabled")} remotely.`
                               );
                             }}
                             className={`px-2.5 py-1 rounded-lg border text-xs font-semibold shrink-0 whitespace-nowrap ${
@@ -939,7 +880,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                                 : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300'
                             }`}
                           >
-                            {active ? 'On' : 'Off'}
+                            {active ? 'On' : tr("Off")}
                           </button>
                         </div>
                       );
@@ -949,9 +890,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
 
                 {/* Allowed Apps & Per-App Limits */}
                 <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-800 space-y-2.5">
-                  <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                    Allowed Apps &amp; Daily Time Caps
-                  </div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-slate-100">{"\n                    "}{tr("Allowed Apps & Daily Time Caps")}{"\n                  "}</div>
                   <div className="divide-y divide-slate-100 dark:divide-slate-800">
                     {allInstalledApps.map((app) => {
                       const allowed = effectiveKioskForReadout.allowedPackages.includes(app.packageName);
@@ -987,11 +926,11 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                                   if (nextMins <= 0) delete nextLimits[app.packageName];
                                   else nextLimits[app.packageName] = nextMins;
                                   return { ...curr, appTimeLimits: nextLimits };
-                                }, `Updated ${app.label} daily cap to ${nextMins > 0 ? `${nextMins}m` : 'Unlimited'}.`);
+                                }, `Updated ${app.label} daily cap to ${nextMins > 0 ? `${nextMins}m` : tr("Unlimited")}.`);
                               }}
                               className="h-8 px-2 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-xs font-mono"
                             >
-                              <option value={0}>Unlimited</option>
+                              <option value={0}>{tr("Unlimited")}</option>
                               <option value={5}>5m/day</option>
                               <option value={15}>15m/day</option>
                               <option value={30}>30m/day</option>
@@ -1008,7 +947,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                                       ? curr.allowedPackages.filter((p) => p !== app.packageName)
                                       : [...curr.allowedPackages, app.packageName],
                                   }),
-                                  `${allowed ? 'Removed' : 'Added'} ${app.label} on Kiosk Home.`
+                                  `${allowed ? tr("Removed") : tr("Added")} ${app.label} on Kiosk Home.`
                                 )
                               }
                               className={`min-w-[74px] h-8 px-2.5 rounded-lg border text-xs font-semibold whitespace-nowrap ${
@@ -1017,7 +956,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                                   : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300'
                               }`}
                             >
-                              {allowed ? 'Allowed' : 'Hidden'}
+                              {allowed ? tr("Allowed") : tr("Hidden")}
                             </button>
                           </div>
                         </div>
@@ -1052,16 +991,14 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                   }}
                   className="p-4 rounded-lg border border-slate-200 dark:border-slate-800 space-y-2.5"
                 >
-                  <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                    Rotate Device Admin Password (4–50 chars)
-                  </div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-slate-100">{"\n                    "}{tr("Rotate Device Admin Password (4–50 chars)")}{"\n                  "}</div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <input
                       type="password"
                       maxLength={MAX_ADMIN_PIN_LENGTH}
                       value={newPinDraft}
                       onChange={(e) => setNewPinDraft(e.target.value)}
-                      placeholder="New password (4–50 chars)"
+                      placeholder={tr("New password (4–50 chars)")}
                       className="h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 font-mono text-xs"
                     />
                     <input
@@ -1069,15 +1006,13 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                       maxLength={MAX_ADMIN_PIN_LENGTH}
                       value={confirmPinDraft}
                       onChange={(e) => setConfirmPinDraft(e.target.value)}
-                      placeholder="Confirm password"
+                      placeholder={tr("Confirm password")}
                       className="h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 font-mono text-xs"
                     />
                     <button
                       type="submit"
                       className="h-9 px-4 rounded-lg bg-slate-900 dark:bg-sky-600 hover:bg-slate-800 dark:hover:bg-sky-500 text-white text-xs font-semibold whitespace-nowrap"
-                    >
-                      Save New Password
-                    </button>
+                    >{"\n                      "}{tr("Save New Password")}{"\n                    "}</button>
                   </div>
                 </form>
               </div>
@@ -1089,14 +1024,11 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
             <div className="flex items-center justify-between gap-2">
               <div className="text-sm font-bold text-slate-900 dark:text-slate-100 inline-flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
-                <span>Android APK Cloud Sync Credentials (Optional Pairing)</span>
+                <span>{tr("Android APK Cloud Sync Credentials (Optional Pairing)")}</span>
               </div>
-              <span className="text-xs text-slate-500 dark:text-slate-400">Offline-First REST Sync</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">{tr("Offline-First REST Sync")}</span>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400">
-              In your Android Kiosk Launcher, open <strong>Admin Settings &rarr; PC Cloud Sync</strong> to link your
-              physical phone using this Firebase Project &amp; Database. Your phone continues working identically when offline.
-            </p>
+            <p className="text-xs text-slate-600 dark:text-slate-400">{"\n              "}{tr("In your Android Kiosk Launcher, open")}{" "}<strong>{tr("Admin Settings → PC Cloud Sync")}</strong>{" "}{tr("to link your physical phone using this Firebase Project & Database. Your phone continues working identically when offline.")}{"\n            "}</p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
               {[
                 { key: 'uid', label: 'Account UID', val: user.uid, display: user.uid },
@@ -1104,7 +1036,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                   key: 'token',
                   label: 'Sync Refresh Token (Secret)',
                   val: user.refreshToken || '',
-                  display: user.refreshToken ? '••••••••••••••••••••' : 'Unavailable',
+                  display: user.refreshToken ? '••••••••••••••••••••' : tr("Unavailable"),
                 },
                 {
                   key: 'proj',
@@ -1124,7 +1056,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                   className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2"
                 >
                   <div className="min-w-0">
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400">{item.label}</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">{tr(item.label)}</div>
                     <div className="font-mono text-[11px] text-slate-900 dark:text-slate-100 truncate mt-0.5">
                       {item.display}
                     </div>
@@ -1136,7 +1068,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                     className="px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 text-[11px] font-medium text-slate-700 dark:text-slate-200 inline-flex items-center gap-1 shrink-0"
                   >
                     <Copy className="w-3 h-3" aria-hidden="true" />
-                    <span>{copiedKey === item.key ? 'Copied' : 'Copy'}</span>
+                    <span>{copiedKey === item.key ? tr("Copied") : tr("Copy")}</span>
                   </button>
                 </div>
               ))}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Check, ChevronDown, Copy, Terminal } from 'lucide-react';
+import { useI18n } from '../i18n/LocaleProvider';
 
 interface CommandStep {
   id: string;
@@ -84,6 +85,7 @@ const MATRIX: { requirement: string; implementation: string }[] = [
 ];
 
 export const AdbProvisioningView: React.FC = () => {
+  const { tr } = useI18n();
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleCopy = async (id: string, command: string) => {
@@ -99,9 +101,8 @@ export const AdbProvisioningView: React.FC = () => {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Provision a device</h2>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-          Six steps from source to a locked-down phone running{' '}
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{tr("Provision a device")}</h2>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{"\n          "}{tr("Six steps from source to a locked-down phone running")}{' '}
           <span className="font-mono text-[13px] text-slate-800 dark:text-slate-200">
             com.kiosk.launcher
           </span>
@@ -118,10 +119,10 @@ export const AdbProvisioningView: React.FC = () => {
               </span>
               <div className="min-w-0 flex-1">
                 <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white">
-                  {step.title}
+                  {tr(step.title)}
                 </h3>
                 <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
-                  {step.hint}
+                  {tr(step.hint)}
                 </p>
                 <div className="mt-2.5 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 dark:border-white/10 dark:bg-black/40">
                   <Terminal className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
@@ -131,7 +132,7 @@ export const AdbProvisioningView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => handleCopy(step.id, step.command)}
-                    aria-label={`Copy command for ${step.title}`}
+                    aria-label={`${tr('Copy command for')} ${tr(step.title)}`}
                     className="shrink-0 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-200/70 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-white"
                   >
                     {copiedId === step.id ? (
@@ -148,20 +149,18 @@ export const AdbProvisioningView: React.FC = () => {
       </ol>
 
       <details className="surface group px-5 py-4">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[13px] font-semibold text-slate-900 dark:text-white">
-          Verification matrix
-          <ChevronDown
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[13px] font-semibold text-slate-900 dark:text-white">{"\n          "}{tr("Verification matrix")}{"\n          "}<ChevronDown
             className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180"
             aria-hidden="true"
           />
         </summary>
         <dl className="mt-4 space-y-3">
           {MATRIX.map((row) => (
-            <div key={row.requirement}>
+            <div key={tr(row.requirement)}>
               <dt className="text-xs font-medium text-slate-900 dark:text-slate-100">
-                {row.requirement}
+                {tr(row.requirement)}
               </dt>
-              <dd className="text-xs text-slate-500 dark:text-slate-400">{row.implementation}</dd>
+              <dd className="text-xs text-slate-500 dark:text-slate-400">{tr(row.implementation)}</dd>
             </div>
           ))}
         </dl>

@@ -23,6 +23,19 @@
     transition: background-color 150ms ease, color 150ms ease;
   }
 
+  /* Arabic gets its own stack and no negative tracking, which breaks Arabic joins. */
+  html[dir="rtl"] body {
+    font-family: "Noto Kufi Arabic", var(--font-sans);
+    font-feature-settings: normal;
+  }
+
+  html[dir="rtl"] h1,
+  html[dir="rtl"] h2,
+  html[dir="rtl"] h3,
+  html[dir="rtl"] h4 {
+    letter-spacing: 0;
+  }
+
   html.dark body {
     --page-bg: #070b11;
     --page-fg: #e7ecf3;
@@ -169,7 +182,7 @@
 .kiosk-rich-editor td {
   border: 1px solid #cbd5e1;
   padding: 0.5em 0.7em;
-  text-align: left;
+  text-align: start;
   min-width: 80px;
 }
 
@@ -208,4 +221,19 @@
 
 .dark .kiosk-rich-editor hr {
   border-top-color: #334155;
+}
+
+/* RTL: mirror directional glyphs so "next" still points in reading direction. */
+html[dir="rtl"] svg.lucide-chevron-left,
+html[dir="rtl"] svg.lucide-chevron-right,
+html[dir="rtl"] svg.lucide-chevrons-left,
+html[dir="rtl"] svg.lucide-chevrons-right,
+html[dir="rtl"] svg.lucide-arrow-left,
+html[dir="rtl"] svg.lucide-arrow-right {
+  transform: scaleX(-1);
+}
+
+/* Progress and range inputs read right-to-left too. */
+html[dir="rtl"] input[type="range"] {
+  direction: rtl;
 }

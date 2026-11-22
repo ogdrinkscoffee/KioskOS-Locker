@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
+import { useI18n } from '../i18n/LocaleProvider';
 
 const TERMS: { heading: string; body: string }[] = [
   {
@@ -26,26 +27,27 @@ const TERMS: { heading: string; body: string }[] = [
 
 export function LegalFooter() {
   const [showTerms, setShowTerms] = useState(false);
+  const { t, tr } = useI18n();
 
   return (
     <>
       <footer className="mt-auto border-t border-slate-200/80 dark:border-white/10">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 py-5 text-xs text-slate-500 dark:text-slate-400 sm:flex-row sm:px-6">
-          <p>© 2026 KioskOS · Proprietary software and UI.</p>
+          <p>{t('footer.copyright')}</p>
           <div className="flex items-center gap-4">
             <button
               type="button"
               onClick={() => setShowTerms(true)}
               className="font-medium text-slate-600 underline-offset-4 transition-colors hover:text-slate-900 hover:underline dark:text-slate-300 dark:hover:text-white"
             >
-              Terms
+              {t('footer.terms')}
             </button>
             <button
               type="button"
               onClick={() => setShowTerms(true)}
               className="font-medium text-slate-600 underline-offset-4 transition-colors hover:text-slate-900 hover:underline dark:text-slate-300 dark:hover:text-white"
             >
-              Licensing
+              {t('footer.licensing')}
             </button>
           </div>
         </div>
@@ -60,23 +62,19 @@ export function LegalFooter() {
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Terms and conditions"
+            aria-label={tr("Terms and conditions")}
             className="max-h-[82vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#0d131b]"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-                  Terms &amp; conditions
-                </h2>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  © 2026 KioskOS. All rights reserved.
-                </p>
+                <h2 className="text-base font-semibold text-slate-900 dark:text-white">{"\n                  "}{tr("Terms & conditions")}{"\n                "}</h2>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{"\n                  "}{tr("© 2026 KioskOS. All rights reserved.")}{"\n                "}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowTerms(false)}
-                aria-label="Close"
+                aria-label={tr("Close")}
                 className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-white"
               >
                 <X className="h-4 w-4" aria-hidden="true" />

@@ -12,6 +12,7 @@ import {
   getStrictShieldRemainingMinutes,
   isDowntimeActive,
 } from '../utils/kioskEngine';
+import { useI18n } from '../i18n/LocaleProvider';
 
 interface PolicySummaryProps {
   state: KioskState;
@@ -53,6 +54,7 @@ function Stat({ value, label }: { value: string; label: string }) {
 }
 
 export const PolicySummary: React.FC<PolicySummaryProps> = ({ state, onOpenPolicyInspector }) => {
+  const { tr } = useI18n();
   const restrictions = Object.values(getEnforcedRestrictions(state)).filter(Boolean).length;
   const shields = SHIELD_KEYS.filter((key) => state.blockerShields?.[key]).length;
   const locks = HARDWARE_KEYS.filter((key) => state.hardwareLocks?.[key]).length;
@@ -65,10 +67,10 @@ export const PolicySummary: React.FC<PolicySummaryProps> = ({ state, onOpenPolic
   const downtime = isDowntimeActive(state);
 
   const timers = [
-    focusMinutes > 0 && { label: `Focus block ${focusMinutes}m`, tone: 'sky' as const },
-    panicMinutes > 0 && { label: `Panic lock ${panicMinutes}m`, tone: 'red' as const },
-    strictMinutes > 0 && { label: `Strict shield ${strictMinutes}m`, tone: 'amber' as const },
-    downtime && { label: 'Downtime active', tone: 'amber' as const },
+    focusMinutes > 0 && { label: tr('Focus block {m}m', { m: focusMinutes }), tone: 'sky' as const },
+    panicMinutes > 0 && { label: tr('Panic lock {m}m', { m: panicMinutes }), tone: 'red' as const },
+    strictMinutes > 0 && { label: tr('Strict shield {m}m', { m: strictMinutes }), tone: 'amber' as const },
+    downtime && { label: tr('Downtime active'), tone: 'amber' as const },
   ].filter(Boolean) as { label: string; tone: 'sky' | 'red' | 'amber' }[];
 
   const toneClass = {
@@ -79,12 +81,12 @@ export const PolicySummary: React.FC<PolicySummaryProps> = ({ state, onOpenPolic
   };
 
   return (
-    <section className="surface overflow-hidden" aria-label="Live policy summary">
+    <section className="surface overflow-hidden" aria-label={tr("Live policy summary")}>
       <header className="flex items-center justify-between gap-3 border-b border-slate-200/80 px-5 py-4 dark:border-white/10">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Live policy</h2>
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("Live policy")}</h2>
           <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-            {state.isDeviceOwner ? 'Device Owner enforced' : 'Device Owner not provisioned'}
+            {state.isDeviceOwner ? tr("Device Owner enforced") : tr("Device Owner not provisioned")}
           </p>
         </div>
         <span
@@ -100,15 +102,15 @@ export const PolicySummary: React.FC<PolicySummaryProps> = ({ state, onOpenPolic
             }`}
             aria-hidden="true"
           />
-          {MODE_LABEL[state.kioskMode]}
+          {tr(MODE_LABEL[state.kioskMode])}
         </span>
       </header>
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-5 px-5 py-5 sm:grid-cols-4">
-        <Stat value={`${restrictions}/4`} label="Restrictions" />
-        <Stat value={`${locks}/7`} label="Hardware locks" />
-        <Stat value={`${shields}/4`} label="Blockers" />
-        <Stat value={`${allowlistedApps}`} label="Allowed apps" />
+        <Stat value={`${restrictions}/4`} label={tr("Restrictions")} />
+        <Stat value={`${locks}/7`} label={tr("Hardware locks")} />
+        <Stat value={`${shields}/4`} label={tr("Blockers")} />
+        <Stat value={`${allowlistedApps}`} label={tr("Allowed apps")} />
       </div>
 
       {timers.length > 0 && (
@@ -128,22 +130,19 @@ export const PolicySummary: React.FC<PolicySummaryProps> = ({ state, onOpenPolic
       <div className="grid gap-2 border-t border-slate-200/80 px-5 py-4 text-xs text-slate-600 dark:border-white/10 dark:text-slate-400">
         <div className="flex items-center gap-2">
           <Flame className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />
-          {state.blockedAttemptsToday} blocked {state.blockedAttemptsToday === 1 ? 'attempt' : 'attempts'} today
-        </div>
+          {state.blockedAttemptsToday}{" "}{tr("blocked")}{" "}{state.blockedAttemptsToday === 1 ? tr("attempt") : tr("attempts")}{" "}{tr("today")}{"\n        "}</div>
         <div className="flex items-center gap-2">
           <Lock className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
-          {BLOCKED_DISTRACTION_DOMAINS.length} domains blocked · {state.allowedDomains.length} allowed
-        </div>
+          {BLOCKED_DISTRACTION_DOMAINS.length}{" "}{tr("domains blocked ·")}{" "}{state.allowedDomains.length}{" "}{tr("allowed")}{"\n        "}</div>
         <div className="flex items-center gap-2">
-          <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
-          Distrust score {state.distrustScore}
-          {state.tamperEscalationTier > 0 ? ` · tier ${state.tamperEscalationTier}` : ''}
+          <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />{"\n          "}{tr("Distrust score")}{" "}{state.distrustScore}
+          {state.tamperEscalationTier > 0 ? ` · ${tr('Tier')} ${state.tamperEscalationTier}` : ''}
         </div>
       </div>
 
       {state.events.length > 0 && (
         <div className="border-t border-slate-200/80 px-5 py-4 dark:border-white/10">
-          <div className="eyebrow">Recent activity</div>
+          <div className="eyebrow">{tr("Recent activity")}</div>
           <ul className="mt-2 space-y-1.5">
             {state.events.slice(0, 3).map((event) => (
               <li
@@ -174,9 +173,7 @@ export const PolicySummary: React.FC<PolicySummaryProps> = ({ state, onOpenPolic
         type="button"
         onClick={onOpenPolicyInspector}
         className="flex w-full items-center justify-between gap-2 border-t border-slate-200/80 px-5 py-3 text-[13px] font-semibold text-slate-800 transition-colors hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/[0.04]"
-      >
-        Inspect every policy
-        <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+      >{"\n        "}{tr("Inspect every policy")}{"\n        "}<ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
       </button>
     </section>
   );

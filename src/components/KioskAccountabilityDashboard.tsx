@@ -6,6 +6,7 @@ import {
   getDailyHabitProgress,
   getHabitStreak,
 } from '../utils/selfImprovementEngine';
+import { useI18n } from '../i18n/LocaleProvider';
 
 interface KioskAccountabilityDashboardProps {
   selfImprovement: SelfImprovementState;
@@ -22,6 +23,7 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
   onToggleHabitToday,
   onOpenFocusGrowth,
 }) => {
+  const { tr } = useI18n();
   const [showAllHabits, setShowAllHabits] = useState(false);
   const today = formatIsoDate();
   const checkedCleanToday = selfImprovement.lastCleanCheckInDate === today;
@@ -32,7 +34,7 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
 
   return (
     <section
-      aria-label="Kiosk Accountability Dashboard"
+      aria-label={tr("Kiosk Accountability Dashboard")}
       className="mt-3 surface p-3.5 space-y-3"
       data-testid="kiosk-accountability-dashboard"
     >
@@ -41,18 +43,16 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 dark:text-slate-400">
             <Flame className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" aria-hidden="true" />
-            <span>Current Streak</span>
+            <span>{tr("Current Streak")}</span>
           </div>
           <div className="mt-1 flex items-baseline gap-2 flex-wrap">
             <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 tabular-nums">
               {selfImprovement.cleanStreakDays}{' '}
-              {selfImprovement.cleanStreakDays === 1 ? 'Day' : 'Days'}
+              {selfImprovement.cleanStreakDays === 1 ? tr("Day") : tr("Days")}
             </span>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
-              Best {selfImprovement.longestCleanStreakDays}d
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">{"\n              "}{tr("Best")}{" "}{selfImprovement.longestCleanStreakDays}d
               <span aria-hidden="true"> · </span>
-              {selfImprovement.urgeVictories} urges resisted
-            </span>
+              {selfImprovement.urgeVictories}{" "}{tr("urges resisted")}{"\n            "}</span>
           </div>
         </div>
 
@@ -67,7 +67,7 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
           }`}
         >
           {checkedCleanToday && <Check className="w-3 h-3" aria-hidden="true" />}
-          <span>{checkedCleanToday ? 'Logged Today' : '+1 Clean Day'}</span>
+          <span>{checkedCleanToday ? tr("Logged Today") : tr("+1 Clean Day")}</span>
         </button>
       </div>
 
@@ -75,7 +75,7 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
       <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 space-y-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-baseline gap-2 min-w-0">
-            <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 shrink-0">Daily Habits</h3>
+            <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 shrink-0">{tr("Daily Habits")}</h3>
             <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400 tabular-nums truncate">
               {progress.completed} / {progress.total} ({progress.percent}%)
             </span>
@@ -88,7 +88,7 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
                 onClick={() => setShowAllHabits((prev) => !prev)}
                 className="text-[11px] font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 whitespace-nowrap shrink-0"
               >
-                {showAllHabits ? 'Top 3' : `All (${selfImprovement.habits.length})`}
+                {showAllHabits ? tr("Top 3") : `${tr('All')} (${selfImprovement.habits.length})`}
               </button>
             )}
             <button
@@ -96,7 +96,7 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
               onClick={onOpenFocusGrowth}
               className="text-[11px] font-semibold text-sky-700 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 inline-flex items-center gap-0.5 whitespace-nowrap shrink-0"
             >
-              <span>Focus Hub</span>
+              <span>{tr("Focus Hub")}</span>
               <ArrowUpRight className="w-3 h-3" aria-hidden="true" />
             </button>
           </div>
@@ -105,7 +105,7 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
         {/* Completion Progress Bar */}
         <div
           role="progressbar"
-          aria-label="Daily habits completion"
+          aria-label={tr("Daily habits completion")}
           aria-valuenow={progress.percent}
           aria-valuemin={0}
           aria-valuemax={100}
@@ -119,9 +119,7 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
 
         {/* Interactive Habit Checklist */}
         {selfImprovement.habits.length === 0 ? (
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 py-1">
-            No daily habits configured yet. Open Focus Hub to add accountability habits.
-          </p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 py-1">{"\n            "}{tr("No daily habits configured yet. Open Focus Hub to add accountability habits.")}{"\n          "}</p>
         ) : (
           <div
             className={
@@ -139,7 +137,7 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
                   type="button"
                   aria-pressed={done}
                   onClick={() => onToggleHabitToday(habit.id)}
-                  className="w-full min-h-[38px] py-1.5 flex items-center justify-between gap-2 text-left hover:bg-slate-50/70 dark:hover:bg-slate-800/60 transition-colors focus-visible:outline-2 focus-visible:outline-sky-600 rounded"
+                  className="w-full min-h-[38px] py-1.5 flex items-center justify-between gap-2 text-start hover:bg-slate-50/70 dark:hover:bg-slate-800/60 transition-colors focus-visible:outline-2 focus-visible:outline-sky-600 rounded"
                 >
                   <span className="flex items-center gap-2 min-w-0">
                     <span

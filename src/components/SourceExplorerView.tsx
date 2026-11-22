@@ -7,8 +7,10 @@ import {
   ANDROID_PROJECT_ROOT,
   AndroidProjectFile,
 } from '../data/androidProjectFiles';
+import { useI18n } from '../i18n/LocaleProvider';
 
 export const SourceExplorerView: React.FC = () => {
+  const { tr } = useI18n();
   const [selectedId, setSelectedId] = useState<string>(ANDROID_PROJECT_FILES[0]?.id ?? '');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -41,14 +43,9 @@ export const SourceExplorerView: React.FC = () => {
     return (
       <div className="surface mx-auto max-w-xl p-8 text-center">
         <FolderTree className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600" aria-hidden="true" />
-        <h2 className="mt-4 text-sm font-semibold text-slate-900 dark:text-white">
-          Native sources aren’t in this build
-        </h2>
+        <h2 className="mt-4 text-sm font-semibold text-slate-900 dark:text-white">{"\n          "}{tr("Native sources aren’t in this build")}{"\n        "}</h2>
         <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-slate-600 dark:text-slate-400">
-          The <span className="font-mono">{ANDROID_PROJECT_ROOT}/</span> folder isn’t part of this
-          checkout, so there is nothing real to show or download. Add the folder at the project root
-          and this explorer fills itself from it — no placeholder code is ever displayed.
-        </p>
+          The <span className="font-mono">{ANDROID_PROJECT_ROOT}/</span>{" "}{tr("folder isn’t part of this checkout, so there is nothing real to show or download. Add the folder at the project root and this explorer fills itself from it — no placeholder code is ever displayed.")}{"\n        "}</p>
       </div>
     );
   }
@@ -61,25 +58,22 @@ export const SourceExplorerView: React.FC = () => {
       <aside className="surface p-3">
         <div className="relative mb-3">
           <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
+            className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
             aria-hidden="true"
           />
-          <label htmlFor="source-file-search" className="sr-only">
-            Filter Android project files
-          </label>
+          <label htmlFor="source-file-search" className="sr-only">{"\n            "}{tr("Filter Android project files")}{"\n          "}</label>
           <input
             id="source-file-search"
             type="search"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Filter files"
-            className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100"
+            placeholder={tr("Filter files")}
+            className="h-9 w-full rounded-lg border border-slate-200 bg-white ps-8 pe-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100"
           />
         </div>
 
         {filteredFiles.length === 0 ? (
-          <p className="px-2 py-6 text-center text-xs text-slate-500 dark:text-slate-400">
-            No file matches “{searchQuery}”.
+          <p className="px-2 py-6 text-center text-xs text-slate-500 dark:text-slate-400">{"\n            "}{tr("No file matches “")}{searchQuery}”.
           </p>
         ) : (
           <div className="max-h-[64vh] space-y-4 overflow-y-auto pr-1">
@@ -89,7 +83,7 @@ export const SourceExplorerView: React.FC = () => {
               return (
                 <div key={group}>
                   <div className="eyebrow px-2 pb-1">
-                    {ANDROID_PROJECT_GROUP_LABELS[group]} · {items.length}
+                    {tr(ANDROID_PROJECT_GROUP_LABELS[group])} · {items.length}
                   </div>
                   <div className="space-y-px">
                     {items.map((file) => {
@@ -100,7 +94,7 @@ export const SourceExplorerView: React.FC = () => {
                           type="button"
                           onClick={() => setSelectedId(file.id)}
                           aria-current={isActive ? 'true' : undefined}
-                          className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left transition-colors ${
+                          className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-start transition-colors ${
                             isActive
                               ? 'bg-slate-100 text-slate-900 dark:bg-white/10 dark:text-white'
                               : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/[0.06] dark:hover:text-white'
@@ -133,7 +127,7 @@ export const SourceExplorerView: React.FC = () => {
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               {activeFile.summary}
               <span aria-hidden="true"> · </span>
-              <span className="tabular-nums">{lines.length} lines</span>
+              <span className="tabular-nums">{lines.length} {tr('lines')}</span>
             </p>
           </div>
           <button
@@ -144,12 +138,12 @@ export const SourceExplorerView: React.FC = () => {
             {copiedId === activeFile.id ? (
               <>
                 <Check className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
-                <span>Copied</span>
+                <span>{tr("Copied")}</span>
               </>
             ) : (
               <>
                 <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>Copy</span>
+                <span>{tr("Copy")}</span>
               </>
             )}
           </button>
@@ -160,7 +154,7 @@ export const SourceExplorerView: React.FC = () => {
             <tbody>
               {lines.map((line, index) => (
                 <tr key={index} className="hover:bg-white/[0.04]">
-                  <td className="w-9 select-none pr-4 text-right align-top text-slate-600 tabular-nums">
+                  <td className="w-9 select-none pr-4 text-end align-top text-slate-600 tabular-nums">
                     {index + 1}
                   </td>
                   <td className="whitespace-pre text-slate-200">{line || ' '}</td>

@@ -50,6 +50,7 @@ import {
   getTodaysAffirmation,
   filterTasks,
 } from '../utils/selfImprovementEngine';
+import { useI18n } from '../i18n/LocaleProvider';
 
 interface SelfImprovementWorkspaceProps {
   state: SelfImprovementState;
@@ -115,6 +116,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
   onUpdateNote,
   onDeleteNote,
 }) => {
+  const { tr } = useI18n();
   const [subTab, setSubTab] = useState<SubTab>('overview');
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(state.notes[0]?.id ?? null);
 
@@ -238,11 +240,11 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
   const handleOpenGoalInNotes = (goal: GoalItem) => {
     const html =
       `<h2>${goal.title}</h2>` +
-      `<p><strong>Why It Matters:</strong> ${goal.whyItMatters || 'Personal growth and discipline.'}</p>` +
+      `<p><strong>Why It Matters:</strong> ${goal.whyItMatters || tr("Personal growth and discipline.")}</p>` +
       `<p><strong>Target Date:</strong> ${goal.targetDate}</p>` +
       `<table><thead><tr><th>Milestone</th><th>Status</th></tr></thead><tbody>` +
       goal.milestones
-        .map((m) => `<tr><td>${m.title}</td><td>${m.done ? 'Completed' : 'In Progress'}</td></tr>`)
+        .map((m) => `<tr><td>${m.title}</td><td>${m.done ? tr("Completed") : tr("In Progress")}</td></tr>`)
         .join('') +
       `</tbody></table>`;
     const createdId = onCreateNote('Goals & Vision', `Goal Plan: ${goal.title}`, html);
@@ -255,7 +257,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
       {/* Segmented Sub-Navigation */}
       <div
         role="tablist"
-        aria-label="Self-improvement sections"
+        aria-label={tr("Self-improvement sections")}
         className="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 dark:border-white/10 dark:bg-white/[0.04]"
       >
         {(
@@ -281,7 +283,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                   : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
               }`}
             >
-              {tab.label}
+              {tr(tab.label)}
             </button>
           );
         })}
@@ -295,25 +297,21 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
           <div className="space-y-1 max-w-2xl">
             <div className="flex items-center gap-2 text-xs font-semibold text-sky-700 dark:text-sky-400">
               <Shield className="w-4 h-4" aria-hidden="true" />
-              <span>Recovery &amp; Clean Focus Anchor (No Porn · No Social Media)</span>
+              <span>{tr("Recovery & Clean Focus Anchor (No Porn · No Social Media)")}</span>
             </div>
             <div className="flex flex-wrap items-baseline gap-6 pt-1">
               <div>
                 <span className="text-3xl font-bold text-slate-900 dark:text-slate-100 tabular-nums">
                   {state.cleanStreakDays}
                 </span>
-                <span className="text-sm text-slate-600 dark:text-slate-400 ml-1.5">clean days</span>
+                <span className="text-sm text-slate-600 dark:text-slate-400 ml-1.5">{tr("clean days")}</span>
               </div>
-              <div className="text-xs text-slate-600 dark:text-slate-400">
-                Best streak:{' '}
+              <div className="text-xs text-slate-600 dark:text-slate-400">{"\n                "}{tr("Best streak:")}{' '}
                 <strong className="text-slate-900 dark:text-slate-100 tabular-nums">
-                  {state.longestCleanStreakDays} days
-                </strong>
-                <span className="mx-2" aria-hidden="true">·</span>
-                Urges resisted:{' '}
+                  {state.longestCleanStreakDays}{" "}{tr("days")}{"\n                "}</strong>
+                <span className="mx-2" aria-hidden="true">·</span>{"\n                "}{tr("Urges resisted:")}{' '}
                 <strong className="text-slate-900 dark:text-slate-100 tabular-nums">{state.urgeVictories}</strong>
-                <span className="mx-2" aria-hidden="true">·</span>
-                Today&apos;s habits:{' '}
+                <span className="mx-2" aria-hidden="true">·</span>{"\n                "}{tr("Today's habits:")}{' '}
                 <strong className="text-slate-900 dark:text-slate-100 tabular-nums">
                   {dailyProgress.completed}/{dailyProgress.total} ({dailyProgress.percent}%)
                 </strong>
@@ -329,7 +327,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
               className="min-h-[38px] px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-sky-600 dark:hover:bg-sky-500 disabled:bg-emerald-700 dark:disabled:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap"
             >
               <Check className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{checkedInToday ? 'Clean Day Logged' : 'Log Clean Day'}</span>
+              <span>{checkedInToday ? tr("Clean Day Logged") : tr("Log Clean Day")}</span>
             </button>
 
             <button
@@ -341,7 +339,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
               className="min-h-[38px] px-3.5 py-1.5 rounded-lg border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-900 dark:text-sky-200 text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap"
             >
               <Timer className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Urge Grounding Pause</span>
+              <span>{tr("Urge Grounding Pause")}</span>
             </button>
 
             {!confirmReset ? (
@@ -349,9 +347,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                 type="button"
                 onClick={() => setConfirmReset(true)}
                 className="min-h-[38px] px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium text-slate-600 dark:text-slate-300 whitespace-nowrap"
-              >
-                Reset Streak
-              </button>
+              >{"\n                "}{tr("Reset Streak")}{"\n              "}</button>
             ) : (
               <div className="flex items-center gap-1.5">
                 <button
@@ -361,16 +357,12 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                     setConfirmReset(false);
                   }}
                   className="min-h-[38px] px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold whitespace-nowrap"
-                >
-                  Confirm Reset
-                </button>
+                >{"\n                  "}{tr("Confirm Reset")}{"\n                "}</button>
                 <button
                   type="button"
                   onClick={() => setConfirmReset(false)}
                   className="min-h-[38px] px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300"
-                >
-                  Cancel
-                </button>
+                >{"\n                  "}{tr("Cancel")}{"\n                "}</button>
               </div>
             )}
           </div>
@@ -380,13 +372,11 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
         {showUrgePause && (
           <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4 items-center">
             <div className="p-4 rounded-xl bg-slate-900 dark:bg-slate-950 border border-slate-800 text-white text-center">
-              <div className="text-xs text-slate-300">60-Second Urge Reset</div>
+              <div className="text-xs text-slate-300">{tr("60-Second Urge Reset")}</div>
               <div className="text-3xl font-mono font-bold tabular-nums mt-1">
                 00:{String(pauseSeconds).padStart(2, '0')}
               </div>
-              <p className="text-[11px] text-slate-300 mt-1">
-                Breathe slowly for 60s before touching any app.
-              </p>
+              <p className="text-[11px] text-slate-300 mt-1">{"\n                "}{tr("Breathe slowly for 60s before touching any app.")}{"\n              "}</p>
               <button
                 type="button"
                 onClick={() => {
@@ -394,15 +384,11 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                   setShowUrgePause(false);
                 }}
                 className="mt-3 w-full py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-xs font-semibold"
-              >
-                I Resisted — Log Victory
-              </button>
+              >{"\n                "}{tr("I Resisted — Log Victory")}{"\n              "}</button>
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="why-i-started-input" className="block text-xs font-semibold text-slate-900 dark:text-slate-100">
-                Why I Locked This Device (Editable Reminder)
-              </label>
+              <label htmlFor="why-i-started-input" className="block text-xs font-semibold text-slate-900 dark:text-slate-100">{"\n                "}{tr("Why I Locked This Device (Editable Reminder)")}{"\n              "}</label>
               <textarea
                 id="why-i-started-input"
                 rows={3}
@@ -419,8 +405,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
       <section className="surface p-5 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-1.5 max-w-2xl min-w-0">
-            <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              Daily Affirmation · {activeAffirmation.focusArea} ·{' '}
+            <div className="text-xs font-medium text-slate-500 dark:text-slate-400">{"\n              "}{tr("Daily Affirmation ·")}{" "}{activeAffirmation.focusArea} ·{' '}
               <span className="font-mono tabular-nums">
                 {((state.activeAffirmationIndex % Math.max(1, state.affirmations.length)) + 1)}/
                 {state.affirmations.length}
@@ -435,7 +420,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
             <button
               type="button"
               onClick={() => onCycleAffirmation(-1)}
-              aria-label="Previous affirmation"
+              aria-label={tr("Previous affirmation")}
               className="min-h-[38px] px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 inline-flex items-center justify-center"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -443,7 +428,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
             <button
               type="button"
               onClick={() => onCycleAffirmation(1)}
-              aria-label="Next affirmation"
+              aria-label={tr("Next affirmation")}
               className="min-h-[38px] px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 inline-flex items-center justify-center"
             >
               <ChevronRight className="w-4 h-4" />
@@ -455,14 +440,14 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
               className="min-h-[38px] px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-sky-600 dark:hover:bg-sky-500 disabled:bg-emerald-700 dark:disabled:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap"
             >
               <Check className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{affirmedToday ? 'Affirmed Today' : 'Commit Today'}</span>
+              <span>{affirmedToday ? tr("Affirmed Today") : tr("Commit Today")}</span>
             </button>
             <button
               type="button"
               onClick={() => setShowAffirmationManager((prev) => !prev)}
               className="min-h-[38px] px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200 whitespace-nowrap"
             >
-              {showAffirmationManager ? 'Hide Custom List' : 'Add Custom'}
+              {showAffirmationManager ? tr("Hide Custom List") : tr("Add Custom")}
             </button>
           </div>
         </div>
@@ -482,15 +467,13 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                 <label
                   htmlFor="new-affirmation-input"
                   className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1"
-                >
-                  Write Your Personal Affirmation
-                </label>
+                >{"\n                  "}{tr("Write Your Personal Affirmation")}{"\n                "}</label>
                 <input
                   id="new-affirmation-input"
                   type="text"
                   value={newAffirmationText}
                   onChange={(e) => setNewAffirmationText(e.target.value)}
-                  placeholder="e.g., I close every trigger fast and keep my word to myself."
+                  placeholder={tr("e.g., I close every trigger fast and keep my word to myself.")}
                   className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-2 focus:outline-sky-600"
                 />
               </div>
@@ -498,19 +481,17 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                 <label
                   htmlFor="new-affirmation-focus"
                   className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1"
-                >
-                  Focus Area
-                </label>
+                >{"\n                  "}{tr("Focus Area")}{"\n                "}</label>
                 <select
                   id="new-affirmation-focus"
                   value={newAffirmationFocus}
                   onChange={(e) => setNewAffirmationFocus(e.target.value as AffirmationFocus)}
                   className="h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
                 >
-                  <option value="Recovery">Recovery</option>
-                  <option value="Focus">Focus</option>
-                  <option value="Self-Respect">Self-Respect</option>
-                  <option value="Resilience">Resilience</option>
+                  <option value="Recovery">{tr("Recovery")}</option>
+                  <option value="Focus">{tr("Focus")}</option>
+                  <option value="Self-Respect">{tr("Self-Respect")}</option>
+                  <option value="Resilience">{tr("Resilience")}</option>
                 </select>
               </div>
               <button
@@ -518,7 +499,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                 className="h-9 px-4 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap"
               >
                 <Plus className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>Save Affirmation</span>
+                <span>{tr("Save Affirmation")}</span>
               </button>
             </form>
 
@@ -528,7 +509,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                   <div className="min-w-0">
                     <p className="text-xs text-slate-800 dark:text-slate-200">{aff.text}</p>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      {aff.focusArea} · {aff.isCustom ? 'Custom' : 'Core'}
+                      {aff.focusArea} · {aff.isCustom ? tr("Custom") : tr("Core")}
                     </p>
                   </div>
                   {aff.isCustom && (
@@ -550,14 +531,14 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
 
       {/* Focus Mode Timer */}
       <section
-        aria-label="Focus Mode Timer"
+        aria-label={tr("Focus Mode Timer")}
         className="surface p-5 space-y-4"
       >
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-sky-700 dark:text-sky-400">
               <Timer className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Focus Mode Timer</span>
+              <span>{tr("Focus Mode Timer")}</span>
             </div>
             <div className="flex flex-wrap items-baseline gap-4">
               <div
@@ -566,13 +547,10 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
               >
                 {formatCountdown(focusSecondsLeft)}
               </div>
-              <div className="text-xs text-slate-600 dark:text-slate-400">
-                Today:{' '}
+              <div className="text-xs text-slate-600 dark:text-slate-400">{"\n                "}{tr("Today:")}{' '}
                 <strong className="text-slate-900 dark:text-slate-100 tabular-nums">{todayFocus.sessions}</strong>{' '}
-                sessions ·{' '}
-                <strong className="text-slate-900 dark:text-slate-100 tabular-nums">{todayFocus.minutes}m</strong>{' '}
-                deep focus
-              </div>
+                {tr('sessions')} ·{' '}
+                <strong className="text-slate-900 dark:text-slate-100 tabular-nums">{todayFocus.minutes}m</strong>{' '}{"\n                "}{tr("deep focus")}{"\n              "}</div>
             </div>
           </div>
 
@@ -595,11 +573,11 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
             <button
               type="button"
               onClick={() => setFocusFullscreen(true)}
-              aria-label="Open full-screen focus mode"
+              aria-label={tr("Open full-screen focus mode")}
               className="min-h-[36px] px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200 inline-flex items-center gap-1.5 whitespace-nowrap"
             >
               <Maximize2 className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Distraction-Free View</span>
+              <span>{tr("Distraction-Free View")}</span>
             </button>
           </div>
         </div>
@@ -613,15 +591,13 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
 
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="flex-1 min-w-[200px]">
-            <label htmlFor="focus-intention-input" className="sr-only">
-              Focus session intention
-            </label>
+            <label htmlFor="focus-intention-input" className="sr-only">{"\n              "}{tr("Focus session intention")}{"\n            "}</label>
             <input
               id="focus-intention-input"
               type="text"
               value={focusIntention}
               onChange={(e) => setFocusIntention(e.target.value)}
-              placeholder="What single goal or task are you focusing on?"
+              placeholder={tr("What single goal or task are you focusing on?")}
               className="w-full h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-2 focus:outline-sky-600"
             />
           </div>
@@ -637,12 +613,12 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
             {focusRunning ? (
               <>
                 <Pause className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>Pause Focus</span>
+                <span>{tr("Pause Focus")}</span>
               </>
             ) : (
               <>
                 <Play className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>Start Focus</span>
+                <span>{tr("Start Focus")}</span>
               </>
             )}
           </button>
@@ -657,16 +633,14 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
             className="min-h-[38px] px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200 inline-flex items-center gap-1.5 whitespace-nowrap"
           >
             <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>Reset</span>
+            <span>{tr("Reset")}</span>
           </button>
 
           <button
             type="button"
             onClick={handleCompleteFocusEarly}
             className="min-h-[38px] px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap"
-          >
-            Complete &amp; Log
-          </button>
+          >{"\n            "}{tr("Complete & Log")}{"\n          "}</button>
         </div>
 
         {focusFeedback && (
@@ -680,12 +654,11 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Distraction-Free Focus Mode"
+          aria-label={tr("Distraction-Free Focus Mode")}
           className="fixed inset-0 z-50 bg-slate-950 text-white flex flex-col items-center justify-center p-6"
         >
           <div className="max-w-lg w-full text-center space-y-6">
-            <div className="text-xs font-semibold text-sky-400">
-              Focus Mode · {focusIntention || 'Deep Work'}
+            <div className="text-xs font-semibold text-sky-400">{"\n              "}{tr("Focus Mode ·")}{" "}{focusIntention || tr("Deep Work")}
             </div>
             <div className="text-6xl sm:text-7xl font-mono font-bold tabular-nums tracking-tight">
               {formatCountdown(focusSecondsLeft)}
@@ -700,7 +673,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                 className="min-h-[44px] px-5 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm font-semibold inline-flex items-center gap-2"
               >
                 {focusRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                <span>{focusRunning ? 'Pause' : 'Resume Focus'}</span>
+                <span>{focusRunning ? tr("Pause") : tr("Resume Focus")}</span>
               </button>
               <button
                 type="button"
@@ -709,16 +682,14 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                   setFocusFullscreen(false);
                 }}
                 className="min-h-[44px] px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold"
-              >
-                Complete &amp; Log
-              </button>
+              >{"\n                "}{tr("Complete & Log")}{"\n              "}</button>
               <button
                 type="button"
                 onClick={() => setFocusFullscreen(false)}
                 className="min-h-[44px] px-4 py-2.5 rounded-lg border border-slate-700 hover:bg-slate-800 text-slate-200 text-sm font-medium inline-flex items-center gap-1.5"
               >
                 <Minimize2 className="w-4 h-4" aria-hidden="true" />
-                <span>Exit View</span>
+                <span>{tr("Exit View")}</span>
               </button>
             </div>
           </div>
@@ -727,19 +698,16 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
 
       {/* 30-Day Progress Charts (Recharts) */}
       <section
-        aria-label="30-Day Recovery and Habit Progress Charts"
+        aria-label={tr("30-Day Recovery and Habit Progress Charts")}
         className="grid grid-cols-1 lg:grid-cols-2 gap-5"
       >
         <div className="surface p-5 min-w-0">
           <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Clean Streak Progress (Last 30 Days)</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Consecutive porn-free &amp; social-media-free days logged
-              </p>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">{tr("Clean Streak Progress (Last 30 Days)")}</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{"\n                "}{tr("Consecutive porn-free & social-media-free days logged")}{"\n              "}</p>
             </div>
-            <span className="text-xs font-mono font-semibold text-sky-700 dark:text-sky-400 tabular-nums">
-              Current: {state.cleanStreakDays}d
+            <span className="text-xs font-mono font-semibold text-sky-700 dark:text-sky-400 tabular-nums">{"\n              "}{tr("Current:")}{" "}{state.cleanStreakDays}d
             </span>
           </div>
           <div className="w-full h-[220px]" data-testid="clean-streak-chart">
@@ -796,13 +764,10 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
         <div className="surface p-5 min-w-0">
           <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Habit Completion Rate (Last 30 Days)</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Daily percentage of habits completed across all routines
-              </p>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">{tr("Habit Completion Rate (Last 30 Days)")}</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{"\n                "}{tr("Daily percentage of habits completed across all routines")}{"\n              "}</p>
             </div>
-            <span className="text-xs font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">
-              30d Avg: {average30DayHabitRate}%
+            <span className="text-xs font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">{"\n              "}{tr("30d Avg:")}{" "}{average30DayHabitRate}%
             </span>
           </div>
           <div className="w-full h-[220px]" data-testid="habit-completion-chart">
@@ -869,32 +834,28 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
             className="flex flex-wrap items-end gap-3 pb-4 border-b border-slate-200 dark:border-slate-800"
           >
             <div className="flex-1 min-w-[200px]">
-              <label htmlFor="new-habit-title" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                New Daily Habit
-              </label>
+              <label htmlFor="new-habit-title" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">{"\n                "}{tr("New Daily Habit")}{"\n              "}</label>
               <input
                 id="new-habit-title"
                 type="text"
                 value={newHabitTitle}
                 onChange={(e) => setNewHabitTitle(e.target.value)}
-                placeholder="e.g., Cold shower, 10 pages reading, No screens after 22:00"
+                placeholder={tr("e.g., Cold shower, 10 pages reading, No screens after 22:00")}
                 className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-2 focus:outline-sky-600"
               />
             </div>
             <div>
-              <label htmlFor="new-habit-cat" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Category
-              </label>
+              <label htmlFor="new-habit-cat" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">{"\n                "}{tr("Category")}{"\n              "}</label>
               <select
                 id="new-habit-cat"
                 value={newHabitCat}
                 onChange={(e) => setNewHabitCat(e.target.value as HabitItem['category'])}
                 className="h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
               >
-                <option value="Recovery">Recovery</option>
-                <option value="Discipline">Discipline</option>
-                <option value="Focus">Focus</option>
-                <option value="Health">Health</option>
+                <option value="Recovery">{tr("Recovery")}</option>
+                <option value="Discipline">{tr("Discipline")}</option>
+                <option value="Focus">{tr("Focus")}</option>
+                <option value="Health">{tr("Health")}</option>
               </select>
             </div>
             <button
@@ -902,22 +863,22 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
               className="h-9 px-4 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap"
             >
               <Plus className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Add Habit</span>
+              <span>{tr("Add Habit")}</span>
             </button>
           </form>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-start border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                  <th className="py-2 pr-4">Habit</th>
-                  <th className="py-2 px-2 text-right">Streak</th>
+                  <th className="py-2 pr-4">{tr("Habit")}</th>
+                  <th className="py-2 px-2 text-end">{tr("Streak")}</th>
                   {recentDates.map((d) => (
                     <th key={d} className="py-2 px-1.5 text-center font-mono tabular-nums">
                       {d.slice(5)}
                     </th>
                   ))}
-                  <th className="py-2 pl-2 text-right">Remove</th>
+                  <th className="py-2 pl-2 text-end">{tr("Remove")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -929,7 +890,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                         <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">{habit.title}</div>
                         <div className="text-[11px] text-slate-500 dark:text-slate-400">{habit.category}</div>
                       </td>
-                      <td className="py-3 px-2 text-right font-mono text-xs font-semibold text-slate-800 dark:text-slate-200 tabular-nums whitespace-nowrap">
+                      <td className="py-3 px-2 text-end font-mono text-xs font-semibold text-slate-800 dark:text-slate-200 tabular-nums whitespace-nowrap">
                         <span className="inline-flex items-center gap-1">
                           <Flame className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" />
                           {streak}d
@@ -955,7 +916,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                           </td>
                         );
                       })}
-                      <td className="py-3 pl-2 text-right">
+                      <td className="py-3 pl-2 text-end">
                         <button
                           type="button"
                           aria-label={`Delete habit ${habit.title}`}
@@ -987,37 +948,31 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
             className="flex flex-wrap items-end gap-3 pb-4 border-b border-slate-200 dark:border-slate-800"
           >
             <div className="flex-1 min-w-[200px]">
-              <label htmlFor="new-task-title" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                New Action Task
-              </label>
+              <label htmlFor="new-task-title" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">{"\n                "}{tr("New Action Task")}{"\n              "}</label>
               <input
                 id="new-task-title"
                 type="text"
                 value={newTaskTitle}
                 onChange={(e) => setNewTaskTitle(e.target.value)}
-                placeholder="e.g., Study Kotlin coroutines for 45 mins"
+                placeholder={tr("e.g., Study Kotlin coroutines for 45 mins")}
                 className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-2 focus:outline-sky-600"
               />
             </div>
             <div>
-              <label htmlFor="new-task-priority" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Priority
-              </label>
+              <label htmlFor="new-task-priority" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">{"\n                "}{tr("Priority")}{"\n              "}</label>
               <select
                 id="new-task-priority"
                 value={newTaskPriority}
                 onChange={(e) => setNewTaskPriority(e.target.value as TaskPriority)}
                 className="h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
               >
-                <option value="High">High</option>
-                <option value="Medium">Medium</option>
-                <option value="Low">Low</option>
+                <option value="High">{tr("High")}</option>
+                <option value="Medium">{tr("Medium")}</option>
+                <option value="Low">{tr("Low")}</option>
               </select>
             </div>
             <div>
-              <label htmlFor="new-task-time" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Target Time
-              </label>
+              <label htmlFor="new-task-time" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">{"\n                "}{tr("Target Time")}{"\n              "}</label>
               <input
                 id="new-task-time"
                 type="time"
@@ -1031,7 +986,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
               className="h-9 px-4 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap"
             >
               <Plus className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Add Task</span>
+              <span>{tr("Add Task")}</span>
             </button>
           </form>
 
@@ -1053,15 +1008,12 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
               ))}
             </div>
             <span className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-              {state.tasks.filter((t) => t.completed).length} / {state.tasks.length} completed
-            </span>
+              {state.tasks.filter((t) => t.completed).length} / {state.tasks.length}{" "}{tr("completed")}{"\n            "}</span>
           </div>
 
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {visibleTasks.length === 0 ? (
-              <p className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">
-                No tasks in this filter. Add a focused action above.
-              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">{"\n                "}{tr("No tasks in this filter. Add a focused action above.")}{"\n              "}</p>
             ) : (
               visibleTasks.map((task) => (
                 <div key={task.id} className="py-3 flex items-center justify-between gap-3">
@@ -1128,42 +1080,36 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
             }}
             className="surface p-5 space-y-3"
           >
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Create New Goal</h3>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">{tr("Create New Goal")}</h3>
             <div>
-              <label htmlFor="goal-title-input" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Goal Title
-              </label>
+              <label htmlFor="goal-title-input" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">{"\n                "}{tr("Goal Title")}{"\n              "}</label>
               <input
                 id="goal-title-input"
                 type="text"
                 value={newGoalTitle}
                 onChange={(e) => setNewGoalTitle(e.target.value)}
-                placeholder="e.g., 90 Days Clean + Launch Side Project"
+                placeholder={tr("e.g., 90 Days Clean + Launch Side Project")}
                 className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-2 focus:outline-sky-600"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-2.5">
               <div>
-                <label htmlFor="goal-cat-select" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Category
-                </label>
+                <label htmlFor="goal-cat-select" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">{"\n                  "}{tr("Category")}{"\n                "}</label>
                 <select
                   id="goal-cat-select"
                   value={newGoalCat}
                   onChange={(e) => setNewGoalCat(e.target.value as GoalItem['category'])}
                   className="w-full h-9 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
                 >
-                  <option value="Recovery">Recovery</option>
-                  <option value="Fitness">Fitness</option>
-                  <option value="Career & Study">Career &amp; Study</option>
-                  <option value="Mindset">Mindset</option>
+                  <option value="Recovery">{tr("Recovery")}</option>
+                  <option value="Fitness">{tr("Fitness")}</option>
+                  <option value="Career & Study">{tr("Career & Study")}</option>
+                  <option value="Mindset">{tr("Mindset")}</option>
                 </select>
               </div>
               <div>
-                <label htmlFor="goal-date-input" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Target Date
-                </label>
+                <label htmlFor="goal-date-input" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">{"\n                  "}{tr("Target Date")}{"\n                "}</label>
                 <input
                   id="goal-date-input"
                   type="date"
@@ -1175,23 +1121,19 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
             </div>
 
             <div>
-              <label htmlFor="goal-why-input" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Why This Matters
-              </label>
+              <label htmlFor="goal-why-input" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">{"\n                "}{tr("Why This Matters")}{"\n              "}</label>
               <input
                 id="goal-why-input"
                 type="text"
                 value={newGoalWhy}
                 onChange={(e) => setNewGoalWhy(e.target.value)}
-                placeholder="Personal reason that keeps you grounded"
+                placeholder={tr("Personal reason that keeps you grounded")}
                 className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
               />
             </div>
 
             <div>
-              <label htmlFor="goal-milestones-input" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Milestones (one per line)
-              </label>
+              <label htmlFor="goal-milestones-input" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">{"\n                "}{tr("Milestones (one per line)")}{"\n              "}</label>
               <textarea
                 id="goal-milestones-input"
                 rows={3}
@@ -1207,7 +1149,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
               className="w-full h-9 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5"
             >
               <Target className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Save Goal</span>
+              <span>{tr("Save Goal")}</span>
             </button>
           </form>
 
@@ -1220,7 +1162,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                        {goal.category} · Target{' '}
+                        {goal.category}{" "}{tr("· Target")}{' '}
                         <span className="font-mono tabular-nums">{goal.targetDate}</span>
                       </div>
                       <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-0.5">{goal.title}</h4>
@@ -1235,7 +1177,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                         className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200 inline-flex items-center gap-1.5"
                       >
                         <BookOpen className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" aria-hidden="true" />
-                        <span>Open in Notes</span>
+                        <span>{tr("Open in Notes")}</span>
                       </button>
                       <button
                         type="button"
@@ -1251,7 +1193,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                   {/* Progress Bar */}
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-600 dark:text-slate-400">Milestone progress</span>
+                      <span className="text-slate-600 dark:text-slate-400">{tr("Milestone progress")}</span>
                       <span className="font-mono font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
                         {pct}%
                       </span>
@@ -1271,7 +1213,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                         key={m.id}
                         type="button"
                         onClick={() => onToggleGoalMilestone(goal.id, m.id)}
-                        className="w-full py-2 flex items-center gap-2.5 text-left hover:bg-slate-50/70 dark:hover:bg-slate-800/60 rounded px-1"
+                        className="w-full py-2 flex items-center gap-2.5 text-start hover:bg-slate-50/70 dark:hover:bg-slate-800/60 rounded px-1"
                       >
                         <CheckCircle2
                           className={`w-4 h-4 shrink-0 ${
@@ -1306,15 +1248,13 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                       onChange={(e) =>
                         setMilestoneInputs((prev) => ({ ...prev, [goal.id]: e.target.value }))
                       }
-                      placeholder="Add another milestone..."
+                      placeholder={tr("Add another milestone...")}
                       className="flex-1 h-8 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                     <button
                       type="submit"
                       className="h-8 px-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200"
-                    >
-                      Add
-                    </button>
+                    >{"\n                      "}{tr("Add")}{"\n                    "}</button>
                   </form>
                 </div>
               );

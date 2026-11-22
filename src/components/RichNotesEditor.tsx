@@ -29,6 +29,7 @@ import {
   RichNote,
   filterNotes,
 } from '../utils/selfImprovementEngine';
+import { useI18n } from '../i18n/LocaleProvider';
 
 export interface DailyPromptContext {
   cleanStreakDays: number;
@@ -91,6 +92,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
   onUpdateNote,
   onDeleteNote,
 }) => {
+  const { tr } = useI18n();
   const [notebookFilter, setNotebookFilter] = useState<NoteNotebook | 'All'>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [aiPrompt, setAiPrompt] = useState<AiDailyPrompt | null>(null);
@@ -180,7 +182,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
     const targetTable = tables[tables.length - 1];
     Array.from(targetTable.rows).forEach((row, idx) => {
       const cell = document.createElement(idx === 0 ? 'th' : 'td');
-      cell.textContent = idx === 0 ? 'Column' : 'Value';
+      cell.textContent = idx === 0 ? tr("Column") : tr("Value");
       row.appendChild(cell);
     });
     syncHtmlFromEditor();
@@ -228,13 +230,13 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
       }
       setAiPrompt({
         question: data.question,
-        focusTheme: data.focusTheme ?? 'Daily Reflection',
+        focusTheme: data.focusTheme ?? tr("Daily Reflection"),
         goalReferenced: data.goalReferenced ?? `${promptContext.cleanStreakDays}-day streak`,
-        writingStarter: data.writingStarter ?? 'Today I noticed that ',
+        writingStarter: data.writingStarter ?? tr("Today I noticed that"),
       });
     } catch (err: unknown) {
       setAiError(
-        err instanceof Error ? err.message : 'Unable to reach AI Daily Prompt service.'
+        err instanceof Error ? err.message : tr("Unable to reach AI Daily Prompt service.")
       );
     } finally {
       setAiLoading(false);
@@ -269,19 +271,17 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
     <div className="space-y-4">
       {/* AI Daily Prompt Panel */}
       <section
-        aria-label="AI Daily Prompt"
+        aria-label={tr("AI Daily Prompt")}
         className="surface p-4 sm:p-5 space-y-3"
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-1.5 text-xs font-semibold text-sky-700 dark:text-sky-400">
               <Compass className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>AI Daily Prompt</span>
+              <span>{tr("AI Daily Prompt")}</span>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-              Suggests a tailored reflection question using your{' '}
-              <span className="font-mono tabular-nums">{promptContext.cleanStreakDays}d</span> clean
-              streak, habit rate ({promptContext.todayHabitPercent}%), and active goals.
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{"\n              "}{tr("Suggests a tailored reflection question using your")}{' '}
+              <span className="font-mono tabular-nums">{promptContext.cleanStreakDays}d</span>{" "}{tr("clean streak, habit rate (")}{promptContext.todayHabitPercent}%), and active goals.
             </p>
           </div>
           <button
@@ -295,7 +295,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
             ) : (
               <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
             )}
-            <span>{aiLoading ? 'Generating Prompt...' : aiPrompt ? 'New AI Prompt' : 'Suggest Daily Prompt'}</span>
+            <span>{aiLoading ? tr("Generating Prompt...") : aiPrompt ? tr("New AI Prompt") : tr("Suggest Daily Prompt")}</span>
           </button>
         </div>
 
@@ -308,13 +308,12 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
         {aiPrompt && (
           <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
             <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-              {aiPrompt.focusTheme} · Connected to: {aiPrompt.goalReferenced}
+              {aiPrompt.focusTheme}{" "}{tr("· Connected to:")}{" "}{aiPrompt.goalReferenced}
             </div>
             <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-relaxed">
               {aiPrompt.question}
             </p>
-            <p className="text-xs text-slate-600 dark:text-slate-400 italic">
-              Starter: &ldquo;{aiPrompt.writingStarter}&rdquo;
+            <p className="text-xs text-slate-600 dark:text-slate-400 italic">{"\n              "}{tr("Starter: “")}{aiPrompt.writingStarter}&rdquo;
             </p>
             <div className="flex flex-wrap items-center gap-2 pt-1">
               {activeNote && (
@@ -322,17 +321,13 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                   type="button"
                   onClick={handleInsertPromptIntoNote}
                   className="min-h-[34px] px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold whitespace-nowrap"
-                >
-                  Insert into Current Note
-                </button>
+                >{"\n                  "}{tr("Insert into Current Note")}{"\n                "}</button>
               )}
               <button
                 type="button"
                 onClick={handleNewNoteFromPrompt}
                 className="min-h-[34px] px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap"
-              >
-                New Diary Note from Prompt
-              </button>
+              >{"\n                "}{tr("New Diary Note from Prompt")}{"\n              "}</button>
             </div>
           </div>
         )}
@@ -342,7 +337,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
       {/* Notes Sidebar */}
       <aside className="surface p-4 space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Notebooks &amp; Diary</h3>
+          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">{tr("Notebooks & Diary")}</h3>
           <button
             type="button"
             onClick={() =>
@@ -354,7 +349,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
             className="min-h-[34px] px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold inline-flex items-center gap-1 whitespace-nowrap"
           >
             <Plus className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>New Note</span>
+            <span>{tr("New Note")}</span>
           </button>
         </div>
 
@@ -363,33 +358,27 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
             type="button"
             onClick={() => handleInsertTemplate('diary')}
             className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-[11px] font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap"
-          >
-            + Diary Template
-          </button>
+          >{"\n            "}{tr("+ Diary Template")}{"\n          "}</button>
           <button
             type="button"
             onClick={() => handleInsertTemplate('urge')}
             className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-[11px] font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap"
-          >
-            + Urge Log
-          </button>
+          >{"\n            "}{tr("+ Urge Log")}{"\n          "}</button>
         </div>
 
         <div className="relative">
           <Search
-            className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2"
+            className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute start-2.5 top-1/2 -translate-y-1/2"
             aria-hidden="true"
           />
-          <label htmlFor="notes-search-input" className="sr-only">
-            Search notes
-          </label>
+          <label htmlFor="notes-search-input" className="sr-only">{"\n            "}{tr("Search notes")}{"\n          "}</label>
           <input
             id="notes-search-input"
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search notes & diary..."
-            className="w-full h-8 pl-8 pr-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-2 focus:outline-sky-600"
+            placeholder={tr("Search notes & diary...")}
+            className="w-full h-8 ps-8 pe-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-2 focus:outline-sky-600"
           />
         </div>
 
@@ -415,9 +404,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
 
         <div className="space-y-1 max-h-[440px] overflow-y-auto pr-0.5">
           {visibleNotes.length === 0 ? (
-            <p className="text-xs text-slate-500 dark:text-slate-400 py-4 text-center">
-              No notes in this view. Create a new note above.
-            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 py-4 text-center">{"\n              "}{tr("No notes in this view. Create a new note above.")}{"\n            "}</p>
           ) : (
             visibleNotes.map((note) => {
               const selected = activeNote?.id === note.id;
@@ -434,7 +421,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                     <button
                       type="button"
                       onClick={() => onSelectNote(note.id)}
-                      className="text-left min-w-0 flex-1"
+                      className="text-start min-w-0 flex-1"
                     >
                       <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">
                         {note.title}
@@ -474,17 +461,13 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
       {/* Notion-Style Rich Editor */}
       <section className="surface overflow-hidden min-w-0">
         {!activeNote ? (
-          <div className="p-10 text-center text-sm text-slate-500 dark:text-slate-400">
-            Select or create a note to start writing.
-          </div>
+          <div className="p-10 text-center text-sm text-slate-500 dark:text-slate-400">{"\n            "}{tr("Select or create a note to start writing.")}{"\n          "}</div>
         ) : (
           <>
             {/* Note Title & Metadata */}
             <div className="px-5 pt-4 pb-3 border-b border-slate-200 dark:border-slate-800 space-y-2.5">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <label htmlFor="active-note-title" className="sr-only">
-                  Note title
-                </label>
+                <label htmlFor="active-note-title" className="sr-only">{"\n                  "}{tr("Note title")}{"\n                "}</label>
                 <input
                   id="active-note-title"
                   type="text"
@@ -494,9 +477,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                 />
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <label htmlFor="active-note-notebook" className="sr-only">
-                    Notebook
-                  </label>
+                  <label htmlFor="active-note-notebook" className="sr-only">{"\n                    "}{tr("Notebook")}{"\n                  "}</label>
                   <select
                     id="active-note-notebook"
                     value={activeNote.notebook}
@@ -507,10 +488,10 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                     }
                     className="h-8 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800"
                   >
-                    <option value="Diary">Diary</option>
-                    <option value="Goals & Vision">Goals &amp; Vision</option>
-                    <option value="Urge Reflection">Urge Reflection</option>
-                    <option value="Notes">Notes</option>
+                    <option value="Diary">{tr("Diary")}</option>
+                    <option value="Goals & Vision">{tr("Goals & Vision")}</option>
+                    <option value="Urge Reflection">{tr("Urge Reflection")}</option>
+                    <option value="Notes">{tr("Notes")}</option>
                   </select>
                 </div>
               </div>
@@ -518,12 +499,10 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
               {/* Formatting Toolbar */}
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
                 {/* Font Type */}
-                <label htmlFor="editor-font-family" className="sr-only">
-                  Font type
-                </label>
+                <label htmlFor="editor-font-family" className="sr-only">{"\n                  "}{tr("Font type")}{"\n                "}</label>
                 <select
                   id="editor-font-family"
-                  aria-label="Font type"
+                  aria-label={tr("Font type")}
                   value={activeNote.fontFamily}
                   onChange={(e) =>
                     onUpdateNote(activeNote.id, {
@@ -532,18 +511,16 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                   }
                   className="h-8 px-2 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-medium text-slate-700 dark:text-slate-200"
                 >
-                  <option value="sans">Font: Sans</option>
-                  <option value="serif">Font: Serif</option>
-                  <option value="mono">Font: Mono</option>
+                  <option value="sans">{tr("Font: Sans")}</option>
+                  <option value="serif">{tr("Font: Serif")}</option>
+                  <option value="mono">{tr("Font: Mono")}</option>
                 </select>
 
                 {/* Font Size */}
-                <label htmlFor="editor-font-size" className="sr-only">
-                  Font size
-                </label>
+                <label htmlFor="editor-font-size" className="sr-only">{"\n                  "}{tr("Font size")}{"\n                "}</label>
                 <select
                   id="editor-font-size"
-                  aria-label="Font size"
+                  aria-label={tr("Font size")}
                   value={activeNote.fontSize}
                   onChange={(e) =>
                     onUpdateNote(activeNote.id, {
@@ -552,17 +529,17 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                   }
                   className="h-8 px-2 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-medium text-slate-700 dark:text-slate-200"
                 >
-                  <option value="sm">Size: Small (14px)</option>
-                  <option value="base">Size: Normal (16px)</option>
-                  <option value="lg">Size: Large (20px)</option>
-                  <option value="xl">Size: Heading (24px)</option>
+                  <option value="sm">{tr("Size: Small (14px)")}</option>
+                  <option value="base">{tr("Size: Normal (16px)")}</option>
+                  <option value="lg">{tr("Size: Large (20px)")}</option>
+                  <option value="xl">{tr("Size: Heading (24px)")}</option>
                 </select>
 
                 <span className="h-5 w-px bg-slate-200 dark:bg-slate-700 mx-0.5" aria-hidden="true" />
 
                 <button
                   type="button"
-                  aria-label="Bold"
+                  aria-label={tr("Bold")}
                   onClick={() => runCommand('bold')}
                   className="h-8 w-8 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-200"
                 >
@@ -570,7 +547,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                 </button>
                 <button
                   type="button"
-                  aria-label="Italic"
+                  aria-label={tr("Italic")}
                   onClick={() => runCommand('italic')}
                   className="h-8 w-8 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-200"
                 >
@@ -578,7 +555,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                 </button>
                 <button
                   type="button"
-                  aria-label="Underline"
+                  aria-label={tr("Underline")}
                   onClick={() => runCommand('underline')}
                   className="h-8 w-8 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-200"
                 >
@@ -586,7 +563,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                 </button>
                 <button
                   type="button"
-                  aria-label="Strikethrough"
+                  aria-label={tr("Strikethrough")}
                   onClick={() => runCommand('strikeThrough')}
                   className="h-8 w-8 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-200"
                 >
@@ -597,7 +574,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
 
                 <button
                   type="button"
-                  aria-label="Heading 1"
+                  aria-label={tr("Heading 1")}
                   onClick={() => runCommand('formatBlock', 'H1')}
                   className="h-8 w-8 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-200"
                 >
@@ -605,7 +582,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                 </button>
                 <button
                   type="button"
-                  aria-label="Heading 2"
+                  aria-label={tr("Heading 2")}
                   onClick={() => runCommand('formatBlock', 'H2')}
                   className="h-8 w-8 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-200"
                 >
@@ -613,7 +590,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                 </button>
                 <button
                   type="button"
-                  aria-label="Bullet list"
+                  aria-label={tr("Bullet list")}
                   onClick={() => runCommand('insertUnorderedList')}
                   className="h-8 w-8 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-200"
                 >
@@ -621,7 +598,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                 </button>
                 <button
                   type="button"
-                  aria-label="Numbered list"
+                  aria-label={tr("Numbered list")}
                   onClick={() => runCommand('insertOrderedList')}
                   className="h-8 w-8 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-200"
                 >
@@ -629,7 +606,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                 </button>
                 <button
                   type="button"
-                  aria-label="Quote block"
+                  aria-label={tr("Quote block")}
                   onClick={() => runCommand('formatBlock', 'BLOCKQUOTE')}
                   className="h-8 w-8 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-200"
                 >
@@ -637,7 +614,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                 </button>
                 <button
                   type="button"
-                  aria-label="Insert checklist item"
+                  aria-label={tr("Insert checklist item")}
                   onClick={() =>
                     insertHtmlAtCursor('<p><input type="checkbox" /> <span>Action item</span></p>')
                   }
@@ -647,7 +624,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                 </button>
                 <button
                   type="button"
-                  aria-label="Inline code"
+                  aria-label={tr("Inline code")}
                   onClick={() => insertHtmlAtCursor('<code>code</code>')}
                   className="h-8 w-8 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-200"
                 >
@@ -655,7 +632,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                 </button>
                 <button
                   type="button"
-                  aria-label="Insert divider"
+                  aria-label={tr("Insert divider")}
                   onClick={() => runCommand('insertHorizontalRule')}
                   className="h-8 w-8 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-200"
                 >
@@ -670,22 +647,18 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                   className="h-8 px-2.5 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium text-slate-800 dark:text-slate-200 inline-flex items-center gap-1.5 whitespace-nowrap"
                 >
                   <Table className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" aria-hidden="true" />
-                  <span>Insert Table</span>
+                  <span>{tr("Insert Table")}</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleAddTableRow}
                   className="h-8 px-2 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap"
-                >
-                  + Row
-                </button>
+                >{"\n                  "}{tr("+ Row")}{"\n                "}</button>
                 <button
                   type="button"
                   onClick={handleAddTableColumn}
                   className="h-8 px-2 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap"
-                >
-                  + Col
-                </button>
+                >{"\n                  "}{tr("+ Col")}{"\n                "}</button>
               </div>
             </div>
 
@@ -694,7 +667,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
               <div
                 ref={editorRef}
                 role="textbox"
-                aria-label="Rich note editor"
+                aria-label={tr("Rich note editor")}
                 aria-multiline="true"
                 contentEditable
                 suppressContentEditableWarning
