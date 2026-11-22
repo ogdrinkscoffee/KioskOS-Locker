@@ -25,6 +25,7 @@ import com.google.android.material.textfield.TextInputEditText
 import com.kiosk.launcher.R
 import com.kiosk.launcher.admin.DevicePolicyHelper
 import com.kiosk.launcher.admin.KioskDeviceAdminReceiver
+import com.kiosk.launcher.data.AppEntry
 import com.kiosk.launcher.data.InstalledAppsRepository
 import com.kiosk.launcher.data.KioskPreferences
 import java.text.SimpleDateFormat
@@ -44,6 +45,10 @@ class AdminSettingsActivity : AppCompatActivity() {
     private lateinit var domainsInput: TextInputEditText
     private lateinit var modeHint: TextView
     private lateinit var policyLog: TextView
+
+    /** Bumped per scan so a slow, stale result can't repaint the list. */
+    private var allowListRequest = 0
+    private var loadedApps: List<AppEntry> = emptyList()
 
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
@@ -96,7 +101,8 @@ class AdminSettingsActivity : AppCompatActivity() {
         allowAllSwitch.setOnCheckedChangeListener { _, checked ->
             prefs.allowAllApps = checked
             policy.applyPolicy()
-            renderAllowList()
+            // Repaint the rows already on screen instead of rescanning for every toggle.
+            if (loadedApps.isEmpty()) renderAllowList() else renderAllowListRows(loadedApps)
         }
     }
 
@@ -255,10 +261,19 @@ class AdminSettingsActivity : AppCompatActivity() {
 
     // ------------------------------------------------------------------ allowlist
     private fun renderAllowList() {
+        val request = ++allowListRequest
         appsContainer.removeAllViews()
         allowAllSwitch.isChecked = prefs.allowAllApps
 
-        val installed = appRepo.launchable()
+        appRepo.launchableAsync { installed ->
+            if (request != allowListRequest || isFinishing || isDestroyed) return@launchableAsync
+            loadedApps = installed
+            renderAllowListRows(installed)
+        }
+    }
+
+    private fun renderAllowListRows(installed: List<AppEntry>) {
+        appsContainer.removeAllViews()
         if (installed.isEmpty()) {
             appsContainer.addView(TextView(this).apply {
                 text = "No launchable apps found."

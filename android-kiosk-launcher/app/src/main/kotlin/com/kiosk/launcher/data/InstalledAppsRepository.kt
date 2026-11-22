@@ -5,6 +5,9 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import java.util.concurrent.Executors
 
 data class AppEntry(
     val packageName: String,
@@ -15,6 +18,7 @@ data class AppEntry(
 class InstalledAppsRepository(private val context: Context) {
 
     private val packageManager: PackageManager = context.packageManager
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     /** Every app that would appear in the system launcher, sorted by label. */
     @Suppress("DEPRECATION")
@@ -41,6 +45,17 @@ class InstalledAppsRepository(private val context: Context) {
             .toList()
     }
 
+    /**
+     * Scans on a worker thread and delivers the result on the main thread, so neither
+     * the package-manager lookups nor icon loading block the UI.
+     */
+    fun launchableAsync(onLoaded: (List<AppEntry>) -> Unit) {
+        scanner.execute {
+            val entries = runCatching { launchable() }.getOrDefault(emptyList())
+            mainHandler.post { onLoaded(entries) }
+        }
+    }
+
     fun launch(packageName: String): Boolean {
         val intent = packageManager.getLaunchIntentForPackage(packageName) ?: return false
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -48,5 +63,12 @@ class InstalledAppsRepository(private val context: Context) {
             context.startActivity(intent)
             true
         }.getOrDefault(false)
+    }
+
+    private companion object {
+        /** One shared worker per process, so repeated scans queue instead of stacking up. */
+        val scanner = Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "kiosk-app-scan").apply { isDaemon = true }
+        }
     }
 }

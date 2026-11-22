@@ -49,6 +49,9 @@ class KioskLauncherActivity : AppCompatActivity() {
     private lateinit var emptyApps: TextView
     private lateinit var grid: RecyclerView
 
+    /** Bumped per scan so a slow, stale result can't overwrite a newer one. */
+    private var appsRequest = 0
+
     private val handler = Handler(Looper.getMainLooper())
     private val clockTick = object : Runnable {
         override fun run() {
@@ -148,7 +151,14 @@ class KioskLauncherActivity : AppCompatActivity() {
     }
 
     private fun renderApps() {
-        val all = apps.launchable()
+        val request = ++appsRequest
+        apps.launchableAsync { all ->
+            if (request != appsRequest || isFinishing || isDestroyed) return@launchableAsync
+            renderAppGrid(all)
+        }
+    }
+
+    private fun renderAppGrid(all: List<AppEntry>) {
         val visible = all.filter { prefs.isAllowed(it.packageName) }
         adapter.submit(visible)
         appCount.text = if (prefs.allowAllApps) "${visible.size} apps"

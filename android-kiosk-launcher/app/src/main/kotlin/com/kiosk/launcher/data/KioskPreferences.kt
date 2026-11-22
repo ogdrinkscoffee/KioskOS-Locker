@@ -52,8 +52,9 @@ class KioskPreferences(context: Context) {
         get() = prefs.getString(KEY_MODE, MODE_MULTI) ?: MODE_MULTI
         set(value) { prefs.edit().putString(KEY_MODE, value).apply() }
 
+    /** Closed by default: only packages an admin picks are launchable. */
     var allowAllApps: Boolean
-        get() = bool(KEY_ALLOW_ALL, true)
+        get() = bool(KEY_ALLOW_ALL, false)
         set(value) = setBool(KEY_ALLOW_ALL, value)
 
     var statusBarLocked: Boolean
