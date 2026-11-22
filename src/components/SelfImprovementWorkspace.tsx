@@ -116,7 +116,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
   onUpdateNote,
   onDeleteNote,
 }) => {
-  const { tr } = useI18n();
+  const { tr, pluralDays } = useI18n();
   const [subTab, setSubTab] = useState<SubTab>('overview');
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(state.notes[0]?.id ?? null);
 
@@ -308,12 +308,12 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
               </div>
               <div className="text-xs text-slate-600 dark:text-slate-400">{"\n                "}{tr("Best streak:")}{' '}
                 <strong className="text-slate-900 dark:text-slate-100 tabular-nums">
-                  {state.longestCleanStreakDays}{" "}{tr("days")}{"\n                "}</strong>
+                  {state.longestCleanStreakDays}{" "}{pluralDays(state.longestCleanStreakDays)}{"\n                "}</strong>
                 <span className="mx-2" aria-hidden="true">·</span>{"\n                "}{tr("Urges resisted:")}{' '}
                 <strong className="text-slate-900 dark:text-slate-100 tabular-nums">{state.urgeVictories}</strong>
                 <span className="mx-2" aria-hidden="true">·</span>{"\n                "}{tr("Today's habits:")}{' '}
                 <strong className="text-slate-900 dark:text-slate-100 tabular-nums">
-                  {dailyProgress.completed}/{dailyProgress.total} ({dailyProgress.percent}%)
+                  {dailyProgress.completed}/{dailyProgress.total} (<span dir="ltr" className="tabular-nums">{dailyProgress.percent}%</span>)
                 </strong>
               </div>
             </div>
@@ -405,13 +405,16 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
       <section className="surface p-5 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-1.5 max-w-2xl min-w-0">
-            <div className="text-xs font-medium text-slate-500 dark:text-slate-400">{"\n              "}{tr("Daily Affirmation ·")}{" "}{activeAffirmation.focusArea} ·{' '}
+            <div className="text-xs font-medium text-slate-500 dark:text-slate-400">{"\n              "}{tr("Daily Affirmation ·")}{" "}{tr(activeAffirmation.focusArea)} ·{' '}
               <span className="font-mono tabular-nums">
                 {((state.activeAffirmationIndex % Math.max(1, state.affirmations.length)) + 1)}/
                 {state.affirmations.length}
               </span>
             </div>
-            <p className="text-base sm:text-lg font-semibold text-slate-900 dark:text-slate-100 leading-snug">
+            <p
+              dir="auto"
+              className="text-base sm:text-lg font-semibold text-slate-900 dark:text-slate-100 leading-snug"
+            >
               &ldquo;{activeAffirmation.text}&rdquo;
             </p>
           </div>
@@ -509,7 +512,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                   <div className="min-w-0">
                     <p className="text-xs text-slate-800 dark:text-slate-200">{aff.text}</p>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      {aff.focusArea} · {aff.isCustom ? tr("Custom") : tr("Core")}
+                      {tr(aff.focusArea)} · {aff.isCustom ? tr("Custom") : tr("Core")}
                     </p>
                   </div>
                   {aff.isCustom && (
@@ -767,7 +770,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
               <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">{tr("Habit Completion Rate (Last 30 Days)")}</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{"\n                "}{tr("Daily percentage of habits completed across all routines")}{"\n              "}</p>
             </div>
-            <span className="text-xs font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">{"\n              "}{tr("30d Avg:")}{" "}{average30DayHabitRate}%
+            <span className="text-xs font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">{"\n              "}{tr("30d Avg:")}{" "}<span dir="ltr" className="tabular-nums">{average30DayHabitRate}%</span>
             </span>
           </div>
           <div className="w-full h-[220px]" data-testid="habit-completion-chart">
@@ -1195,7 +1198,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-600 dark:text-slate-400">{tr("Milestone progress")}</span>
                       <span className="font-mono font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
-                        {pct}%
+                        <span dir="ltr">{pct}%</span>
                       </span>
                     </div>
                     <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">

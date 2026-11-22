@@ -320,7 +320,7 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
               <span>{tr("Config Orientation")}</span>
             </span>
             <span className="font-mono font-semibold text-slate-900 dark:text-slate-100 capitalize">
-              {state.orientation}
+              {state.orientation === 'portrait' ? tr('Portrait') : tr('Landscape')}
             </span>
           </button>
 

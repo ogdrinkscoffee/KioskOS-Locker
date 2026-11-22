@@ -23,7 +23,7 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
   onToggleHabitToday,
   onOpenFocusGrowth,
 }) => {
-  const { tr } = useI18n();
+  const { tr, pluralDays } = useI18n();
   const [showAllHabits, setShowAllHabits] = useState(false);
   const today = formatIsoDate();
   const checkedCleanToday = selfImprovement.lastCleanCheckInDate === today;
@@ -48,7 +48,7 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
           <div className="mt-1 flex items-baseline gap-2 flex-wrap">
             <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 tabular-nums">
               {selfImprovement.cleanStreakDays}{' '}
-              {selfImprovement.cleanStreakDays === 1 ? tr("Day") : tr("Days")}
+              {pluralDays(selfImprovement.cleanStreakDays)}
             </span>
             <span className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">{"\n              "}{tr("Best")}{" "}{selfImprovement.longestCleanStreakDays}d
               <span aria-hidden="true"> · </span>

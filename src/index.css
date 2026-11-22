@@ -29,13 +29,6 @@
     font-feature-settings: normal;
   }
 
-  html[dir="rtl"] h1,
-  html[dir="rtl"] h2,
-  html[dir="rtl"] h3,
-  html[dir="rtl"] h4 {
-    letter-spacing: 0;
-  }
-
   html.dark body {
     --page-bg: #070b11;
     --page-fg: #e7ecf3;
@@ -223,6 +216,24 @@
   border-top-color: #334155;
 }
 
+/*
+ * Arabic must not inherit negative tracking: it squeezes the joins between
+ * letters. Kept outside @layer base so Tailwind's tracking-* utilities, which
+ * live in the utilities layer, cannot override it.
+ */
+html[dir="rtl"] h1,
+html[dir="rtl"] h2,
+html[dir="rtl"] h3,
+html[dir="rtl"] h4,
+html[dir="rtl"] .tracking-tight,
+html[dir="rtl"] .tracking-tighter,
+html[dir="rtl"] .tracking-wide,
+html[dir="rtl"] .tracking-wider,
+html[dir="rtl"] .tracking-widest,
+html[dir="rtl"] .eyebrow {
+  letter-spacing: 0;
+}
+
 /* RTL: mirror directional glyphs so "next" still points in reading direction. */
 html[dir="rtl"] svg.lucide-chevron-left,
 html[dir="rtl"] svg.lucide-chevron-right,
@@ -236,4 +247,10 @@ html[dir="rtl"] svg.lucide-arrow-right {
 /* Progress and range inputs read right-to-left too. */
 html[dir="rtl"] input[type="range"] {
   direction: rtl;
+}
+
+/* Charts plot numbers left-to-right; keep "50%" from flipping to "%50" in Arabic. */
+html[dir="rtl"] .recharts-cartesian-axis-tick-value,
+html[dir="rtl"] .recharts-label {
+  direction: ltr;
 }

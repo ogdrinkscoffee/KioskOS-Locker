@@ -34,6 +34,8 @@ interface I18nValue {
    * disappearing, and no dictionary lookup can ever produce a raw key.
    */
   tr: (text: string, vars?: Record<string, string | number>) => string;
+  /** Arabic needs the right day form: 1 يوم، 2 يومان، 3–10 أيام، 11+ يومًا. */
+  pluralDays: (count: number) => string;
 }
 
 const I18nContext = createContext<I18nValue | null>(null);
@@ -74,9 +76,22 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     [locale]
   );
 
+  const pluralDays = useCallback(
+    (count: number) => {
+      if (locale !== 'ar') return count === 1 ? 'day' : 'days';
+      const n = Math.abs(count) % 100;
+      if (count === 1) return 'يوم';
+      if (count === 2) return 'يومان';
+      if (n >= 3 && n <= 10) return 'أيام';
+      if (n >= 11 && n <= 99) return 'يومًا';
+      return 'يوم';
+    },
+    [locale]
+  );
+
   const value = useMemo<I18nValue>(
-    () => ({ locale, dir, isRtl: dir === 'rtl', setLocale, t, tr }),
-    [locale, dir, setLocale, t, tr]
+    () => ({ locale, dir, isRtl: dir === 'rtl', setLocale, t, tr, pluralDays }),
+    [locale, dir, setLocale, t, tr, pluralDays]
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

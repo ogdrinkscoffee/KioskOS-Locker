@@ -765,7 +765,10 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                       className="w-8 h-8 rounded-lg shrink-0"
                     />
                     <div className="min-w-0 flex-1">
-                      <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 truncate">
+                      <h2
+                        dir="auto"
+                        className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 truncate"
+                      >
                         {state.kioskTitle}
                       </h2>
                       <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 truncate">

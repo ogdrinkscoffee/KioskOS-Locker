@@ -118,7 +118,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
   onLogUrgeVictory,
   onOpenSelfImprovementTab,
 }) => {
-  const { tr } = useI18n();
+  const { tr, pluralDays } = useI18n();
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [remoteAdminUnlocked, setRemoteAdminUnlocked] = useState(false);
   const [failedVerifyCount, setFailedVerifyCount] = useState(0);
@@ -403,7 +403,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
               <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700">
                 <div className="text-[11px] text-slate-600 dark:text-slate-400">{tr("Clean Streak")}</div>
                 <div className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
-                  {selfImprovement.cleanStreakDays}{" "}{tr("Days")}{"\n                "}</div>
+                  {selfImprovement.cleanStreakDays}{" "}{pluralDays(selfImprovement.cleanStreakDays)}{"\n                "}</div>
               </div>
               <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700">
                 <div className="text-[11px] text-slate-600 dark:text-slate-400">{tr("Offline Guarantee")}</div>
@@ -541,7 +541,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                 <div>
                   <div className="text-xs font-medium text-slate-600 dark:text-slate-400">{tr("Clean Recovery Streak")}</div>
                   <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
-                    {selfImprovement.cleanStreakDays}{" "}{tr("Days")}{"\n                  "}</div>
+                    {selfImprovement.cleanStreakDays}{" "}{pluralDays(selfImprovement.cleanStreakDays)}{"\n                  "}</div>
                   <div className="text-xs text-slate-600 dark:text-slate-400 mt-1 tabular-nums">{"\n                    "}{tr("Best:")}{" "}{selfImprovement.longestCleanStreakDays}d · {selfImprovement.urgeVictories}{' '}{"\n                    "}{tr("urges resisted")}{"\n                  "}</div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
