@@ -146,9 +146,9 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
 
   const handleInsertTable = () => {
     insertHtmlAtCursor(
-      '<table><thead><tr><th>Item / Trigger</th><th>Plan / Metric</th><th>Status</th></tr></thead>' +
-        '<tbody><tr><td>Entry 1</td><td>Detail</td><td>Active</td></tr>' +
-        '<tr><td>Entry 2</td><td>Detail</td><td>Planned</td></tr></tbody></table><p><br></p>'
+      `<table><thead><tr><th>${tr('Item / Trigger')}</th><th>${tr('Plan / Metric')}</th><th>${tr('Status')}</th></tr></thead>` +
+        `<tbody><tr><td>${tr('Entry 1')}</td><td>${tr('Detail')}</td><td>${tr('Active')}</td></tr>` +
+        `<tr><td>${tr('Entry 2')}</td><td>${tr('Detail')}</td><td>${tr('Planned')}</td></tr></tbody></table><p><br></p>`
     );
   };
 
@@ -162,13 +162,13 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
     const targetTable = tables[tables.length - 1];
     const tbody = targetTable.querySelector('tbody') ?? targetTable;
     const colCount = targetTable.rows[0]?.cells.length || 3;
-    const tr = document.createElement('tr');
+    const rowEl = document.createElement('tr');
     for (let i = 0; i < colCount; i++) {
       const td = document.createElement('td');
-      td.textContent = 'New cell';
-      tr.appendChild(td);
+      td.textContent = tr('New cell');
+      rowEl.appendChild(td);
     }
-    tbody.appendChild(tr);
+    tbody.appendChild(rowEl);
     syncHtmlFromEditor();
   };
 
@@ -192,21 +192,21 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
     if (type === 'diary') {
       onCreateNote(
         'Diary',
-        `Daily Reflection — ${new Date().toISOString().slice(0, 10)}`,
-        '<h2>Morning & Evening Check-In</h2>' +
-          '<p><strong>Main Goal Today:</strong> Stay clean, focused, and away from mindless feeds.</p>' +
-          '<table><thead><tr><th>Area</th><th>Check</th><th>Notes</th></tr></thead><tbody>' +
-          '<tr><td>Focus / Work</td><td>Planned</td><td>2 deep blocks</td></tr>' +
-          '<tr><td>Sleep & Night Rule</td><td>Active</td><td>Phone outside room</td></tr>' +
+        tr('Daily Reflection — {date}', { date: new Date().toISOString().slice(0, 10) }),
+        `<h2>${tr('Morning & Evening Check-In')}</h2>` +
+          `<p><strong>${tr('Main Goal Today:')}</strong> ${tr('Stay clean, focused, and away from mindless feeds.')}</p>` +
+          `<table><thead><tr><th>${tr('Area')}</th><th>${tr('Check')}</th><th>${tr('Notes')}</th></tr></thead><tbody>` +
+          `<tr><td>${tr('Focus / Work')}</td><td>${tr('Planned')}</td><td>${tr('2 deep blocks')}</td></tr>` +
+          `<tr><td>${tr('Sleep & Night Rule')}</td><td>${tr('Active')}</td><td>${tr('Phone outside room')}</td></tr>` +
           '</tbody></table>'
       );
     } else {
       onCreateNote(
         'Urge Reflection',
-        'Urge Trigger & Reset Log',
-        '<h2>Urge Pause Reflection</h2>' +
-          '<p><em>I paused before reacting. Here is what triggered the feeling and how I redirected my energy:</em></p>' +
-          '<ul><li><strong>Trigger / Emotion:</strong> </li><li><strong>Environment:</strong> </li><li><strong>Action Taken Instead:</strong> </li></ul>'
+        tr('Urge Trigger & Reset Log'),
+        `<h2>${tr('Urge Pause Reflection')}</h2>` +
+          `<p><em>${tr('I paused before reacting. Here is what triggered the feeling and how I redirected my energy:')}</em></p>` +
+          `<ul><li><strong>${tr('Trigger / Emotion:')}</strong> </li><li><strong>${tr('Environment:')}</strong> </li><li><strong>${tr('Action Taken Instead:')}</strong> </li></ul>`
       );
     }
   };
@@ -225,13 +225,13 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
       });
       const data = (await response.json()) as Partial<AiDailyPrompt> & { error?: string };
       if (!response.ok || !data.question) {
-        setAiError(data.error ?? `Request failed (${response.status}).`);
+        setAiError(data.error ?? tr('Request failed ({status}).', { status: response.status }));
         return;
       }
       setAiPrompt({
         question: data.question,
         focusTheme: data.focusTheme ?? tr("Daily Reflection"),
-        goalReferenced: data.goalReferenced ?? `${promptContext.cleanStreakDays}-day streak`,
+        goalReferenced: data.goalReferenced ?? tr('{d}-day streak', { d: promptContext.cleanStreakDays }),
         writingStarter: data.writingStarter ?? tr("Today I noticed that"),
       });
     } catch (err: unknown) {
@@ -252,7 +252,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
   const handleInsertPromptIntoNote = () => {
     if (!aiPrompt || !activeNote) return;
     const html =
-      `<blockquote><strong>AI Daily Prompt (${escapeHtml(aiPrompt.focusTheme)}):</strong> ${escapeHtml(aiPrompt.question)}</blockquote>` +
+      `<blockquote><strong>${tr('AI Daily Prompt')} (${escapeHtml(aiPrompt.focusTheme)}):</strong> ${escapeHtml(aiPrompt.question)}</blockquote>` +
       `<p>${escapeHtml(aiPrompt.writingStarter)} </p>`;
     insertHtmlAtCursor(html);
   };
@@ -262,7 +262,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
     const todayStr = new Date().toISOString().slice(0, 10);
     const html =
       `<h2>${escapeHtml(aiPrompt.focusTheme)}</h2>` +
-      `<blockquote><strong>Prompt:</strong> ${escapeHtml(aiPrompt.question)}</blockquote>` +
+      `<blockquote><strong>${tr('Prompt:')}</strong> ${escapeHtml(aiPrompt.question)}</blockquote>` +
       `<p>${escapeHtml(aiPrompt.writingStarter)} </p>`;
     onCreateNote('Diary', `${aiPrompt.focusTheme} — ${todayStr}`, html);
   };
@@ -280,8 +280,9 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
               <Compass className="w-3.5 h-3.5" aria-hidden="true" />
               <span>{tr("AI Daily Prompt")}</span>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{"\n              "}{tr("Suggests a tailored reflection question using your")}{' '}
-              <span className="font-mono tabular-nums">{promptContext.cleanStreakDays}d</span>{" "}{tr("clean streak, habit rate (")}{promptContext.todayHabitPercent}%), and active goals.
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+              {tr("Suggests a tailored reflection question using your")}{' '}
+              <span className="font-mono tabular-nums">{promptContext.cleanStreakDays}d</span> {tr("clean streak, habit rate (")}<span dir="ltr">{promptContext.todayHabitPercent}%</span>) {tr("and active goals.")}
             </p>
           </div>
           <button
@@ -343,7 +344,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
             onClick={() =>
               onCreateNote(
                 notebookFilter === 'All' ? 'Diary' : notebookFilter,
-                'Untitled Note'
+                tr('Untitled Note')
               )
             }
             className="min-h-[34px] px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold inline-flex items-center gap-1 whitespace-nowrap"
@@ -396,15 +397,17 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
-                {nb}
+                {tr(nb)}
               </button>
             );
           })}
         </div>
 
-        <div className="space-y-1 max-h-[440px] overflow-y-auto pr-0.5">
+        <div className="space-y-1 max-h-[440px] overflow-y-auto pe-0.5">
           {visibleNotes.length === 0 ? (
-            <p className="text-xs text-slate-500 dark:text-slate-400 py-4 text-center">{"\n              "}{tr("No notes in this view. Create a new note above.")}{"\n            "}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 py-4 text-center">
+              {tr("No notes in this view. Create a new note above.")}
+            </p>
           ) : (
             visibleNotes.map((note) => {
               const selected = activeNote?.id === note.id;
@@ -427,13 +430,17 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                         {note.title}
                       </div>
                       <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        {note.notebook} · <span className="tabular-nums">{note.updatedAt}</span>
+                        {tr(note.notebook)} · <span className="tabular-nums">{note.updatedAt}</span>
                       </div>
                     </button>
                     <div className="flex items-center gap-0.5 shrink-0">
                       <button
                         type="button"
-                        aria-label={note.pinned ? `Unpin ${note.title}` : `Pin ${note.title}`}
+                        aria-label={
+                          note.pinned
+                            ? tr('Unpin {title}', { title: note.title })
+                            : tr('Pin {title}', { title: note.title })
+                        }
                         onClick={() => onUpdateNote(note.id, { pinned: !note.pinned })}
                         className={`p-1 rounded hover:bg-slate-200/70 dark:hover:bg-slate-800 ${
                           note.pinned ? 'text-sky-600 dark:text-sky-400' : 'text-slate-400 dark:text-slate-500'
@@ -443,7 +450,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                       </button>
                       <button
                         type="button"
-                        aria-label={`Delete ${note.title}`}
+                        aria-label={tr('Delete {title}', { title: note.title })}
                         onClick={() => onDeleteNote(note.id)}
                         className="p-1 rounded text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/60"
                       >
@@ -616,7 +623,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                   type="button"
                   aria-label={tr("Insert checklist item")}
                   onClick={() =>
-                    insertHtmlAtCursor('<p><input type="checkbox" /> <span>Action item</span></p>')
+                    insertHtmlAtCursor(`<p><input type="checkbox" /> <span>${tr('Action item')}</span></p>`)
                   }
                   className="h-8 w-8 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-200"
                 >

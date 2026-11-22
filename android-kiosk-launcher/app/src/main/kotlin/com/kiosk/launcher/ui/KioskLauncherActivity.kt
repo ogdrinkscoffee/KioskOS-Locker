@@ -9,8 +9,8 @@ import android.os.BatteryManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.provider.Settings
 import android.view.View
+import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -43,6 +43,10 @@ class KioskLauncherActivity : AppCompatActivity() {
     private lateinit var dateLabel: TextView
     private lateinit var batteryLabel: TextView
     private lateinit var ownerPill: TextView
+    private lateinit var panicBanner: TextView
+    private lateinit var modeBannerRow: View
+    private lateinit var modeBannerText: TextView
+    private lateinit var modeActionButton: Button
     private lateinit var streakValue: TextView
     private lateinit var streakMeta: TextView
     private lateinit var appCount: TextView
@@ -51,11 +55,14 @@ class KioskLauncherActivity : AppCompatActivity() {
 
     /** Bumped per scan so a slow, stale result can't overwrite a newer one. */
     private var appsRequest = 0
+    private var lastLoadedApps: List<AppEntry> = emptyList()
+    private var hasAutoLaunchedMode = false
 
     private val handler = Handler(Looper.getMainLooper())
     private val clockTick = object : Runnable {
         override fun run() {
             renderClock()
+            renderPanicBanner()
             handler.postDelayed(this, 20_000L)
         }
     }
@@ -78,6 +85,10 @@ class KioskLauncherActivity : AppCompatActivity() {
         dateLabel = findViewById(R.id.dateLabel)
         batteryLabel = findViewById(R.id.batteryLabel)
         ownerPill = findViewById(R.id.ownerPill)
+        panicBanner = findViewById(R.id.panicBanner)
+        modeBannerRow = findViewById(R.id.modeBannerRow)
+        modeBannerText = findViewById(R.id.modeBannerText)
+        modeActionButton = findViewById(R.id.modeActionButton)
         streakValue = findViewById(R.id.streakValue)
         streakMeta = findViewById(R.id.streakMeta)
         appCount = findViewById(R.id.appCount)
@@ -89,19 +100,21 @@ class KioskLauncherActivity : AppCompatActivity() {
         grid.addItemDecoration(GridSpacing(this))
 
         findViewById<View>(R.id.markCleanDay).setOnClickListener {
-            if (prefs.markTodayClean()) toast("Clean day logged") else toast("Already logged today")
+            val logged = prefs.markTodayClean()
+            toast(getString(if (logged) R.string.streak_logged_today else R.string.streak_already_logged))
             renderStreak()
         }
         findViewById<View>(R.id.focusButton).setOnClickListener {
             startActivity(Intent(this, SelfImprovementActivity::class.java))
         }
         findViewById<View>(R.id.adminButton).setOnClickListener {
-            PinGate.prompt(this, "Admin access") {
+            PinGate.prompt(this, getString(R.string.pin_title_admin)) {
                 startActivity(Intent(this, AdminSettingsActivity::class.java))
             }
         }
+        // True 1-tap Emergency Panic Button: wipes clipboard, closes/locks apps, pins dashboard
         findViewById<View>(R.id.panicButton).setOnClickListener {
-            PinGate.prompt(this, "Exit kiosk") { panic() }
+            panic()
         }
 
         policy.setAsHomeLauncher()
@@ -109,6 +122,11 @@ class KioskLauncherActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // Returning to Kiosk Home always ends any temporary System Settings admin unlock window.
+        if (prefs.isAdminTemporarilyUnlocked()) {
+            prefs.adminUnlockedUntilMs = 0L
+            policy.applyPolicy()
+        }
         renderAll()
     }
 
@@ -129,6 +147,7 @@ class KioskLauncherActivity : AppCompatActivity() {
     private fun renderAll() {
         renderClock()
         renderOwnerPill()
+        renderPanicBanner()
         renderStreak()
         renderApps()
     }
@@ -140,20 +159,71 @@ class KioskLauncherActivity : AppCompatActivity() {
 
     private fun renderOwnerPill() {
         val isOwner = policy.isDeviceOwner
-        ownerPill.text = if (isOwner) "Device owner" else "Preview"
+        ownerPill.setText(if (isOwner) R.string.pill_device_owner else R.string.pill_preview)
+    }
+
+    private fun renderPanicBanner() {
+        val mins = prefs.panicRemainingMinutes()
+        if (mins > 0) {
+            panicBanner.visibility = View.VISIBLE
+            panicBanner.text = getString(R.string.panic_banner_fmt, mins)
+        } else {
+            panicBanner.visibility = View.GONE
+        }
+    }
+
+    private fun renderModeBanner(visibleApps: List<AppEntry>) {
+        if (prefs.isPanicLocked()) {
+            modeBannerRow.visibility = View.GONE
+            return
+        }
+        when (prefs.kioskMode) {
+            KioskPreferences.MODE_BROWSER -> {
+                modeBannerRow.visibility = View.VISIBLE
+                modeBannerText.setText(R.string.mode_browser_banner)
+                modeActionButton.setText(R.string.open_kiosk_browser)
+                modeActionButton.setOnClickListener {
+                    startActivity(Intent(this, KioskBrowserActivity::class.java))
+                }
+                if (!hasAutoLaunchedMode) {
+                    hasAutoLaunchedMode = true
+                    startActivity(Intent(this, KioskBrowserActivity::class.java))
+                }
+            }
+            KioskPreferences.MODE_SINGLE -> {
+                val pinned = visibleApps.firstOrNull()
+                if (pinned != null) {
+                    modeBannerRow.visibility = View.VISIBLE
+                    modeBannerText.text = getString(R.string.mode_single_banner_fmt, pinned.label)
+                    modeActionButton.setText(R.string.open_single_app)
+                    modeActionButton.setOnClickListener { open(pinned) }
+                    if (!hasAutoLaunchedMode) {
+                        hasAutoLaunchedMode = true
+                        open(pinned)
+                    }
+                } else {
+                    modeBannerRow.visibility = View.GONE
+                }
+            }
+            else -> {
+                modeBannerRow.visibility = View.GONE
+                hasAutoLaunchedMode = false
+            }
+        }
     }
 
     private fun renderStreak() {
         streakValue.text = prefs.streak.toString()
         val habits = focus.habits()
         val done = habits.count { it.doneDay == focus.today() }
-        streakMeta.text = "Best ${prefs.bestStreak}d · $done/${habits.size} habits today"
+        streakMeta.text = getString(R.string.streak_meta_fmt, prefs.bestStreak, done, habits.size)
     }
 
     private fun renderApps() {
         val request = ++appsRequest
         apps.launchableAsync { all ->
             if (request != appsRequest || isFinishing || isDestroyed) return@launchableAsync
+            lastLoadedApps = all
             renderAppGrid(all)
         }
     }
@@ -161,40 +231,46 @@ class KioskLauncherActivity : AppCompatActivity() {
     private fun renderAppGrid(all: List<AppEntry>) {
         val visible = all.filter { prefs.isAllowed(it.packageName) }
         adapter.submit(visible)
-        appCount.text = if (prefs.allowAllApps) "${visible.size} apps"
-        else "${visible.size} of ${all.size} allowed"
+        appCount.text = if (prefs.allowAllApps) {
+            getString(R.string.apps_count_all_fmt, visible.size)
+        } else {
+            getString(R.string.apps_count_allowed_fmt, visible.size, all.size)
+        }
 
-        // Swapping visibility (instead of leaving both weighted views visible) stops the
-        // grid from keeping half the screen when the empty state is showing.
+        renderModeBanner(visible)
+
         val empty = visible.isEmpty()
         grid.visibility = if (empty) View.GONE else View.VISIBLE
         emptyApps.visibility = if (empty) View.VISIBLE else View.GONE
         if (empty) {
-            emptyApps.text = if (all.isEmpty()) {
-                "No launchable apps found on this device."
-            } else {
-                "Nothing is allowlisted yet.\nOpen Admin and pick the apps this kiosk may run."
-            }
+            emptyApps.setText(
+                if (all.isEmpty()) R.string.no_launchable_apps else R.string.no_allowlisted_apps
+            )
         }
     }
 
     // ------------------------------------------------------------------- actions
     private fun open(entry: AppEntry) {
-        if (!prefs.isAllowed(entry.packageName)) {
-            toast("${entry.label} is not allowed")
+        if (prefs.isPanicLocked()) {
+            toast(getString(R.string.panic_app_blocked))
             return
         }
-        if (!apps.launch(entry.packageName)) toast("Can't open ${entry.label}")
+        if (!prefs.isAllowed(entry.packageName)) {
+            toast(getString(R.string.app_not_allowed_fmt, entry.label))
+            return
+        }
+        if (!apps.launch(entry.packageName)) {
+            toast(getString(R.string.cannot_open_app_fmt, entry.label))
+        }
     }
 
     private fun panic() {
-        val locked = policy.isInLockTaskMode()
-        if (locked) policy.stopKiosk(this)
-        runCatching {
-            startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        }
-        prefs.logPolicy("Panic: kiosk paused")
-        toast(if (locked) "Kiosk paused" else "Opening system settings")
+        policy.wipeClipboard()
+        prefs.triggerPanicLockdown()
+        policy.applyPolicy()
+        renderPanicBanner()
+        renderModeBanner(lastLoadedApps.filter { prefs.isAllowed(it.packageName) })
+        toast(getString(R.string.panic_toast))
     }
 
     // -------------------------------------------------------------------- chrome

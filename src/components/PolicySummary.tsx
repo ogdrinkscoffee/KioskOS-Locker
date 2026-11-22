@@ -162,7 +162,7 @@ export const PolicySummary: React.FC<PolicySummaryProps> = ({ state, onOpenPolic
                 <span className="shrink-0 font-mono text-slate-400 dark:text-slate-500">
                   {event.timestamp}
                 </span>
-                <span className="truncate">{event.detail}</span>
+                <span className="truncate">{tr(event.detail)}</span>
               </li>
             ))}
           </ul>
@@ -173,7 +173,9 @@ export const PolicySummary: React.FC<PolicySummaryProps> = ({ state, onOpenPolic
         type="button"
         onClick={onOpenPolicyInspector}
         className="flex w-full items-center justify-between gap-2 border-t border-slate-200/80 px-5 py-3 text-[13px] font-semibold text-slate-800 transition-colors hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/[0.04]"
-      >{"\n        "}{tr("Inspect every policy")}{"\n        "}<ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+      >
+        {tr("Inspect every policy")}
+        <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden="true" />
       </button>
     </section>
   );

@@ -3,4 +3,196 @@
     <string name="app_name">KioskOS</string>
     <string name="accessibility_description">Keeps the kiosk launcher in front when a blocked app is opened. KioskOS never reads screen content.</string>
     <string name="device_admin_description">Lets KioskOS run this device in kiosk mode.</string>
+
+    <!-- Common actions -->
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="add">Add</string>
+    <string name="delete">Delete</string>
+    <string name="unlock">Unlock</string>
+    <string name="go">Go</string>
+    <string name="show">Show</string>
+    <string name="hide">Hide</string>
+
+    <!-- Kiosk Launcher -->
+    <string name="pill_device_owner">Device owner</string>
+    <string name="pill_preview">Preview</string>
+    <string name="default_clock">09:41</string>
+    <string name="eyebrow_recovery_streak">Recovery streak</string>
+    <string name="clean_days_label">clean days</string>
+    <string name="log_clean_day">Log clean day</string>
+    <string name="streak_logged_today">Clean day logged</string>
+    <string name="streak_already_logged">Already logged today</string>
+    <string name="streak_meta_fmt">Best %1$dd · %2$d/%3$d habits today</string>
+    <string name="allowed_apps_title">Allowed apps</string>
+    <string name="apps_count_all_fmt">%1$d apps</string>
+    <string name="apps_count_allowed_fmt">%1$d of %2$d allowed</string>
+    <string name="no_launchable_apps">No launchable apps found on this device.</string>
+    <string name="no_allowlisted_apps">Nothing is allowlisted yet.\nOpen Admin and pick the apps this kiosk may run.</string>
+    <string name="action_focus">Focus</string>
+    <string name="action_admin">Admin</string>
+    <string name="action_panic">Panic</string>
+    <string name="app_not_allowed_fmt">%1$s is not allowed</string>
+    <string name="cannot_open_app_fmt">Cannot open %1$s</string>
+    <string name="panic_banner_fmt">Emergency Panic Lock active (%1$dm left) · Non-essential apps locked</string>
+    <string name="panic_toast">Panic lockdown active — apps locked, clipboard wiped</string>
+    <string name="panic_app_blocked">Locked during Emergency Panic Mode. Clear in Admin or wait.</string>
+    <string name="mode_single_banner_fmt">Single-app mode pinned: %1$s</string>
+    <string name="mode_browser_banner">Browser-only kiosk mode active</string>
+    <string name="open_single_app">Open pinned app</string>
+    <string name="open_kiosk_browser">Open Kiosk Browser</string>
+
+    <!-- PIN Prompt Dialog -->
+    <string name="pin_title_admin">Admin access</string>
+    <string name="pin_label_passcode">Passcode (4–50 characters)</string>
+    <string name="pin_hint">Enter passcode…</string>
+    <string name="pin_error_incorrect">Incorrect passcode</string>
+    <string name="pin_error_locked_fmt">Too many failed attempts. Locked for %1$ds.</string>
+    <string name="pin_error_length">Passcode must be 4 to 50 non-blank characters.</string>
+    <string name="pin_helper_default">Default passcode is 1234 until you change it in Admin.</string>
+
+    <!-- Admin Settings -->
+    <string name="admin_title">Admin</string>
+    <string name="eyebrow_device_owner">Device owner</string>
+    <string name="status_checking">Checking…</string>
+    <string name="owner_active_title">Active — this app owns the device</string>
+    <string name="owner_active_detail">Kiosk mode, the allowlist and every lock below are enforced by Android.</string>
+    <string name="owner_preview_title">Preview mode</string>
+    <string name="owner_preview_detail_fmt">The launcher works, but Android only enforces kiosk locks for a device owner app. On a freshly reset device, enable Developer options → USB debugging and run:\n\n%1$s</string>
+    <string name="copy_command">Copy command</string>
+    <string name="clipboard_label_provision">Kiosk provisioning</string>
+    <string name="provision_copied">Provisioning command copied</string>
+    <string name="activate_admin">Activate admin</string>
+    <string name="admin_already_active">Device admin is already active</string>
+    <string name="admin_explanation">Lets KioskOS keep this device in kiosk mode.</string>
+
+    <string name="eyebrow_security">Security &amp; recovery</string>
+    <string name="admin_passcode_title">Admin passcode (4–50 chars)</string>
+    <string name="admin_passcode_desc">Supports digits, letters, and symbols. Required for admin settings and leaving the kiosk.</string>
+    <string name="change_passcode">Change passcode</string>
+    <string name="change_passcode_title">Change admin passcode</string>
+    <string name="new_passcode_hint">New passcode (4–50 chars)</string>
+    <string name="passcode_updated">Admin passcode updated</string>
+    <string name="passcode_length_error">Passcode must be 4 to 50 non-blank characters</string>
+    <string name="clear_panic_lock">Clear Panic Lock</string>
+    <string name="panic_cleared">Emergency Panic Lock cleared</string>
+    <string name="open_system_settings">Open System Settings</string>
+    <string name="system_settings_unlocked_toast">System Settings unlocked for 5 minutes</string>
+
+    <string name="eyebrow_kiosk_mode">Kiosk mode</string>
+    <string name="mode_multi">Multi-app</string>
+    <string name="mode_single">Single</string>
+    <string name="mode_browser">Browser</string>
+    <string name="mode_desc_multi">Shows every allowed app in the kiosk grid.</string>
+    <string name="mode_desc_single">Pins one app. Uses the first allowed app as the dedicated kiosk app.</string>
+    <string name="mode_desc_browser">Opens the allowlisted Kiosk Browser as the primary kiosk surface.</string>
+
+    <string name="eyebrow_strong_restrictions">Strong admin restrictions (UserManager)</string>
+    <string name="strong_restrictions_desc">All OS-level restrictions are toggleable when Device Owner is active.</string>
+    <string name="restriction_safe_boot">Disable Safe Mode</string>
+    <string name="restriction_safe_boot_desc">Blocks booting into Android Safe Mode (DISALLOW_SAFE_BOOT)</string>
+    <string name="restriction_factory_reset">Disable Factory Reset</string>
+    <string name="restriction_factory_reset_desc">Blocks device wipe via Settings (DISALLOW_FACTORY_RESET)</string>
+    <string name="restriction_add_user">Disable Add User / Guest</string>
+    <string name="restriction_add_user_desc">Blocks secondary or guest profiles (DISALLOW_ADD_USER)</string>
+    <string name="restriction_apps_control">Disable App Control &amp; Uninstall</string>
+    <string name="restriction_apps_control_desc">Blocks force-stop or uninstalling apps (DISALLOW_APPS_CONTROL)</string>
+
+    <string name="eyebrow_device_locks">Device &amp; shield locks</string>
+    <string name="device_locks_desc">Applied when this app is the device owner.</string>
+    <string name="lock_status_bar">Status bar</string>
+    <string name="lock_status_bar_desc">Hide the notification shade</string>
+    <string name="lock_keyguard">Lock screen</string>
+    <string name="lock_keyguard_desc">Skip the keyguard</string>
+    <string name="lock_camera">Camera</string>
+    <string name="lock_camera_desc">Disable the camera</string>
+    <string name="lock_screenshots">Screenshots</string>
+    <string name="lock_screenshots_desc">Block screen capture</string>
+    <string name="lock_usb">USB transfer</string>
+    <string name="lock_usb_desc">Block file transfer and external media</string>
+    <string name="lock_date_time">Date &amp; time</string>
+    <string name="lock_date_time_desc">Keep automatic date and time locked</string>
+    <string name="lock_stay_awake">Stay awake</string>
+    <string name="lock_stay_awake_desc">Keep the screen on while plugged in</string>
+    <string name="lock_unsupported_browsers">Block unsupported browsers</string>
+    <string name="lock_unsupported_browsers_desc">Suspend Firefox, Brave, Opera, DuckDuckGo, and Tor</string>
+    <string name="lock_short_feeds">Block short-form feeds</string>
+    <string name="lock_short_feeds_desc">Block /shorts, /reels, and TikTok inside Kiosk Browser</string>
+    <string name="lock_window_guard">Window guard</string>
+    <string name="lock_window_guard_desc">Jump back to kiosk if a blocked app opens (needs accessibility)</string>
+    <string name="accessibility_prompt_toast">Enable KioskOS under Accessibility</string>
+
+    <string name="eyebrow_allowed_apps">Allowed apps</string>
+    <string name="allow_every_app">Allow every app</string>
+    <string name="no_launchable_apps_short">No launchable apps found.</string>
+
+    <string name="eyebrow_kiosk_browser">Kiosk browser &amp; filters</string>
+    <string name="kiosk_browser_domains_desc">Allowed domains (one per line). Everything else is blocked.</string>
+    <string name="allowed_domains_hint">Allowed domains</string>
+    <string name="kiosk_browser_keywords_desc">Blocked URL/search keywords (one per line or comma-separated).</string>
+    <string name="blocked_keywords_hint">Blocked keywords</string>
+    <string name="open_browser">Open browser</string>
+    <string name="save_domains">Save filters</string>
+    <string name="domains_saved_fmt">Saved %1$d domain(s) and %2$d keyword(s)</string>
+
+    <string name="eyebrow_policy_activity">Policy activity</string>
+    <string name="no_policy_events">No policy events yet.</string>
+    <string name="log_guard_enabled">Window guard enabled</string>
+    <string name="log_guard_disabled">Window guard disabled</string>
+    <string name="log_browser_allowlist_fmt">Browser allowlist: %1$d domain(s), %2$d keyword(s)</string>
+    <string name="log_passcode_changed">Admin passcode changed</string>
+
+    <!-- Kiosk Browser -->
+    <string name="browser_title">Kiosk browser</string>
+    <string name="browser_url_hint">Enter allowed domain or URL…</string>
+    <string name="browser_blocked_banner_fmt">Blocked by policy · %1$s</string>
+    <string name="browser_blocked_toast_fmt">Blocked: %1$s</string>
+    <string name="browser_blocked_shortform">Short-form video feed blocked</string>
+    <string name="browser_blocked_keyword_fmt">Blocked keyword: %1$s</string>
+
+    <!-- Focus & Growth -->
+    <string name="focus_growth_title">Focus &amp; Growth</string>
+    <string name="tab_overview">Overview</string>
+    <string name="tab_habits">Habits</string>
+    <string name="tab_tasks">Tasks</string>
+    <string name="tab_goals">Goals</string>
+    <string name="tab_notes">Notes</string>
+
+    <string name="eyebrow_clean_streak">Clean streak</string>
+    <string name="log_day">Log day</string>
+    <string name="streak_meta_si_fmt">Best %1$dd · %2$s</string>
+    <string name="clean_never">no clean day logged yet</string>
+    <string name="clean_today">logged today</string>
+    <string name="clean_earlier">last logged earlier</string>
+
+    <string name="eyebrow_focus_timer">Focus timer</string>
+    <string name="timer_default">25:00</string>
+    <string name="timer_start">Start</string>
+    <string name="timer_pause">Pause</string>
+    <string name="timer_reset">Reset</string>
+    <string name="timer_complete_log">Complete &amp; log</string>
+    <string name="preset_15m">15m</string>
+    <string name="preset_25m">25m</string>
+    <string name="preset_45m">45m</string>
+    <string name="preset_60m">60m</string>
+    <string name="focus_complete_toast">Focus session complete (%1$dm logged)</string>
+    <string name="focus_logged_fmt">Logged %1$dm focus session</string>
+    <string name="focus_today_fmt">Today: %1$dm (%2$d sessions)</string>
+
+    <string name="stat_habits_today">Habits today</string>
+    <string name="stat_open_tasks">Open tasks</string>
+    <string name="stat_goal_progress">Goal progress</string>
+
+    <string name="new_habit_hint">New habit</string>
+    <string name="habits_empty">No habits yet. Add the first one.</string>
+    <string name="new_task_hint">New task</string>
+    <string name="tasks_empty">Nothing queued.</string>
+    <string name="new_goal_hint">New goal</string>
+    <string name="goals_empty">No goals yet.</string>
+    <string name="goal_step_10">+10%</string>
+    <string name="new_note_title">New note</string>
+    <string name="notes_empty">No notes yet.</string>
+    <string name="note_title_hint">Title</string>
+    <string name="note_body_hint">Note</string>
+    <string name="note_untitled">Untitled</string>
 </resources>

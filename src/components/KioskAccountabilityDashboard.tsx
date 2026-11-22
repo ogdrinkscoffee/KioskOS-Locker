@@ -50,9 +50,11 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
               {selfImprovement.cleanStreakDays}{' '}
               {pluralDays(selfImprovement.cleanStreakDays)}
             </span>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">{"\n              "}{tr("Best")}{" "}{selfImprovement.longestCleanStreakDays}d
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+              {tr("Best")} {selfImprovement.longestCleanStreakDays} {pluralDays(selfImprovement.longestCleanStreakDays)}
               <span aria-hidden="true"> · </span>
-              {selfImprovement.urgeVictories}{" "}{tr("urges resisted")}{"\n            "}</span>
+              {selfImprovement.urgeVictories} {tr("urges resisted")}
+            </span>
           </div>
         </div>
 
@@ -76,7 +78,7 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-baseline gap-2 min-w-0">
             <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 shrink-0">{tr("Daily Habits")}</h3>
-            <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400 tabular-nums truncate">
+            <span dir="ltr" className="text-[11px] font-medium text-slate-600 dark:text-slate-400 tabular-nums truncate">
               {progress.completed} / {progress.total} ({progress.percent}%)
             </span>
           </div>
@@ -97,7 +99,7 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
               className="text-[11px] font-semibold text-sky-700 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 inline-flex items-center gap-0.5 whitespace-nowrap shrink-0"
             >
               <span>{tr("Focus Hub")}</span>
-              <ArrowUpRight className="w-3 h-3" aria-hidden="true" />
+              <ArrowUpRight className="w-3 h-3 rtl:-scale-x-100" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -119,7 +121,9 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
 
         {/* Interactive Habit Checklist */}
         {selfImprovement.habits.length === 0 ? (
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 py-1">{"\n            "}{tr("No daily habits configured yet. Open Focus Hub to add accountability habits.")}{"\n          "}</p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 py-1">
+            {tr("No daily habits configured yet. Open Focus Hub to add accountability habits.")}
+          </p>
         ) : (
           <div
             className={
@@ -154,11 +158,11 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
                         done ? 'text-slate-500 dark:text-slate-500 line-through' : 'text-slate-800 dark:text-slate-200 font-medium'
                       }`}
                     >
-                      {habit.title}
+                      {tr(habit.title)}
                     </span>
                   </span>
                   <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400 tabular-nums shrink-0">
-                    {streak}d
+                    {streak} {pluralDays(streak)}
                   </span>
                 </button>
               );

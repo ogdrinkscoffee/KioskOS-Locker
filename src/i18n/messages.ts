@@ -24,8 +24,6 @@ const en = {
   'nav.policyShort': 'Policy',
   'nav.pc': 'PC Sync',
   'nav.pcShort': 'PC',
-  'nav.source': 'Source',
-  'nav.sourceShort': 'Code',
   'nav.adb': 'Provision',
   'nav.adbShort': 'ADB',
 
@@ -39,11 +37,7 @@ const en = {
 
   'download.apk': 'Download APK',
   'download.apkAria': 'Download the KioskOS Android APK',
-  'download.apkTitle': 'Download the signed release APK (4.9 MB)',
-  'download.zip': 'Source zip',
-  'download.zipAria': 'Download Android project',
-  'download.zipTitle': 'Download the Kotlin project as a zip',
-  'download.zipMissing': 'Native app module is incomplete — AndroidManifest.xml is missing',
+  'download.apkTitle': 'Download the updated KioskOS APK (5.8 MB)',
 
   'hero.eyebrow': 'Device Owner · Native Kotlin',
   'hero.title': 'Android Device Owner Kiosk Launcher',
@@ -75,8 +69,6 @@ const ar: Record<MessageKey, string> = {
   'nav.policyShort': 'السياسة',
   'nav.pc': 'مزامنة الحاسوب',
   'nav.pcShort': 'PC',
-  'nav.source': 'المصدر',
-  'nav.sourceShort': 'كود',
   'nav.adb': 'التهيئة',
   'nav.adbShort': 'ADB',
 
@@ -90,11 +82,7 @@ const ar: Record<MessageKey, string> = {
 
   'download.apk': 'تنزيل APK',
   'download.apkAria': 'نزّل تطبيق KioskOS لأندرويد',
-  'download.apkTitle': 'نزّل ملف APK الموقّع (4.9 ميجابايت)',
-  'download.zip': 'حزمة المصدر',
-  'download.zipAria': 'نزّل مشروع أندرويد',
-  'download.zipTitle': 'نزّل مشروع كوتلن كملف مضغوط',
-  'download.zipMissing': 'وحدة التطبيق الأصلي غير مكتملة — ملف AndroidManifest.xml مفقود',
+  'download.apkTitle': 'نزّل ملف KioskOS APK المحدّث (5.8 ميجابايت)',
 
   'hero.eyebrow': 'مالك الجهاز · كوتلن أصلي',
   'hero.title': 'مشغّل كشك أندرويد بصفة مالك الجهاز',

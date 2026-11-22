@@ -6,6 +6,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.util.Calendar
 
 data class PolicyEvent(val time: Long, val label: String)
 
@@ -25,19 +26,55 @@ class KioskPreferences(context: Context) {
         prefs.edit().putString(key, value).apply()
     }
 
-    // ----------------------------------------------------------------------- PIN
+    // --------------------------------------------------------- passcode (4..50)
     fun setPin(pin: String) {
         val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
         prefs.edit()
             .putString(KEY_PIN_SALT, salt.toHex())
             .putString(KEY_PIN_HASH, digest(pin, salt))
+            .putInt(KEY_FAILED_PIN, 0)
+            .putLong(KEY_PIN_LOCKED_UNTIL, 0L)
             .apply()
     }
 
     fun checkPin(pin: String): Boolean {
+        if (pin.length < MIN_PIN_LENGTH || pin.length > MAX_PIN_LENGTH || pin.isBlank()) return false
         val stored = prefs.getString(KEY_PIN_HASH, null) ?: return pin == DEFAULT_PIN
         val salt = (prefs.getString(KEY_PIN_SALT, "") ?: "").hexToBytes()
         return digest(pin, salt) == stored
+    }
+
+    var failedPinAttempts: Int
+        get() = prefs.getInt(KEY_FAILED_PIN, 0)
+        set(value) { prefs.edit().putInt(KEY_FAILED_PIN, value).apply() }
+
+    var pinLockedUntilMs: Long
+        get() = prefs.getLong(KEY_PIN_LOCKED_UNTIL, 0L)
+        set(value) { prefs.edit().putLong(KEY_PIN_LOCKED_UNTIL, value).apply() }
+
+    fun pinLockoutRemainingSeconds(nowMs: Long = System.currentTimeMillis()): Int {
+        val diff = pinLockedUntilMs - nowMs
+        return if (diff > 0L) ((diff + 999L) / 1000L).toInt() else 0
+    }
+
+    fun recordFailedPinAttempt(nowMs: Long = System.currentTimeMillis()): Int {
+        val next = failedPinAttempts + 1
+        if (next >= MAX_FAILED_PIN_ATTEMPTS) {
+            failedPinAttempts = 0
+            pinLockedUntilMs = nowMs + PIN_LOCKOUT_MS
+            tamperWarningsCount += 1
+            logPolicy("Tamper Warning: repeated failed passcode attempts (30s lockout)")
+            return 30
+        }
+        failedPinAttempts = next
+        return 0
+    }
+
+    fun resetPinFailures() {
+        prefs.edit()
+            .putInt(KEY_FAILED_PIN, 0)
+            .putLong(KEY_PIN_LOCKED_UNTIL, 0L)
+            .apply()
     }
 
     private fun digest(pin: String, salt: ByteArray): String {
@@ -57,6 +94,24 @@ class KioskPreferences(context: Context) {
         get() = bool(KEY_ALLOW_ALL, false)
         set(value) = setBool(KEY_ALLOW_ALL, value)
 
+    // Toggleable strong UserManager restrictions (Device Owner)
+    var disallowSafeBoot: Boolean
+        get() = bool(KEY_DISALLOW_SAFE_BOOT, true)
+        set(value) = setBool(KEY_DISALLOW_SAFE_BOOT, value)
+
+    var disallowFactoryReset: Boolean
+        get() = bool(KEY_DISALLOW_FACTORY_RESET, true)
+        set(value) = setBool(KEY_DISALLOW_FACTORY_RESET, value)
+
+    var disallowAddUser: Boolean
+        get() = bool(KEY_DISALLOW_ADD_USER, true)
+        set(value) = setBool(KEY_DISALLOW_ADD_USER, value)
+
+    var disallowAppsControl: Boolean
+        get() = bool(KEY_DISALLOW_APPS_CONTROL, true)
+        set(value) = setBool(KEY_DISALLOW_APPS_CONTROL, value)
+
+    // Hardware & tamper locks
     var statusBarLocked: Boolean
         get() = bool(KEY_STATUS_BAR, true)
         set(value) = setBool(KEY_STATUS_BAR, value)
@@ -89,6 +144,60 @@ class KioskPreferences(context: Context) {
         get() = bool(KEY_GUARD, false)
         set(value) = setBool(KEY_GUARD, value)
 
+    // Browser & shield toggles
+    var blockUnsupportedBrowsers: Boolean
+        get() = bool(KEY_BLOCK_UNSUPPORTED_BROWSERS, true)
+        set(value) = setBool(KEY_BLOCK_UNSUPPORTED_BROWSERS, value)
+
+    var blockShortFormFeeds: Boolean
+        get() = bool(KEY_BLOCK_SHORT_FEEDS, true)
+        set(value) = setBool(KEY_BLOCK_SHORT_FEEDS, value)
+
+    // --------------------------------------------------- panic & temporary admin
+    var panicLockUntilMs: Long
+        get() = prefs.getLong(KEY_PANIC_LOCK_UNTIL, 0L)
+        set(value) { prefs.edit().putLong(KEY_PANIC_LOCK_UNTIL, value).apply() }
+
+    var panicCount: Int
+        get() = prefs.getInt(KEY_PANIC_COUNT, 0)
+        set(value) { prefs.edit().putInt(KEY_PANIC_COUNT, value).apply() }
+
+    var tamperWarningsCount: Int
+        get() = prefs.getInt(KEY_TAMPER_WARNINGS, 0)
+        set(value) { prefs.edit().putInt(KEY_TAMPER_WARNINGS, value).apply() }
+
+    var adminUnlockedUntilMs: Long
+        get() = prefs.getLong(KEY_ADMIN_UNLOCKED_UNTIL, 0L)
+        set(value) { prefs.edit().putLong(KEY_ADMIN_UNLOCKED_UNTIL, value).apply() }
+
+    fun isPanicLocked(nowMs: Long = System.currentTimeMillis()): Boolean =
+        panicLockUntilMs > nowMs
+
+    fun panicRemainingMinutes(nowMs: Long = System.currentTimeMillis()): Int {
+        val diff = panicLockUntilMs - nowMs
+        return if (diff > 0L) ((diff + 59_999L) / 60_000L).toInt() else 0
+    }
+
+    fun triggerPanicLockdown(durationMinutes: Int = PANIC_DURATION_MINUTES) {
+        val now = System.currentTimeMillis()
+        panicLockUntilMs = now + durationMinutes * 60_000L
+        panicCount += 1
+        adminUnlockedUntilMs = 0L
+        logPolicy("Panic lockdown engaged (${durationMinutes}m), clipboard wiped")
+    }
+
+    fun clearPanicLockdown() {
+        panicLockUntilMs = 0L
+        logPolicy("Panic lockdown cleared by Admin")
+    }
+
+    fun isAdminTemporarilyUnlocked(nowMs: Long = System.currentTimeMillis()): Boolean =
+        adminUnlockedUntilMs > nowMs
+
+    fun grantTemporaryAdminWindow(minutes: Int = 5) {
+        adminUnlockedUntilMs = System.currentTimeMillis() + minutes * 60_000L
+    }
+
     // ----------------------------------------------------------------- allowlist
     fun allowedPackages(): Set<String> =
         prefs.getStringSet(KEY_ALLOWED, emptySet())?.toSet() ?: emptySet()
@@ -110,6 +219,14 @@ class KioskPreferences(context: Context) {
         prefs.edit().putStringSet(KEY_DOMAINS, value.toMutableSet()).apply()
     }
 
+    fun blockedKeywords(): Set<String> =
+        prefs.getStringSet(KEY_BLOCKED_KEYWORDS, DEFAULT_BLOCKED_KEYWORDS)?.toSet()
+            ?: DEFAULT_BLOCKED_KEYWORDS
+
+    fun setBlockedKeywords(value: Set<String>) {
+        prefs.edit().putStringSet(KEY_BLOCKED_KEYWORDS, value.toMutableSet()).apply()
+    }
+
     // -------------------------------------------------------------------- streak
     var streak: Int
         get() = prefs.getInt(KEY_STREAK, 0)
@@ -123,13 +240,14 @@ class KioskPreferences(context: Context) {
         get() = prefs.getLong(KEY_LAST_CLEAN, 0L)
         set(value) { prefs.edit().putLong(KEY_LAST_CLEAN, value).apply() }
 
-    fun today(): Long = System.currentTimeMillis() / 86_400_000L
+    /** Local calendar epoch-day so midnight rollovers honor the device timezone. */
+    fun today(): Long = localEpochDay()
 
     /** Returns false when today was already logged. */
     fun markTodayClean(): Boolean {
         val day = today()
         if (lastCleanDay == day) return false
-        streak = if (lastCleanDay == day - 1) streak + 1 else 1
+        streak = if (lastCleanDay == day - 1L) streak + 1 else 1
         if (streak > bestStreak) bestStreak = streak
         lastCleanDay = day
         return true
@@ -176,16 +294,35 @@ class KioskPreferences(context: Context) {
 
     companion object {
         const val DEFAULT_PIN = "1234"
+        const val MIN_PIN_LENGTH = 4
+        const val MAX_PIN_LENGTH = 50
+        const val MAX_FAILED_PIN_ATTEMPTS = 5
+        const val PIN_LOCKOUT_MS = 30_000L
+        const val PANIC_DURATION_MINUTES = 15
+
         const val MODE_MULTI = "multi"
         const val MODE_SINGLE = "single"
         const val MODE_BROWSER = "browser"
 
+        fun localEpochDay(nowMs: Long = System.currentTimeMillis()): Long {
+            val cal = Calendar.getInstance()
+            val offsetMs = cal.timeZone.getOffset(nowMs)
+            return (nowMs + offsetMs) / 86_400_000L
+        }
+
         private const val KEY_PIN_HASH = "pin_hash"
         private const val KEY_PIN_SALT = "pin_salt"
+        private const val KEY_FAILED_PIN = "failed_pin_attempts"
+        private const val KEY_PIN_LOCKED_UNTIL = "pin_locked_until_ms"
         private const val KEY_MODE = "kiosk_mode"
         private const val KEY_ALLOW_ALL = "allow_all_apps"
         private const val KEY_ALLOWED = "allowed_packages"
         private const val KEY_DOMAINS = "browser_domains"
+        private const val KEY_BLOCKED_KEYWORDS = "blocked_keywords"
+        private const val KEY_DISALLOW_SAFE_BOOT = "disallow_safe_boot"
+        private const val KEY_DISALLOW_FACTORY_RESET = "disallow_factory_reset"
+        private const val KEY_DISALLOW_ADD_USER = "disallow_add_user"
+        private const val KEY_DISALLOW_APPS_CONTROL = "disallow_apps_control"
         private const val KEY_STATUS_BAR = "lock_status_bar"
         private const val KEY_KEYGUARD = "lock_keyguard"
         private const val KEY_CAMERA = "lock_camera"
@@ -194,11 +331,18 @@ class KioskPreferences(context: Context) {
         private const val KEY_DATE_TIME = "lock_date_time"
         private const val KEY_STAY_AWAKE = "stay_awake"
         private const val KEY_GUARD = "guard_enabled"
+        private const val KEY_BLOCK_UNSUPPORTED_BROWSERS = "block_unsupported_browsers"
+        private const val KEY_BLOCK_SHORT_FEEDS = "block_short_form_feeds"
+        private const val KEY_PANIC_LOCK_UNTIL = "panic_lock_until_ms"
+        private const val KEY_PANIC_COUNT = "panic_count"
+        private const val KEY_TAMPER_WARNINGS = "tamper_warnings_count"
+        private const val KEY_ADMIN_UNLOCKED_UNTIL = "admin_unlocked_until_ms"
         private const val KEY_STREAK = "streak"
         private const val KEY_BEST = "best_streak"
         private const val KEY_LAST_CLEAN = "last_clean_day"
         private const val KEY_POLICY_LOG = "policy_log"
 
         private val DEFAULT_DOMAINS = setOf("wikipedia.org", "khanacademy.org")
+        private val DEFAULT_BLOCKED_KEYWORDS = setOf("porn", "xxx", "nsfw", "onlyfans", "hentai", "xvideos", "xnxx")
     }
 }

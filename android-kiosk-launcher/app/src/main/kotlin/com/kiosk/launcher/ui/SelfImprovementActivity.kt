@@ -46,6 +46,7 @@ class SelfImprovementActivity : AppCompatActivity() {
     private lateinit var notesEmpty: View
 
     private lateinit var timerText: TextView
+    private lateinit var focusTodayLabel: TextView
     private lateinit var timerBar: LinearProgressIndicator
 
     private var totalSeconds = 25 * 60
@@ -60,7 +61,10 @@ class SelfImprovementActivity : AppCompatActivity() {
             if (secondsLeft <= 0) {
                 secondsLeft = 0
                 running = false
-                toast("Focus session complete")
+                val completedMins = (totalSeconds / 60).coerceAtLeast(1)
+                repo.recordFocusSession(completedMins)
+                toast(getString(R.string.focus_complete_toast, completedMins))
+                renderFocusToday()
             }
             renderTimer()
             if (running) handler.postDelayed(this, 1_000L)
@@ -97,12 +101,18 @@ class SelfImprovementActivity : AppCompatActivity() {
         notesEmpty = findViewById(R.id.notesEmpty)
 
         timerText = findViewById(R.id.timerText)
+        focusTodayLabel = findViewById(R.id.focusTodayLabel)
         timerBar = findViewById(R.id.timerBar)
 
         val chips = findViewById<ChipGroup>(R.id.sectionChips)
         chips.setOnCheckedStateChangeListener { _, checkedIds ->
             showSection(checkedIds.firstOrNull() ?: R.id.chipOverview)
         }
+
+        findViewById<View>(R.id.preset15m).setOnClickListener { selectFocusPreset(15) }
+        findViewById<View>(R.id.preset25m).setOnClickListener { selectFocusPreset(25) }
+        findViewById<View>(R.id.preset45m).setOnClickListener { selectFocusPreset(45) }
+        findViewById<View>(R.id.preset60m).setOnClickListener { selectFocusPreset(60) }
 
         findViewById<View>(R.id.timerStart).setOnClickListener {
             if (secondsLeft <= 0) secondsLeft = totalSeconds
@@ -118,8 +128,20 @@ class SelfImprovementActivity : AppCompatActivity() {
             secondsLeft = totalSeconds
             renderTimer()
         }
+        findViewById<View>(R.id.timerComplete).setOnClickListener {
+            running = false
+            handler.removeCallbacks(ticker)
+            val elapsedMinutes = ((totalSeconds - secondsLeft) / 60)
+                .takeIf { it > 0 } ?: (totalSeconds / 60)
+            repo.recordFocusSession(elapsedMinutes)
+            secondsLeft = totalSeconds
+            renderTimer()
+            renderFocusToday()
+            toast(getString(R.string.focus_logged_fmt, elapsedMinutes))
+        }
         findViewById<View>(R.id.siMarkClean).setOnClickListener {
-            if (prefs.markTodayClean()) toast("Clean day logged") else toast("Already logged today")
+            val logged = prefs.markTodayClean()
+            toast(getString(if (logged) R.string.streak_logged_today else R.string.streak_already_logged))
             renderOverview()
         }
 
@@ -155,6 +177,14 @@ class SelfImprovementActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
+    private fun selectFocusPreset(minutes: Int) {
+        running = false
+        handler.removeCallbacks(ticker)
+        totalSeconds = minutes * 60
+        secondsLeft = totalSeconds
+        renderTimer()
+    }
+
     // --------------------------------------------------------------------- render
     private fun renderAll() {
         renderOverview()
@@ -170,23 +200,29 @@ class SelfImprovementActivity : AppCompatActivity() {
 
         findViewById<TextView>(R.id.siStreakValue).text = prefs.streak.toString()
         findViewById<TextView>(R.id.siStreakMeta).text =
-            "Best ${prefs.bestStreak}d · ${prefs.lastCleanDayText()}"
-
-        val affirmation = affirmations[(repo.today() % affirmations.size).toInt()]
-        findViewById<TextView>(R.id.affirmationText).text = affirmation
+            getString(R.string.streak_meta_si_fmt, prefs.bestStreak, prefs.lastCleanDayText())
 
         findViewById<TextView>(R.id.statHabits).text = "$done/${habits.size}"
         findViewById<TextView>(R.id.statTasks).text = repo.openTasks().toString()
         findViewById<TextView>(R.id.statGoals).text = "${repo.goalProgress()}%"
 
+        renderFocusToday()
         renderTimer()
+    }
+
+    private fun renderFocusToday() {
+        focusTodayLabel.text = getString(
+            R.string.focus_today_fmt,
+            repo.todayFocusMinutes(),
+            repo.todayFocusSessionsCount()
+        )
     }
 
     private fun renderTimer() {
         val minutes = secondsLeft / 60
         val seconds = secondsLeft % 60
         timerText.text = String.format(Locale.US, "%02d:%02d", minutes, seconds)
-        timerBar.progress = ((totalSeconds - secondsLeft) * 100 / totalSeconds)
+        timerBar.progress = if (totalSeconds > 0) ((totalSeconds - secondsLeft) * 100 / totalSeconds) else 0
     }
 
     private fun renderHabits() {
@@ -305,13 +341,15 @@ class SelfImprovementActivity : AppCompatActivity() {
             setPadding(dp(24), dp(8), dp(24), 0)
         }
         val title = EditText(this).apply {
-            hint = "Title"
+            setHint(R.string.note_title_hint)
+            textAlignment = View.TEXT_ALIGNMENT_VIEW_START
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
         }
         val body = EditText(this).apply {
-            hint = "Note"
+            setHint(R.string.note_body_hint)
+            textAlignment = View.TEXT_ALIGNMENT_VIEW_START
             minLines = 3
-            gravity = Gravity.TOP
+            gravity = Gravity.TOP or Gravity.START
             inputType = InputType.TYPE_CLASS_TEXT or
                 InputType.TYPE_TEXT_FLAG_MULTI_LINE or
                 InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
@@ -320,11 +358,15 @@ class SelfImprovementActivity : AppCompatActivity() {
         container.addView(body)
 
         MaterialAlertDialogBuilder(this)
-            .setTitle("New note")
+            .setTitle(R.string.new_note_title)
             .setView(container)
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Save") { _, _ ->
-                repo.addNote(title.text.toString(), body.text.toString())
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.save) { _, _ ->
+                repo.addNote(
+                    title.text.toString(),
+                    body.text.toString(),
+                    getString(R.string.note_untitled)
+                )
                 renderNotes()
             }
             .show()
@@ -343,18 +385,7 @@ class SelfImprovementActivity : AppCompatActivity() {
     }
 
     private fun KioskPreferences.lastCleanDayText(): String {
-        if (lastCleanDay == 0L) return "no clean day logged yet"
-        return if (lastCleanDay == today()) "logged today" else "last logged earlier"
-    }
-
-    companion object {
-        private val affirmations = listOf(
-            "My attention belongs to my real-world goals, not to an algorithm.",
-            "I choose the quiet rep over the cheap spike.",
-            "Every clean day is a vote for the person I am becoming.",
-            "Boredom is a doorway, not an emergency.",
-            "I keep my promises to myself, especially the small ones.",
-            "The phone is a tool. I decide when it is used."
-        )
+        if (lastCleanDay == 0L) return getString(R.string.clean_never)
+        return getString(if (lastCleanDay == today()) R.string.clean_today else R.string.clean_earlier)
     }
 }

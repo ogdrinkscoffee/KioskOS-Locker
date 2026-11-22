@@ -11,7 +11,7 @@
         style="@style/Widget.KioskOS.Toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        app:title="Admin" />
+        app:title="@string/admin_title" />
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -43,7 +43,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Device owner"
+                        android:text="@string/eyebrow_device_owner"
                         android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
 
                     <TextView
@@ -51,7 +51,8 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
-                        android:text="Checking…"
+                        android:text="@string/status_checking"
+                        android:textAlignment="viewStart"
                         android:textColor="@color/text_primary"
                         android:textSize="15sp"
                         android:textStyle="bold" />
@@ -63,6 +64,7 @@
                         android:layout_marginTop="4dp"
                         android:lineSpacingExtra="3dp"
                         android:text=""
+                        android:textAlignment="viewStart"
                         android:textColor="@color/text_secondary"
                         android:textSize="11sp" />
 
@@ -78,7 +80,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Copy command" />
+                            android:text="@string/copy_command" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/activateAdminButton"
@@ -87,12 +89,12 @@
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
                             android:layout_weight="1"
-                            android:text="Activate admin" />
+                            android:text="@string/activate_admin" />
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Security -->
+            <!-- Security & Recovery -->
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.KioskOS.Card"
                 android:layout_width="match_parent"
@@ -108,14 +110,15 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Security"
+                        android:text="@string/eyebrow_security"
                         android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
-                        android:text="Admin PIN"
+                        android:text="@string/admin_passcode_title"
+                        android:textAlignment="viewStart"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
@@ -123,17 +126,43 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:text="Required for admin settings and for leaving the kiosk."
+                        android:text="@string/admin_passcode_desc"
+                        android:textAlignment="viewStart"
                         android:textColor="@color/text_secondary"
                         android:textSize="11sp" />
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/changePinButton"
-                        style="@style/Widget.KioskOS.Button.Outlined"
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
-                        android:text="Change PIN" />
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/changePinButton"
+                            style="@style/Widget.KioskOS.Button.Outlined"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/change_passcode" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/openSystemSettingsButton"
+                            style="@style/Widget.KioskOS.Button.Outlined"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:text="@string/open_system_settings" />
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/clearPanicButton"
+                        style="@style/Widget.KioskOS.Button.Outlined"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/clear_panic_lock"
+                        android:visibility="gone" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -153,7 +182,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Kiosk mode"
+                        android:text="@string/eyebrow_kiosk_mode"
                         android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
 
                     <com.google.android.material.button.MaterialButtonToggleGroup
@@ -170,7 +199,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Multi-app"
+                            android:text="@string/mode_multi"
                             android:textAllCaps="false"
                             android:textSize="12sp" />
 
@@ -180,7 +209,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Single"
+                            android:text="@string/mode_single"
                             android:textAllCaps="false"
                             android:textSize="12sp" />
 
@@ -190,7 +219,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Browser"
+                            android:text="@string/mode_browser"
                             android:textAllCaps="false"
                             android:textSize="12sp" />
                     </com.google.android.material.button.MaterialButtonToggleGroup>
@@ -201,8 +230,46 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
                         android:text=""
+                        android:textAlignment="viewStart"
                         android:textColor="@color/text_secondary"
                         android:textSize="11sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Strong Admin Restrictions (UserManager) -->
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.KioskOS.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/eyebrow_strong_restrictions"
+                        android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="@string/strong_restrictions_desc"
+                        android:textAlignment="viewStart"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp" />
+
+                    <LinearLayout
+                        android:id="@+id/strongRestrictionsContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:orientation="vertical" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -222,14 +289,15 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Device locks"
+                        android:text="@string/eyebrow_device_locks"
                         android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="Applied when this app is the device owner."
+                        android:text="@string/device_locks_desc"
+                        android:textAlignment="viewStart"
                         android:textColor="@color/text_secondary"
                         android:textSize="11sp" />
 
@@ -258,7 +326,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Allowed apps"
+                        android:text="@string/eyebrow_allowed_apps"
                         android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
 
                     <LinearLayout
@@ -272,7 +340,8 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Allow every app"
+                            android:text="@string/allow_every_app"
+                            android:textAlignment="viewStart"
                             android:textColor="@color/text_primary"
                             android:textSize="14sp" />
 
@@ -307,14 +376,15 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Kiosk browser"
+                        android:text="@string/eyebrow_kiosk_browser"
                         android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="One domain per line. Everything else is blocked."
+                        android:text="@string/kiosk_browser_domains_desc"
+                        android:textAlignment="viewStart"
                         android:textColor="@color/text_secondary"
                         android:textSize="11sp" />
 
@@ -323,7 +393,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="10dp"
-                        android:hint="Allowed domains">
+                        android:hint="@string/allowed_domains_hint">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/domainsInput"
@@ -332,6 +402,34 @@
                             android:gravity="top|start"
                             android:inputType="textMultiLine|textUri"
                             android:minLines="2"
+                            android:textDirection="ltr"
+                            android:textSize="13sp" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/kiosk_browser_keywords_desc"
+                        android:textAlignment="viewStart"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:hint="@string/blocked_keywords_hint">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/blockedKeywordsInput"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="top|start"
+                            android:inputType="textMultiLine"
+                            android:minLines="2"
+                            android:textAlignment="viewStart"
                             android:textSize="13sp" />
                     </com.google.android.material.textfield.TextInputLayout>
 
@@ -347,7 +445,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Open browser" />
+                            android:text="@string/open_browser" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/domainsSave"
@@ -356,7 +454,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
                             android:layout_weight="1"
-                            android:text="Save domains" />
+                            android:text="@string/save_domains" />
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -377,7 +475,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Policy activity"
+                        android:text="@string/eyebrow_policy_activity"
                         android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
 
                     <TextView
@@ -388,6 +486,7 @@
                         android:fontFamily="monospace"
                         android:lineSpacingExtra="3dp"
                         android:text=""
+                        android:textAlignment="viewStart"
                         android:textColor="@color/text_secondary"
                         android:textSize="11sp" />
                 </LinearLayout>

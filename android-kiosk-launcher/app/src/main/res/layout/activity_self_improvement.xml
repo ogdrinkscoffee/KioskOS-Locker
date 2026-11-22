@@ -11,7 +11,7 @@
         style="@style/Widget.KioskOS.Toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        app:title="Focus &amp; Growth" />
+        app:title="@string/focus_growth_title" />
 
     <HorizontalScrollView
         android:layout_width="match_parent"
@@ -35,35 +35,35 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:checked="true"
-                android:text="Overview" />
+                android:text="@string/tab_overview" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chipHabits"
                 style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Habits" />
+                android:text="@string/tab_habits" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chipTasks"
                 style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Tasks" />
+                android:text="@string/tab_tasks" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chipGoals"
                 style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Goals" />
+                android:text="@string/tab_goals" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chipNotes"
                 style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Notes" />
+                android:text="@string/tab_notes" />
         </com.google.android.material.chip.ChipGroup>
     </HorizontalScrollView>
 
@@ -103,7 +103,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Clean streak"
+                            android:text="@string/eyebrow_clean_streak"
                             android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
 
                         <LinearLayout
@@ -120,6 +120,7 @@
                                 android:includeFontPadding="false"
                                 android:text="0"
                                 android:textColor="@color/text_primary"
+                                android:textDirection="ltr"
                                 android:textSize="36sp"
                                 android:textStyle="bold" />
 
@@ -128,7 +129,8 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginStart="8dp"
                                 android:layout_weight="1"
-                                android:text="clean days"
+                                android:text="@string/clean_days_label"
+                                android:textAlignment="viewStart"
                                 android:textColor="@color/text_secondary"
                                 android:textSize="12sp" />
 
@@ -137,7 +139,7 @@
                                 style="@style/Widget.KioskOS.Button"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Log day" />
+                                android:text="@string/log_day" />
                         </LinearLayout>
 
                         <TextView
@@ -146,6 +148,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
                             android:text=""
+                            android:textAlignment="viewStart"
                             android:textColor="@color/text_secondary"
                             android:textSize="11sp" />
                     </LinearLayout>
@@ -163,41 +166,27 @@
                         android:orientation="vertical"
                         android:padding="18dp">
 
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Daily affirmation"
-                            android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
-
-                        <TextView
-                            android:id="@+id/affirmationText"
+                        <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
-                            android:lineSpacingExtra="4dp"
-                            android:text=""
-                            android:textColor="@color/text_primary"
-                            android:textSize="15sp" />
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
 
-                <com.google.android.material.card.MaterialCardView
-                    style="@style/Widget.KioskOS.Card"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp">
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/eyebrow_focus_timer"
+                                android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="18dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Focus timer"
-                            android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
+                            <TextView
+                                android:id="@+id/focusTodayLabel"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text=""
+                                android:textColor="@color/text_secondary"
+                                android:textSize="11sp" />
+                        </LinearLayout>
 
                         <TextView
                             android:id="@+id/timerText"
@@ -205,16 +194,56 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
                             android:includeFontPadding="false"
-                            android:text="25:00"
+                            android:text="@string/timer_default"
                             android:textColor="@color/text_primary"
+                            android:textDirection="ltr"
                             android:textSize="32sp"
                             android:textStyle="bold" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:orientation="horizontal">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/preset15m"
+                                style="@style/Widget.KioskOS.Button.Text"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/preset_15m" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/preset25m"
+                                style="@style/Widget.KioskOS.Button.Text"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/preset_25m" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/preset45m"
+                                style="@style/Widget.KioskOS.Button.Text"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/preset_45m" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/preset60m"
+                                style="@style/Widget.KioskOS.Button.Text"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/preset_60m" />
+                        </LinearLayout>
 
                         <com.google.android.material.progressindicator.LinearProgressIndicator
                             android:id="@+id/timerBar"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="10dp"
+                            android:layout_marginTop="8dp"
                             android:max="100"
                             android:progress="0"
                             app:indicatorColor="@color/accent"
@@ -233,7 +262,7 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="Start" />
+                                android:text="@string/timer_start" />
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/timerPause"
@@ -242,7 +271,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginStart="8dp"
                                 android:layout_weight="1"
-                                android:text="Pause" />
+                                android:text="@string/timer_pause" />
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/timerReset"
@@ -251,8 +280,16 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginStart="8dp"
                                 android:layout_weight="1"
-                                android:text="Reset" />
+                                android:text="@string/timer_reset" />
                         </LinearLayout>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/timerComplete"
+                            style="@style/Widget.KioskOS.Button.Outlined"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="@string/timer_complete_log" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
@@ -281,6 +318,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="0/0"
                                 android:textColor="@color/text_primary"
+                                android:textDirection="ltr"
                                 android:textSize="18sp"
                                 android:textStyle="bold" />
 
@@ -288,7 +326,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:text="Habits today"
+                                android:text="@string/stat_habits_today"
                                 android:textColor="@color/text_secondary"
                                 android:textSize="10sp" />
                         </LinearLayout>
@@ -306,6 +344,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="0"
                                 android:textColor="@color/text_primary"
+                                android:textDirection="ltr"
                                 android:textSize="18sp"
                                 android:textStyle="bold" />
 
@@ -313,7 +352,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:text="Open tasks"
+                                android:text="@string/stat_open_tasks"
                                 android:textColor="@color/text_secondary"
                                 android:textSize="10sp" />
                         </LinearLayout>
@@ -331,6 +370,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="0%"
                                 android:textColor="@color/text_primary"
+                                android:textDirection="ltr"
                                 android:textSize="18sp"
                                 android:textStyle="bold" />
 
@@ -338,7 +378,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:text="Goal progress"
+                                android:text="@string/stat_goal_progress"
                                 android:textColor="@color/text_secondary"
                                 android:textSize="10sp" />
                         </LinearLayout>
@@ -366,10 +406,11 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:backgroundTint="@color/divider"
-                        android:hint="New habit"
+                        android:hint="@string/new_habit_hint"
                         android:inputType="textCapSentences"
                         android:maxLines="1"
                         android:minHeight="48dp"
+                        android:textAlignment="viewStart"
                         android:textColor="@color/text_primary"
                         android:textColorHint="@color/text_secondary"
                         android:textSize="14sp" />
@@ -380,7 +421,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="8dp"
-                        android:text="Add" />
+                        android:text="@string/add" />
                 </LinearLayout>
 
                 <TextView
@@ -388,7 +429,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:text="No habits yet. Add the first one."
+                    android:text="@string/habits_empty"
+                    android:textAlignment="viewStart"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp" />
 
@@ -420,10 +462,11 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:backgroundTint="@color/divider"
-                        android:hint="New task"
+                        android:hint="@string/new_task_hint"
                         android:inputType="textCapSentences"
                         android:maxLines="1"
                         android:minHeight="48dp"
+                        android:textAlignment="viewStart"
                         android:textColor="@color/text_primary"
                         android:textColorHint="@color/text_secondary"
                         android:textSize="14sp" />
@@ -434,7 +477,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="8dp"
-                        android:text="Add" />
+                        android:text="@string/add" />
                 </LinearLayout>
 
                 <TextView
@@ -442,7 +485,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:text="Nothing queued."
+                    android:text="@string/tasks_empty"
+                    android:textAlignment="viewStart"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp" />
 
@@ -474,10 +518,11 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:backgroundTint="@color/divider"
-                        android:hint="New goal"
+                        android:hint="@string/new_goal_hint"
                         android:inputType="textCapSentences"
                         android:maxLines="1"
                         android:minHeight="48dp"
+                        android:textAlignment="viewStart"
                         android:textColor="@color/text_primary"
                         android:textColorHint="@color/text_secondary"
                         android:textSize="14sp" />
@@ -488,7 +533,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="8dp"
-                        android:text="Add" />
+                        android:text="@string/add" />
                 </LinearLayout>
 
                 <TextView
@@ -496,7 +541,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:text="No goals yet."
+                    android:text="@string/goals_empty"
+                    android:textAlignment="viewStart"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp" />
 
@@ -521,14 +567,15 @@
                     style="@style/Widget.KioskOS.Button"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="New note" />
+                    android:text="@string/new_note_title" />
 
                 <TextView
                     android:id="@+id/notesEmpty"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:text="No notes yet."
+                    android:text="@string/notes_empty"
+                    android:textAlignment="viewStart"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp" />
 

@@ -8,8 +8,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Check,
   Cloud,
-  Download,
-  FileCode2,
   Languages,
   MonitorSmartphone,
   Moon,
@@ -34,13 +32,10 @@ import {
 import { AndroidDeviceSimulator } from './components/AndroidDeviceSimulator';
 import { PolicyInspectorPanel } from './components/PolicyInspectorPanel';
 import { SelfImprovementWorkspace } from './components/SelfImprovementWorkspace';
-import { SourceExplorerView } from './components/SourceExplorerView';
 import { AdbProvisioningView } from './components/AdbProvisioningView';
 import { PolicySummary } from './components/PolicySummary';
 import { PcRemoteWorkspace } from './components/PcRemoteWorkspace';
-import { ANDROID_PROJECT_FILES } from './data/androidProjectFiles';
 import { useI18n } from './i18n/LocaleProvider';
-import { buildZipArchive } from './utils/zipBuilder';
 import {
   OperationType,
   User,
@@ -65,6 +60,7 @@ import {
 } from './utils/cloudSyncEngine';
 import {
   BlockerShieldToggleKey,
+  DEFAULT_ADMIN_RESTRICTIONS,
   DEFAULT_BLOCKER_SHIELDS,
   DEFAULT_DOWNTIME_SCHEDULE,
   DEFAULT_HARDWARE_LOCKS,
@@ -75,6 +71,7 @@ import {
   KioskOperationMode,
   KioskState,
   PinGateTarget,
+  RestrictionKey,
   SELF_IMPROVEMENT_PACKAGE,
   activateStrictShieldLock,
   addCustomApp,
@@ -98,6 +95,7 @@ import {
   simulateDeviceReboot,
   submitPin,
   testInAppBrowserAccess,
+  toggleAdminRestriction,
   toggleAllowedApp,
   toggleBlockerShield,
   toggleDeviceOwnerMode,
@@ -112,16 +110,12 @@ import {
 } from './utils/kioskEngine';
 import {
   SelfImprovementState,
-  addCustomAffirmation,
   addGoal,
   addGoalMilestone,
   addHabit,
   addTask,
-  commitTodaysAffirmation,
   createInitialSelfImprovementState,
   createNote,
-  cycleAffirmation,
-  deleteAffirmation,
   deleteGoal,
   deleteHabit,
   deleteNote,
@@ -138,7 +132,7 @@ import {
   updateWhyIStarted,
 } from './utils/selfImprovementEngine';
 
-type WorkspaceTab = 'simulator' | 'growth' | 'policy' | 'pc' | 'source' | 'adb';
+type WorkspaceTab = 'simulator' | 'growth' | 'policy' | 'pc' | 'adb';
 type ThemeMode = 'light' | 'dark';
 
 const STORAGE_KEY = 'kioskos_simulator_state_v1';
@@ -205,6 +199,10 @@ function loadInitialState(): KioskState {
     const migratedState: KioskState = {
       ...base,
       ...parsed,
+      adminRestrictions: {
+        ...DEFAULT_ADMIN_RESTRICTIONS,
+        ...(parsed.adminRestrictions ?? {}),
+      },
       hardwareLocks: {
         ...DEFAULT_HARDWARE_LOCKS,
         ...(parsed.hardwareLocks ?? {}),
@@ -287,25 +285,21 @@ function loadInitialSelfImprovement(): SelfImprovementState {
   try {
     const raw = window.localStorage.getItem(SI_STORAGE_KEY);
     if (!raw) return createInitialSelfImprovementState();
-    const parsed = JSON.parse(raw) as Partial<SelfImprovementState>;
+    const parsed = JSON.parse(raw) as Partial<SelfImprovementState> & Record<string, unknown>;
+    const {
+      affirmations: _a,
+      activeAffirmationIndex: _ai,
+      lastAffirmationCommittedDate: _ac,
+      ...restParsed
+    } = parsed;
     const base = createInitialSelfImprovementState();
     return {
       ...base,
-      ...parsed,
+      ...(restParsed as Partial<SelfImprovementState>),
       cleanCheckInDates:
         Array.isArray(parsed.cleanCheckInDates) && parsed.cleanCheckInDates.length > 0
           ? parsed.cleanCheckInDates
           : base.cleanCheckInDates,
-      affirmations:
-        Array.isArray(parsed.affirmations) && parsed.affirmations.length > 0
-          ? parsed.affirmations
-          : base.affirmations,
-      activeAffirmationIndex:
-        typeof parsed.activeAffirmationIndex === 'number' ? parsed.activeAffirmationIndex : 0,
-      lastAffirmationCommittedDate:
-        parsed.lastAffirmationCommittedDate !== undefined
-          ? parsed.lastAffirmationCommittedDate
-          : null,
       focusSessions: Array.isArray(parsed.focusSessions) ? parsed.focusSessions : base.focusSessions,
       habits: Array.isArray(parsed.habits) ? parsed.habits : base.habits,
       tasks: Array.isArray(parsed.tasks) ? parsed.tasks : base.tasks,
@@ -348,6 +342,25 @@ export default function App() {
   const applyingRemoteDeviceRef = useRef(false);
   const applyingRemoteGrowthRef = useRef(false);
   const hasEnsuredCloudProfileRef = useRef<string | null>(null);
+  const stateRef = useRef(state);
+  const selfImprovementRef = useRef(selfImprovement);
+  const syncedDevicesRef = useRef(syncedDevices);
+  stateRef.current = state;
+  selfImprovementRef.current = selfImprovement;
+  syncedDevicesRef.current = syncedDevices;
+
+  const lastDeviceDigestRef = useRef<string | null>(null);
+  const lastGrowthDigestRef = useRef<string | null>(null);
+
+  const computeDeviceDigest = useCallback((payload: Omit<CloudDeviceSnapshot, 'createdAt' | 'updatedAt'>) => {
+    const { lastModifiedBy: _lmb, ...rest } = payload;
+    return JSON.stringify(rest);
+  }, []);
+
+  const computeGrowthDigest = useCallback((payload: Omit<CloudGrowthSnapshot, 'createdAt' | 'updatedAt'>) => {
+    const { lastUpdatedSource: _lus, ...rest } = payload;
+    return JSON.stringify(rest);
+  }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);
@@ -412,6 +425,8 @@ export default function App() {
       if (!nextUser) {
         setSyncedDevices([]);
         hasEnsuredCloudProfileRef.current = null;
+        lastDeviceDigestRef.current = null;
+        lastGrowthDigestRef.current = null;
       }
     });
     return () => unsub();
@@ -423,7 +438,8 @@ export default function App() {
       kioskSnapshot: KioskState,
       growthSnapshot: SelfImprovementState,
       source: SyncSourceTag,
-      overrideSalt?: string
+      overrideSalt?: string,
+      forcePush = false
     ) => {
       if (!navigator.onLine) {
         setPendingOfflineSync(true);
@@ -436,6 +452,36 @@ export default function App() {
       const devicePath = `users/${targetUser.uid}/devices/${selectedDeviceId}`;
       const growthPath = `users/${targetUser.uid}/growth/${DEFAULT_PROFILE_ID}`;
 
+      const knownDevice = syncedDevicesRef.current.find((d) => d.deviceId === selectedDeviceId);
+      const devicePayload = buildDeviceSyncPayload({
+        state: kioskSnapshot,
+        ownerId: targetUser.uid,
+        deviceId: selectedDeviceId,
+        deviceLabel: knownDevice?.deviceLabel ?? 'Pixel Kiosk Mobile',
+        platform: knownDevice?.platform ?? 'web_simulator',
+        isOnline: navigator.onLine,
+        adminPinSalt: activeSalt,
+        adminPinHash: pinHash,
+        source,
+      });
+
+      const growthPayload = buildGrowthSyncPayload({
+        growth: growthSnapshot,
+        ownerId: targetUser.uid,
+        profileId: DEFAULT_PROFILE_ID,
+        source,
+      });
+
+      const nextDeviceDigest = computeDeviceDigest(devicePayload);
+      const nextGrowthDigest = computeGrowthDigest(growthPayload);
+      const deviceChanged = forcePush || nextDeviceDigest !== lastDeviceDigestRef.current;
+      const growthChanged = forcePush || nextGrowthDigest !== lastGrowthDigestRef.current;
+
+      if (!deviceChanged && !growthChanged && hasEnsuredCloudProfileRef.current === targetUser.uid) {
+        setPendingOfflineSync(false);
+        return;
+      }
+
       setSyncBusy(true);
       setSyncError(null);
       try {
@@ -446,7 +492,7 @@ export default function App() {
             await setDoc(userRef, {
               uid: targetUser.uid,
               email: (targetUser.email ?? '').slice(0, 254),
-              displayName: (targetUser.displayName ?? tr("Kiosk Owner")).slice(0, 100),
+              displayName: (targetUser.displayName ?? 'Kiosk Owner').slice(0, 100),
               lastActiveDeviceId: selectedDeviceId,
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
@@ -454,7 +500,7 @@ export default function App() {
           } else {
             await updateDoc(userRef, {
               email: (targetUser.email ?? '').slice(0, 254),
-              displayName: (targetUser.displayName ?? tr("Kiosk Owner")).slice(0, 100),
+              displayName: (targetUser.displayName ?? 'Kiosk Owner').slice(0, 100),
               lastActiveDeviceId: selectedDeviceId,
               updatedAt: serverTimestamp(),
             });
@@ -462,58 +508,42 @@ export default function App() {
           hasEnsuredCloudProfileRef.current = targetUser.uid;
         }
 
-        const deviceRef = doc(db, 'users', targetUser.uid, 'devices', selectedDeviceId);
-        const devicePayload = buildDeviceSyncPayload({
-          state: kioskSnapshot,
-          ownerId: targetUser.uid,
-          deviceId: selectedDeviceId,
-          deviceLabel:
-            syncedDevices.find((d) => d.deviceId === selectedDeviceId)?.deviceLabel ??
-            tr("Pixel Kiosk Mobile"),
-          platform:
-            syncedDevices.find((d) => d.deviceId === selectedDeviceId)?.platform ??
-            'web_simulator',
-          isOnline: navigator.onLine,
-          adminPinSalt: activeSalt,
-          adminPinHash: pinHash,
-          source,
-        });
-
-        const devSnap = await getDoc(deviceRef);
-        if (!devSnap.exists()) {
-          await setDoc(deviceRef, {
-            ...devicePayload,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          });
-        } else {
-          const { ownerId: _o, deviceId: _d, ...updatable } = devicePayload;
-          await updateDoc(deviceRef, {
-            ...updatable,
-            updatedAt: serverTimestamp(),
-          });
+        if (deviceChanged) {
+          const deviceRef = doc(db, 'users', targetUser.uid, 'devices', selectedDeviceId);
+          const devSnap = await getDoc(deviceRef);
+          if (!devSnap.exists()) {
+            await setDoc(deviceRef, {
+              ...devicePayload,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
+          } else {
+            const { ownerId: _o, deviceId: _d, ...updatable } = devicePayload;
+            await updateDoc(deviceRef, {
+              ...updatable,
+              updatedAt: serverTimestamp(),
+            });
+          }
+          lastDeviceDigestRef.current = nextDeviceDigest;
         }
 
-        const growthRef = doc(db, 'users', targetUser.uid, 'growth', DEFAULT_PROFILE_ID);
-        const growthPayload = buildGrowthSyncPayload({
-          growth: growthSnapshot,
-          ownerId: targetUser.uid,
-          profileId: DEFAULT_PROFILE_ID,
-          source,
-        });
-        const growthSnap = await getDoc(growthRef);
-        if (!growthSnap.exists()) {
-          await setDoc(growthRef, {
-            ...growthPayload,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          });
-        } else {
-          const { ownerId: _go, profileId: _gp, ...updatableGrowth } = growthPayload;
-          await updateDoc(growthRef, {
-            ...updatableGrowth,
-            updatedAt: serverTimestamp(),
-          });
+        if (growthChanged) {
+          const growthRef = doc(db, 'users', targetUser.uid, 'growth', DEFAULT_PROFILE_ID);
+          const growthSnap = await getDoc(growthRef);
+          if (!growthSnap.exists()) {
+            await setDoc(growthRef, {
+              ...growthPayload,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
+          } else {
+            const { ownerId: _go, profileId: _gp, ...updatableGrowth } = growthPayload;
+            await updateDoc(growthRef, {
+              ...updatableGrowth,
+              updatedAt: serverTimestamp(),
+            });
+          }
+          lastGrowthDigestRef.current = nextGrowthDigest;
         }
 
         setPendingOfflineSync(false);
@@ -522,22 +552,24 @@ export default function App() {
       } catch (err) {
         if (isNetworkUnavailableError(err)) {
           setPendingOfflineSync(true);
-          setSyncError('Offline or Firestore unreachable — changes remain saved locally and will sync later.');
+          setSyncError(tr('Offline or Firestore unreachable — changes remain saved locally and will sync later.'));
         } else {
-          setSyncError(err instanceof Error ? err.message : tr("Sync failed."));
+          setSyncError(err instanceof Error ? err.message : tr('Sync failed.'));
           handleFirestoreError(err, OperationType.WRITE, `${userPath} / ${devicePath} / ${growthPath}`);
         }
       } finally {
         setSyncBusy(false);
       }
     },
-    [pinSalt, selectedDeviceId, syncedDevices]
+    [pinSalt, selectedDeviceId, computeDeviceDigest, computeGrowthDigest, tr]
   );
 
   // Attach real-time Firestore listeners ONLY when authenticated
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
+    lastDeviceDigestRef.current = null;
+    lastGrowthDigestRef.current = null;
 
     const initAndSubscribe = async () => {
       try {
@@ -547,7 +579,7 @@ export default function App() {
           await setDoc(userRef, {
             uid: user.uid,
             email: (user.email ?? '').slice(0, 254),
-            displayName: (user.displayName ?? tr("Kiosk Owner")).slice(0, 100),
+            displayName: (user.displayName ?? 'Kiosk Owner').slice(0, 100),
             lastActiveDeviceId: selectedDeviceId,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
@@ -558,34 +590,39 @@ export default function App() {
         const devRef = doc(db, 'users', user.uid, 'devices', selectedDeviceId);
         const devSnap = await getDoc(devRef);
         if (!devSnap.exists()) {
-          const pinHash = await hashPinWithSalt(state.adminPin, pinSalt);
+          const currentState = stateRef.current;
+          const pinHash = await hashPinWithSalt(currentState.adminPin, pinSalt);
+          const payload = buildDeviceSyncPayload({
+            state: currentState,
+            ownerId: user.uid,
+            deviceId: selectedDeviceId,
+            adminPinSalt: pinSalt,
+            adminPinHash: pinHash,
+            source: 'web_simulator',
+          });
           await setDoc(devRef, {
-            ...buildDeviceSyncPayload({
-              state,
-              ownerId: user.uid,
-              deviceId: selectedDeviceId,
-              adminPinSalt: pinSalt,
-              adminPinHash: pinHash,
-              source: 'web_simulator',
-            }),
+            ...payload,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           });
+          lastDeviceDigestRef.current = computeDeviceDigest(payload);
         }
 
         const growthRef = doc(db, 'users', user.uid, 'growth', DEFAULT_PROFILE_ID);
         const gSnap = await getDoc(growthRef);
         if (!gSnap.exists()) {
+          const payload = buildGrowthSyncPayload({
+            growth: selfImprovementRef.current,
+            ownerId: user.uid,
+            profileId: DEFAULT_PROFILE_ID,
+            source: 'web_simulator',
+          });
           await setDoc(growthRef, {
-            ...buildGrowthSyncPayload({
-              growth: selfImprovement,
-              ownerId: user.uid,
-              profileId: DEFAULT_PROFILE_ID,
-              source: 'web_simulator',
-            }),
+            ...payload,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           });
+          lastGrowthDigestRef.current = computeGrowthDigest(payload);
         }
         if (!cancelled) {
           setCloudConnected(true);
@@ -623,10 +660,23 @@ export default function App() {
         const matched = docs.find((d) => d.deviceId === selectedDeviceId) ?? docs[0];
         if (matched && matched.lastModifiedBy === 'pc_web') {
           applyingRemoteDeviceRef.current = true;
-          setState((prev) => applyRemoteDeviceToKioskState(prev, matched));
-          window.setTimeout(() => {
+          const nextState = applyRemoteDeviceToKioskState(stateRef.current, matched);
+          const expectedPayload = buildDeviceSyncPayload({
+            state: nextState,
+            ownerId: user.uid,
+            deviceId: selectedDeviceId,
+            deviceLabel: matched.deviceLabel ?? 'Pixel Kiosk Mobile',
+            platform: matched.platform ?? 'web_simulator',
+            isOnline: navigator.onLine,
+            adminPinSalt: matched.adminPinSalt ?? pinSalt,
+            adminPinHash: matched.adminPinHash ?? '',
+            source: 'web_simulator',
+          });
+          lastDeviceDigestRef.current = computeDeviceDigest(expectedPayload);
+          setState(nextState);
+          queueMicrotask(() => {
             applyingRemoteDeviceRef.current = false;
-          }, 150);
+          });
         }
         setLastSyncedAt(formatClockNow());
       },
@@ -644,10 +694,18 @@ export default function App() {
         const remote = snapshot.data() as CloudGrowthSnapshot;
         if (remote.lastUpdatedSource && remote.lastUpdatedSource !== 'web_simulator') {
           applyingRemoteGrowthRef.current = true;
-          setSelfImprovement((prev) => applyRemoteGrowthToLocalState(prev, remote));
-          window.setTimeout(() => {
+          const nextGrowth = applyRemoteGrowthToLocalState(selfImprovementRef.current, remote);
+          const expectedGrowthPayload = buildGrowthSyncPayload({
+            growth: nextGrowth,
+            ownerId: user.uid,
+            profileId: DEFAULT_PROFILE_ID,
+            source: 'web_simulator',
+          });
+          lastGrowthDigestRef.current = computeGrowthDigest(expectedGrowthPayload);
+          setSelfImprovement(nextGrowth);
+          queueMicrotask(() => {
             applyingRemoteGrowthRef.current = false;
-          }, 150);
+          });
         }
       },
       (error) => {
@@ -667,13 +725,13 @@ export default function App() {
 
   // Debounced auto-sync when local Kiosk or Growth state changes while signed in
   useEffect(() => {
-    if (!user || applyingRemoteDeviceRef.current) return;
+    if (!user || applyingRemoteDeviceRef.current || applyingRemoteGrowthRef.current) return;
     if (!isOnline) {
       setPendingOfflineSync(true);
       return;
     }
     const timer = window.setTimeout(() => {
-      void pushLocalToCloud(user, state, selfImprovement, 'web_simulator');
+      void pushLocalToCloud(user, stateRef.current, selfImprovementRef.current, 'web_simulator');
     }, 650);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -682,7 +740,7 @@ export default function App() {
   // Auto-flush queued offline changes when coming back online
   useEffect(() => {
     if (user && isOnline && pendingOfflineSync) {
-      void pushLocalToCloud(user, state, selfImprovement, 'web_simulator');
+      void pushLocalToCloud(user, stateRef.current, selfImprovementRef.current, 'web_simulator');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline, user, pendingOfflineSync]);
@@ -705,15 +763,15 @@ export default function App() {
     updater: (current: KioskState) => KioskState,
     options?: { clearPinLockout?: boolean; newPlainPin?: string }
   ): Promise<{ ok: boolean; error?: string }> => {
-    if (!user) return { ok: false, error: 'Sign in first.' };
+    if (!user) return { ok: false, error: tr('Sign in first.') };
     if (!isOnline) {
-      return { ok: false, error: 'PC is offline — connect to push remote updates to your phone.' };
+      return { ok: false, error: tr('PC is offline — connect to push remote updates to your phone.') };
     }
 
-    const remoteSnap = syncedDevices.find((d) => d.deviceId === selectedDeviceId);
+    const remoteSnap = syncedDevicesRef.current.find((d) => d.deviceId === selectedDeviceId);
     const baseState: KioskState = remoteSnap
-      ? applyRemoteDeviceToKioskState(state, remoteSnap)
-      : state;
+      ? applyRemoteDeviceToKioskState(stateRef.current, remoteSnap)
+      : stateRef.current;
     const updatedState = updater(baseState);
 
     let nextSalt = pinSalt;
@@ -733,7 +791,7 @@ export default function App() {
       state: updatedState,
       ownerId: user.uid,
       deviceId: selectedDeviceId,
-      deviceLabel: remoteSnap?.deviceLabel ?? tr("Pixel Kiosk Mobile"),
+      deviceLabel: remoteSnap?.deviceLabel ?? 'Pixel Kiosk Mobile',
       platform: remoteSnap?.platform ?? 'web_simulator',
       isOnline: remoteSnap?.isOnline ?? true,
       adminPinSalt: nextSalt,
@@ -756,19 +814,20 @@ export default function App() {
 
     try {
       applyingRemoteDeviceRef.current = true;
+      lastDeviceDigestRef.current = computeDeviceDigest(payload);
       setState(updatedState);
       await updateDoc(doc(db, 'users', user.uid, 'devices', selectedDeviceId), {
         ...pcAllowedFields,
         updatedAt: serverTimestamp(),
       });
       setLastSyncedAt(formatClockNow());
-      window.setTimeout(() => {
+      queueMicrotask(() => {
         applyingRemoteDeviceRef.current = false;
-      }, 250);
+      });
       return { ok: true };
     } catch (err) {
       applyingRemoteDeviceRef.current = false;
-      const msg = err instanceof Error ? err.message : tr("Failed to push remote update.");
+      const msg = err instanceof Error ? err.message : tr('Failed to push remote update.');
       if (!isNetworkUnavailableError(err)) {
         handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}/devices/${selectedDeviceId}`);
       }
@@ -776,55 +835,30 @@ export default function App() {
     }
   };
 
-  // Only a complete module (manifest present) may produce a downloadable archive.
-  const hasAndroidSources = ANDROID_PROJECT_FILES.some((file) =>
-    file.path.endsWith('AndroidManifest.xml')
-  );
-
-  const handleDownloadZip = () => {
-    // Never emit an archive built from missing or placeholder sources.
-    if (!hasAndroidSources) return;
-    const zipBytes = buildZipArchive(
-      ANDROID_PROJECT_FILES.map((file) => ({
-        path: `android-kiosk-launcher/${file.path}`,
-        content: file.content,
-      }))
-    );
-    const blob = new Blob([zipBytes.buffer as ArrayBuffer], { type: 'application/zip' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'android-kiosk-launcher.zip';
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleLaunchApp = (packageName: string) => {
+  const handleLaunchApp = useCallback((packageName: string) => {
     setState((prev) => launchApp(prev, packageName, formatClockNow()));
-  };
+  }, []);
 
-  const handleAttemptUninstall = (packageName: string) => {
+  const handleAttemptUninstall = useCallback((packageName: string) => {
     setState((prev) => attemptUninstallApp(prev, packageName, formatClockNow()));
-  };
+  }, []);
 
-  const handleOpenPinGate = (target: PinGateTarget) => {
+  const handleOpenPinGate = useCallback((target: PinGateTarget) => {
     setState((prev) => openPinGate(prev, target));
-  };
+  }, []);
 
-  const handleSubmitPin = (pin: string): { verified: boolean; lockedOutSeconds?: number } => {
+  const handleSubmitPin = useCallback((pin: string): { verified: boolean; lockedOutSeconds?: number } => {
     const { nextState, verified, lockedOutSeconds } = submitPin(
-      state,
+      stateRef.current,
       pin,
       formatClockNow(),
       Date.now()
     );
     setState(nextState);
     return { verified, lockedOutSeconds };
-  };
+  }, []);
 
-  const handleCancelPinGate = () => {
+  const handleCancelPinGate = useCallback(() => {
     setState((prev) => ({
       ...prev,
       activeScreen:
@@ -837,145 +871,146 @@ export default function App() {
           : 'home',
       pinGateTarget: null,
     }));
-  };
+  }, []);
 
-  const handleToggleAllowedApp = (packageName: string) => {
+  const handleToggleAllowedApp = useCallback((packageName: string) => {
     setState((prev) => toggleAllowedApp(prev, packageName, formatClockNow()));
-  };
+  }, []);
 
-  const handleAddCustomApp = (
-    label: string,
-    packageName: string
-  ): { ok: boolean; error?: string } => {
-    const res = addCustomApp(state, label, packageName, formatClockNow());
-    if (res.ok) {
-      setState(res.nextState);
-    }
-    return { ok: res.ok, error: res.error };
-  };
+  const handleAddCustomApp = useCallback(
+    (label: string, packageName: string): { ok: boolean; error?: string } => {
+      const res = addCustomApp(stateRef.current, label, packageName, formatClockNow());
+      if (res.ok) {
+        setState(res.nextState);
+      }
+      return { ok: res.ok, error: res.error };
+    },
+    []
+  );
 
-  const handleUpdatePin = (
-    currentPin: string,
-    newPin: string,
-    confirmPin: string
-  ): { ok: boolean; error?: string } => {
-    const res = updateAdminPin(state, currentPin, newPin, confirmPin, formatClockNow());
-    if (res.ok) {
-      setState(res.nextState);
-    }
-    return { ok: res.ok, error: res.error };
-  };
+  const handleUpdatePin = useCallback(
+    (currentPin: string, newPin: string, confirmPin: string): { ok: boolean; error?: string } => {
+      const res = updateAdminPin(stateRef.current, currentPin, newPin, confirmPin, formatClockNow());
+      if (res.ok) {
+        setState(res.nextState);
+      }
+      return { ok: res.ok, error: res.error };
+    },
+    []
+  );
 
-  const handleSetAdminUnlock = (unlocked: boolean) => {
+  const handleSetAdminUnlock = useCallback((unlocked: boolean) => {
     setState((prev) => setAdminSystemUnlock(prev, unlocked, formatClockNow()));
-  };
+  }, []);
 
-  const handleSetKioskMode = (mode: KioskOperationMode, singleAppPackage?: string | null) => {
+  const handleSetKioskMode = useCallback((mode: KioskOperationMode, singleAppPackage?: string | null) => {
     setState((prev) => setKioskOperationMode(prev, mode, singleAppPackage, formatClockNow()));
-  };
+  }, []);
 
-  const handleUpdateKioskTitle = (title: string) => {
+  const handleUpdateKioskTitle = useCallback((title: string) => {
     setState((prev) => updateKioskTitle(prev, title, formatClockNow()));
-  };
+  }, []);
 
-  const handleToggleHardwarePolicy = (key: HardwareLockPolicyKey) => {
+  const handleToggleAdminRestriction = useCallback((key: RestrictionKey) => {
+    setState((prev) => toggleAdminRestriction(prev, key, undefined, formatClockNow()));
+  }, []);
+
+  const handleToggleHardwarePolicy = useCallback((key: HardwareLockPolicyKey) => {
     setState((prev) => toggleHardwarePolicy(prev, key, undefined, formatClockNow()));
-  };
+  }, []);
 
-  const handleToggleBlockerShield = (
-    key: BlockerShieldToggleKey
-  ): { ok: boolean; error?: string } => {
-    const res = toggleBlockerShield(state, key, undefined, formatClockNow(), Date.now());
+  const handleToggleBlockerShield = useCallback(
+    (key: BlockerShieldToggleKey): { ok: boolean; error?: string } => {
+      const res = toggleBlockerShield(stateRef.current, key, undefined, formatClockNow(), Date.now());
+      setState(res.nextState);
+      return { ok: res.ok, error: res.error };
+    },
+    []
+  );
+
+  const handleSetFamilyDnsMode = useCallback((mode: FamilyDnsMode): { ok: boolean; error?: string } => {
+    const res = setFamilyDnsMode(stateRef.current, mode, formatClockNow(), Date.now());
     setState(res.nextState);
     return { ok: res.ok, error: res.error };
-  };
+  }, []);
 
-  const handleSetFamilyDnsMode = (
-    mode: FamilyDnsMode
-  ): { ok: boolean; error?: string } => {
-    const res = setFamilyDnsMode(state, mode, formatClockNow(), Date.now());
-    setState(res.nextState);
-    return { ok: res.ok, error: res.error };
-  };
-
-  const handleUpdateInAppWhitelist = (packages: string[]) => {
+  const handleUpdateInAppWhitelist = useCallback((packages: string[]) => {
     setState((prev) => updateInAppBrowserWhitelist(prev, packages, formatClockNow()));
-  };
+  }, []);
 
-  const handleUpdateBlockedKeywords = (keywords: string[]) => {
+  const handleUpdateBlockedKeywords = useCallback((keywords: string[]) => {
     setState((prev) => updateBlockedKeywords(prev, keywords, formatClockNow()));
-  };
+  }, []);
 
-  const handleActivateStrictLock = (minutes: number) => {
+  const handleActivateStrictLock = useCallback((minutes: number) => {
     setState((prev) => activateStrictShieldLock(prev, minutes, formatClockNow(), Date.now()));
-  };
+  }, []);
 
-  const handleTestInAppBrowser = (
-    packageName: string
-  ): { allowed: boolean; reason: string } => {
-    const res = testInAppBrowserAccess(state, packageName, formatClockNow());
+  const handleTestInAppBrowser = useCallback((packageName: string): { allowed: boolean; reason: string } => {
+    const res = testInAppBrowserAccess(stateRef.current, packageName, formatClockNow());
     setState(res.nextState);
     return { allowed: res.allowed, reason: res.reason };
-  };
+  }, []);
 
-  const handleUpdateAllowedDomains = (domains: string[]) => {
+  const handleUpdateAllowedDomains = useCallback((domains: string[]) => {
     setState((prev) => updateAllowedDomains(prev, domains, formatClockNow()));
-  };
+  }, []);
 
-  const handleNavigateBrowser = (url: string): { ok: boolean; reason?: string } => {
-    const res = navigateKioskBrowser(state, url, formatClockNow());
+  const handleNavigateBrowser = useCallback((url: string): { ok: boolean; reason?: string } => {
+    const res = navigateKioskBrowser(stateRef.current, url, formatClockNow());
     setState(res.nextState);
     return { ok: res.ok, reason: res.reason };
-  };
+  }, []);
 
-  const handleSetAppTimeLimit = (
-    packageName: string,
-    minutes: number
-  ): { ok: boolean; error?: string } => {
-    const res = setAppTimeLimit(state, packageName, minutes, formatClockNow(), Date.now());
+  const handleSetAppTimeLimit = useCallback(
+    (packageName: string, minutes: number): { ok: boolean; error?: string } => {
+      const res = setAppTimeLimit(stateRef.current, packageName, minutes, formatClockNow(), Date.now());
+      setState(res.nextState);
+      return { ok: res.ok, error: res.error };
+    },
+    []
+  );
+
+  const handleResetAppUsage = useCallback((packageName: string): { ok: boolean; error?: string } => {
+    const res = resetAppUsage(stateRef.current, packageName, formatClockNow(), Date.now());
     setState(res.nextState);
     return { ok: res.ok, error: res.error };
-  };
+  }, []);
 
-  const handleResetAppUsage = (packageName: string): { ok: boolean; error?: string } => {
-    const res = resetAppUsage(state, packageName, formatClockNow(), Date.now());
+  const handleUpdateDowntimeSchedule = useCallback(
+    (patch: Partial<DowntimeSchedule>): { ok: boolean; error?: string } => {
+      const res = updateDowntimeSchedule(stateRef.current, patch, formatClockNow(), Date.now());
+      setState(res.nextState);
+      return { ok: res.ok, error: res.error };
+    },
+    []
+  );
+
+  const handleSetFocusBlockSession = useCallback((minutes: number): { ok: boolean; error?: string } => {
+    const res = setFocusBlockSession(stateRef.current, minutes, formatClockNow(), Date.now());
     setState(res.nextState);
     return { ok: res.ok, error: res.error };
-  };
+  }, []);
 
-  const handleUpdateDowntimeSchedule = (
-    patch: Partial<DowntimeSchedule>
-  ): { ok: boolean; error?: string } => {
-    const res = updateDowntimeSchedule(state, patch, formatClockNow(), Date.now());
-    setState(res.nextState);
-    return { ok: res.ok, error: res.error };
-  };
-
-  const handleSetFocusBlockSession = (minutes: number): { ok: boolean; error?: string } => {
-    const res = setFocusBlockSession(state, minutes, formatClockNow(), Date.now());
-    setState(res.nextState);
-    return { ok: res.ok, error: res.error };
-  };
-
-  const handleAdvanceAppUsage = (packageName: string, deltaSeconds: number) => {
+  const handleAdvanceAppUsage = useCallback((packageName: string, deltaSeconds: number) => {
     setState((prev) =>
       advanceAppUsage(prev, packageName, deltaSeconds, formatClockNow(), Date.now())
     );
-  };
+  }, []);
 
-  const handleTriggerPanic = () => {
+  const handleTriggerPanic = useCallback(() => {
     setState((prev) => triggerPanicLockdown(prev, undefined, formatClockNow(), Date.now()));
-  };
+  }, []);
 
-  const handleClearPanicLockdown = () => {
+  const handleClearPanicLockdown = useCallback(() => {
     setState((prev) => clearPanicLockdown(prev, formatClockNow()));
-  };
+  }, []);
 
-  const handleResetTamperDiagnostics = () => {
+  const handleResetTamperDiagnostics = useCallback(() => {
     setState((prev) => resetTamperDiagnostics(prev, formatClockNow()));
-  };
+  }, []);
 
-  const handleSimulateRapidAdminToggles = () => {
+  const handleSimulateRapidAdminToggles = useCallback(() => {
     const ts = formatClockNow();
     const baseMs = Date.now();
     setState((prev) => {
@@ -985,55 +1020,58 @@ export default function App() {
       }
       return next;
     });
-  };
+  }, []);
 
-  const handleReturnHome = () => {
+  const handleReturnHome = useCallback(() => {
     setState((prev) => returnToKioskHome(prev, formatClockNow()));
-  };
+  }, []);
 
-  const handleToggleDeviceOwner = () => {
+  const handleToggleDeviceOwner = useCallback(() => {
     setState((prev) => toggleDeviceOwnerMode(prev, !prev.isDeviceOwner, formatClockNow()));
-  };
+  }, []);
 
-  const handleSimulateReboot = () => {
+  const handleSimulateReboot = useCallback(() => {
     setState((prev) => ({ ...prev, activeScreen: 'rebooting', blockedNotice: null }));
     window.setTimeout(() => {
       setState((prev) => simulateDeviceReboot(prev, formatClockNow()));
     }, 450);
-  };
+  }, []);
 
-  const handleToggleOrientation = () => {
+  const handleToggleOrientation = useCallback(() => {
     setState((prev) => ({
       ...prev,
       orientation: prev.orientation === 'portrait' ? 'landscape' : 'portrait',
     }));
-  };
+  }, []);
 
-  const handleToggleFontScale = () => {
+  const handleToggleFontScale = useCallback(() => {
     setState((prev) => ({
       ...prev,
       fontScale: prev.fontScale === '1.0x' ? '1.15x' : '1.0x',
     }));
-  };
+  }, []);
 
-  const handleResetAll = () => {
+  const handleResetAll = useCallback(() => {
     setState(createInitialKioskState());
-  };
+  }, []);
 
-  const handleCreateNote = (
-    notebook: Parameters<typeof createNote>[1],
-    title?: string,
-    htmlContent?: string
-  ): string => {
-    const { nextState, createdNoteId } = createNote(
-      selfImprovement,
-      notebook,
-      title,
-      htmlContent
-    );
-    setSelfImprovement(nextState);
-    return createdNoteId;
-  };
+  const handleRecordFocusSession = useCallback((minutes: number, label: string) => {
+    setSelfImprovement((prev) => recordFocusSession(prev, minutes, label));
+  }, []);
+
+  const handleCreateNote = useCallback(
+    (notebook: Parameters<typeof createNote>[1], title?: string, htmlContent?: string): string => {
+      const { nextState, createdNoteId } = createNote(
+        selfImprovementRef.current,
+        notebook,
+        title,
+        htmlContent
+      );
+      setSelfImprovement(nextState);
+      return createdNoteId;
+    },
+    []
+  );
 
   return (
     <div className="flex min-h-screen flex-col text-slate-900 antialiased dark:text-slate-100">
@@ -1069,7 +1107,6 @@ export default function App() {
                   { id: 'growth', label: t('nav.growth'), shortLabel: t('nav.growthShort'), Icon: TrendingUp },
                   { id: 'policy', label: t('nav.policy'), shortLabel: t('nav.policyShort'), Icon: ShieldCheck },
                   { id: 'pc', label: t('nav.pc'), shortLabel: t('nav.pcShort'), Icon: MonitorSmartphone },
-                  { id: 'source', label: t('nav.source'), shortLabel: t('nav.sourceShort'), Icon: FileCode2 },
                   { id: 'adb', label: t('nav.adb'), shortLabel: t('nav.adbShort'), Icon: Terminal },
                 ] as const
               ).map((tab) => {
@@ -1189,19 +1226,6 @@ export default function App() {
               <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
               <span className="hidden sm:inline">{t('download.apk')}</span>
             </a>
-            <button
-              type="button"
-              onClick={handleDownloadZip}
-              disabled={!hasAndroidSources}
-              aria-label={t('download.zipAria')}
-              title={
-                hasAndroidSources ? t('download.zipTitle') : t('download.zipMissing')
-              }
-              className="btn-quiet whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Download className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="hidden sm:inline">{t('download.zip')}</span>
-            </button>
           </div>
         </div>
       </header>
@@ -1249,6 +1273,7 @@ export default function App() {
               onSetAdminUnlock={handleSetAdminUnlock}
               onSetKioskMode={handleSetKioskMode}
               onUpdateKioskTitle={handleUpdateKioskTitle}
+              onToggleAdminRestriction={handleToggleAdminRestriction}
               onToggleHardwarePolicy={handleToggleHardwarePolicy}
               onToggleBlockerShield={handleToggleBlockerShield}
               onSetFamilyDnsMode={handleSetFamilyDnsMode}
@@ -1271,12 +1296,7 @@ export default function App() {
               }
               onToggleTask={(taskId) => setSelfImprovement((prev) => toggleTask(prev, taskId))}
               onLogCleanDay={() => setSelfImprovement((prev) => logCleanDay(prev))}
-              onCycleAffirmation={(delta) =>
-                setSelfImprovement((prev) => cycleAffirmation(prev, delta))
-              }
-              onRecordFocusSession={(minutes, label) =>
-                setSelfImprovement((prev) => recordFocusSession(prev, minutes, label))
-              }
+              onRecordFocusSession={handleRecordFocusSession}
               onQuickSaveDiaryNote={(title, body) => {
                 handleCreateNote('Diary', title, body);
               }}
@@ -1296,21 +1316,7 @@ export default function App() {
             onUpdateWhyIStarted={(text) =>
               setSelfImprovement((prev) => updateWhyIStarted(prev, text))
             }
-            onCycleAffirmation={(delta) =>
-              setSelfImprovement((prev) => cycleAffirmation(prev, delta))
-            }
-            onCommitAffirmation={() =>
-              setSelfImprovement((prev) => commitTodaysAffirmation(prev))
-            }
-            onAddCustomAffirmation={(text, focusArea) =>
-              setSelfImprovement((prev) => addCustomAffirmation(prev, text, focusArea))
-            }
-            onDeleteAffirmation={(id) =>
-              setSelfImprovement((prev) => deleteAffirmation(prev, id))
-            }
-            onRecordFocusSession={(minutes, label) =>
-              setSelfImprovement((prev) => recordFocusSession(prev, minutes, label))
-            }
+            onRecordFocusSession={handleRecordFocusSession}
             onAddHabit={(title, cat) => setSelfImprovement((prev) => addHabit(prev, title, cat))}
             onToggleHabitDate={(id, d) =>
               setSelfImprovement((prev) => toggleHabitDate(prev, id, d))
@@ -1348,6 +1354,7 @@ export default function App() {
             onSimulateReboot={handleSimulateReboot}
             onToggleOrientation={handleToggleOrientation}
             onToggleFontScale={handleToggleFontScale}
+            onToggleAdminRestriction={handleToggleAdminRestriction}
             onToggleHardwarePolicy={handleToggleHardwarePolicy}
             onToggleBlockerShield={handleToggleBlockerShield}
             onSetFamilyDnsMode={handleSetFamilyDnsMode}
@@ -1386,7 +1393,7 @@ export default function App() {
             onSignInGoogle={handleSignInGoogle}
             onSignOutGoogle={handleSignOutGoogle}
             onSyncNow={async () => {
-              if (user) await pushLocalToCloud(user, state, selfImprovement, 'web_simulator');
+              if (user) await pushLocalToCloud(user, state, selfImprovement, 'web_simulator', undefined, true);
             }}
             onRemoteUpdateSettings={handleRemoteUpdateSettings}
             onToggleHabitToday={(habitId) =>
@@ -1397,8 +1404,6 @@ export default function App() {
             onOpenSelfImprovementTab={() => setActiveTab('growth')}
           />
         )}
-
-        {activeTab === 'source' && <SourceExplorerView />}
 
         {activeTab === 'adb' && <AdbProvisioningView />}
       </main>

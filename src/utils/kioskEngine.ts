@@ -98,6 +98,7 @@ export interface KioskState {
   kioskMode: KioskOperationMode;
   singleAppPackage: string | null;
   kioskTitle: string;
+  adminRestrictions: Record<RestrictionKey, boolean>;
   hardwareLocks: HardwareLockPolicies;
   blockerShields: BlockerShieldPolicies;
   appTimeLimits: Record<string, number>;
@@ -220,6 +221,13 @@ export const DEFAULT_IN_APP_BROWSER_WHITELIST = [
   'com.google.android.apps.docs',
   'com.Slack',
 ];
+
+export const DEFAULT_ADMIN_RESTRICTIONS: Record<RestrictionKey, boolean> = {
+  DISALLOW_SAFE_BOOT: true,
+  DISALLOW_FACTORY_RESET: true,
+  DISALLOW_ADD_USER: true,
+  DISALLOW_APPS_CONTROL: true,
+};
 
 export const DEFAULT_HARDWARE_LOCKS: HardwareLockPolicies = {
   statusBarDisabled: true,
@@ -357,6 +365,7 @@ export function createInitialKioskState(): KioskState {
     kioskMode: 'multi_app',
     singleAppPackage: SELF_IMPROVEMENT_PACKAGE,
     kioskTitle: 'Kiosk Home',
+    adminRestrictions: { ...DEFAULT_ADMIN_RESTRICTIONS },
     hardwareLocks: { ...DEFAULT_HARDWARE_LOCKS },
     blockerShields: {
       ...DEFAULT_BLOCKER_SHIELDS,
@@ -430,11 +439,12 @@ export function getEnforcedRestrictions(state: KioskState): Record<RestrictionKe
       DISALLOW_APPS_CONTROL: false,
     };
   }
+  const configured = state.adminRestrictions ?? DEFAULT_ADMIN_RESTRICTIONS;
   return {
-    DISALLOW_SAFE_BOOT: true,
-    DISALLOW_FACTORY_RESET: true,
-    DISALLOW_ADD_USER: true,
-    DISALLOW_APPS_CONTROL: !state.adminUnlocked,
+    DISALLOW_SAFE_BOOT: configured.DISALLOW_SAFE_BOOT,
+    DISALLOW_FACTORY_RESET: configured.DISALLOW_FACTORY_RESET,
+    DISALLOW_ADD_USER: configured.DISALLOW_ADD_USER,
+    DISALLOW_APPS_CONTROL: configured.DISALLOW_APPS_CONTROL && !state.adminUnlocked,
   };
 }
 
@@ -1486,6 +1496,35 @@ export function toggleHardwarePolicy(
     events: appendEvent(
       state.events,
       apiNameMap[key],
+      `${key} set to ${nextValue}.`,
+      nextValue ? 'enforced' : 'info',
+      timestamp
+    ),
+  };
+  return recordAdminSettingMutation(updated, `${key}=${nextValue}`, timestamp, nowMs);
+}
+
+export function toggleAdminRestriction(
+  state: KioskState,
+  key: RestrictionKey,
+  enabled?: boolean,
+  timestamp = '08:31:24',
+  nowMs = Date.now()
+): KioskState {
+  const current = state.adminRestrictions ?? DEFAULT_ADMIN_RESTRICTIONS;
+  const nextValue = enabled !== undefined ? enabled : !current[key];
+  const nextRestrictions: Record<RestrictionKey, boolean> = {
+    ...current,
+    [key]: nextValue,
+  };
+
+  const apiCall = `dpm.${nextValue ? 'addUserRestriction' : 'clearUserRestriction'}(admin, UserManager.${key})`;
+  const updated: KioskState = {
+    ...state,
+    adminRestrictions: nextRestrictions,
+    events: appendEvent(
+      state.events,
+      apiCall,
       `${key} set to ${nextValue}.`,
       nextValue ? 'enforced' : 'info',
       timestamp

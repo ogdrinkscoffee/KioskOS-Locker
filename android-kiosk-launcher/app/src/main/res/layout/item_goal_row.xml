@@ -20,6 +20,7 @@
             android:layout_weight="1"
             android:ellipsize="end"
             android:maxLines="2"
+            android:textAlignment="viewStart"
             android:textColor="@color/text_primary"
             android:textSize="14sp" />
 
@@ -30,6 +31,7 @@
             android:layout_marginStart="8dp"
             android:text="0%"
             android:textColor="@color/text_secondary"
+            android:textDirection="ltr"
             android:textSize="11sp" />
     </LinearLayout>
 
@@ -55,13 +57,13 @@
             style="@style/Widget.KioskOS.Button.Text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="+10%" />
+            android:text="@string/goal_step_10" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/goalDelete"
             style="@style/Widget.KioskOS.Button.Text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Delete" />
+            android:text="@string/delete" />
     </LinearLayout>
 </LinearLayout>

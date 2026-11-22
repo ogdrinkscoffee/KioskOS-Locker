@@ -16,6 +16,7 @@ import {
 import {
   BLOCKED_DISTRACTION_DOMAINS,
   BlockerShieldToggleKey,
+  DEFAULT_ADMIN_RESTRICTIONS,
   DEFAULT_BLOCKER_SHIELDS,
   DEFAULT_DOWNTIME_SCHEDULE,
   DEFAULT_HARDWARE_LOCKS,
@@ -48,6 +49,7 @@ interface PolicyInspectorPanelProps {
   onSimulateReboot: () => void;
   onToggleOrientation: () => void;
   onToggleFontScale: () => void;
+  onToggleAdminRestriction: (key: RestrictionKey) => void;
   onToggleHardwarePolicy: (key: HardwareLockPolicyKey) => void;
   onToggleBlockerShield: (key: BlockerShieldToggleKey) => { ok: boolean; error?: string };
   onSetFamilyDnsMode: (mode: FamilyDnsMode) => { ok: boolean; error?: string };
@@ -180,6 +182,7 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
   onSimulateReboot,
   onToggleOrientation,
   onToggleFontScale,
+  onToggleAdminRestriction,
   onToggleHardwarePolicy,
   onToggleBlockerShield,
   onSetFamilyDnsMode,
@@ -404,7 +407,7 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
                   <div className="font-mono text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">
                     {row.apiCall}
                   </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{row.detail}</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{tr(row.detail)}</p>
                 </div>
                 <button
                   type="button"
@@ -463,7 +466,10 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
         </div>
 
         <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400">
-          <span>{"\n            "}{tr("In-App Whitelist:")}{" "}<strong className="text-slate-900 dark:text-slate-100">{shields.inAppBrowserWhitelist.length}</strong> pkgs ·{' '}{"\n            "}{tr("Keywords:")}{" "}<strong className="text-slate-900 dark:text-slate-100">{shields.blockedKeywords.length}</strong> ·{' '}{"\n            "}{tr("Blocked Browsers:")}{" "}<strong className="text-slate-900 dark:text-slate-100">{UNSUPPORTED_BROWSER_PACKAGES.size}</strong>
+          <span>
+            {tr("In-App Whitelist:")} <strong className="text-slate-900 dark:text-slate-100">{shields.inAppBrowserWhitelist.length}</strong> {tr("pkgs")} ·{' '}
+            {tr("Keywords:")} <strong className="text-slate-900 dark:text-slate-100">{shields.blockedKeywords.length}</strong> ·{' '}
+            {tr("Blocked Browsers:")} <strong className="text-slate-900 dark:text-slate-100">{UNSUPPORTED_BROWSER_PACKAGES.size}</strong>
           </span>
           <div className="flex items-center gap-2">
             <button
@@ -516,7 +522,7 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
               <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">{"\n                "}{tr("Freedom Focus Lock")}{"\n              "}</div>
               <div className="text-[11px] text-slate-600 dark:text-slate-400 tabular-nums">
                 {focusBlockRemaining > 0
-                  ? `${focusBlockRemaining}m left (Focus & Growth exempt)`
+                  ? tr('{m}m left (Focus & Growth exempt)', { m: focusBlockRemaining })
                   : tr("Inactive — tap to lock distracting apps")}
               </div>
             </div>
@@ -627,7 +633,11 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
                         remSec <= 0 ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-sky-700 dark:text-sky-400'
                       }`}
                     >
-                      {Math.floor(usedSec / 60)}m / {limitMins}m ({Math.ceil(remSec / 60)}m left)
+                      {tr('{u}m / {l}m ({r}m left)', {
+                        u: Math.floor(usedSec / 60),
+                        l: limitMins,
+                        r: Math.ceil(remSec / 60),
+                      })}
                     </span>
                   </div>
                 );
@@ -643,9 +653,14 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
       {/* Enforced UserManager Restrictions */}
       <section className="surface p-5">
         <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800">
-          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 break-words min-w-0">
-            DevicePolicyManager.addUserRestriction()
-          </h3>
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 break-words min-w-0">
+              DevicePolicyManager.addUserRestriction()
+            </h3>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+              {tr("Strong OS-level admin restrictions enforced when Device Owner is active.")}
+            </p>
+          </div>
           <span className="text-xs text-slate-600 dark:text-slate-400 tabular-nums shrink-0">
             {Object.values(restrictions).filter(Boolean).length} / 4 {tr('Enforced')}
           </span>
@@ -653,9 +668,10 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
 
         <div className="divide-y divide-slate-100 dark:divide-slate-800 mt-2">
           {(Object.keys(RESTRICTION_META) as RestrictionKey[]).map((key) => {
+            const configured = (state.adminRestrictions ?? DEFAULT_ADMIN_RESTRICTIONS)[key];
             const active = restrictions[key];
             const isTempLifted =
-              key === 'DISALLOW_APPS_CONTROL' && state.isDeviceOwner && state.adminUnlocked;
+              key === 'DISALLOW_APPS_CONTROL' && configured && state.isDeviceOwner && state.adminUnlocked;
             const meta = RESTRICTION_META[key];
 
             return (
@@ -664,26 +680,30 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
                   <div className="font-mono text-xs font-semibold text-slate-900 dark:text-slate-100">
                     {meta.title}
                   </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{meta.detail}</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{tr(meta.detail)}</p>
                 </div>
-                <div className="shrink-0 flex items-center gap-1.5 text-xs font-medium">
-                  {active ? (
-                    <>
-                      <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
-                      <span className="text-emerald-700 dark:text-emerald-400">{tr("Enforced")}</span>
-                    </>
-                  ) : isTempLifted ? (
-                    <>
-                      <Unlock className="w-4 h-4 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-                      <span className="text-amber-700 dark:text-amber-400">{tr("Admin Unlocked")}</span>
-                    </>
-                  ) : (
-                    <>
-                      <ShieldAlert className="w-4 h-4 text-slate-400 dark:text-slate-500" aria-hidden="true" />
-                      <span className="text-slate-500 dark:text-slate-400">{tr("Inactive")}</span>
-                    </>
-                  )}
-                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={configured}
+                  aria-label={meta.title}
+                  onClick={() => onToggleAdminRestriction(key)}
+                  className={`min-w-[82px] px-2.5 py-1 rounded-lg border text-xs font-semibold whitespace-nowrap shrink-0 transition-colors ${
+                    active
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300'
+                      : isTempLifted || (configured && !state.isDeviceOwner)
+                      ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300'
+                      : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {active
+                    ? tr("Enforced")
+                    : isTempLifted
+                    ? tr("Admin Unlocked")
+                    : configured
+                    ? tr("Need DO")
+                    : tr("Off")}
+                </button>
               </div>
             );
           })}
@@ -694,11 +714,16 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
       <section className="surface p-5">
         <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800">
           <div className="min-w-0">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">{"\n              "}{tr("Hardware, Peripheral & Anti-Tamper Lockdown")}{"\n            "}</h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{"\n              "}{tr("Enterprise hardware & tamper policies (SureLock / Scalefusion pattern).")}{"\n            "}</p>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+              {tr("Hardware, Peripheral & Anti-Tamper Lockdown")}
+            </h3>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+              {tr("Enterprise hardware & tamper policies (SureLock / Scalefusion pattern).")}
+            </p>
           </div>
           <span className="text-xs text-slate-600 dark:text-slate-400 tabular-nums shrink-0">
-            {activeHardwareCount} / {HARDWARE_POLICY_ROWS.length}{" "}{tr("Active")}{"\n          "}</span>
+            {activeHardwareCount} / {HARDWARE_POLICY_ROWS.length} {tr("Active")}
+          </span>
         </div>
 
         <div className="divide-y divide-slate-100 dark:divide-slate-800 mt-2">
@@ -711,7 +736,7 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
                   <div className="font-mono text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">
                     {row.apiCall}
                   </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{row.detail}</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{tr(row.detail)}</p>
                 </div>
                 <button
                   type="button"
@@ -734,9 +759,14 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
         </div>
 
         <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400">
-          <span>{"\n            "}{tr("Kiosk Browser Guard:")}{" "}<strong className="text-slate-900 dark:text-slate-100">{state.allowedDomains.length}</strong>{' '}{"\n            "}{tr("allowlisted domains ·")}{' '}
-            <strong className="text-red-700 dark:text-red-400">{BLOCKED_DISTRACTION_DOMAINS.length}</strong>{' '}{"\n            "}{tr("adult/social domains blocked")}{"\n          "}</span>
-          <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">{"\n            "}{tr("Admin Passcode:")}{" "}{state.adminPin.length}/50 chars
+          <span>
+            {tr("Kiosk Browser Guard:")} <strong className="text-slate-900 dark:text-slate-100">{state.allowedDomains.length}</strong>{' '}
+            {tr("allowlisted domains ·")}{' '}
+            <strong className="text-red-700 dark:text-red-400">{BLOCKED_DISTRACTION_DOMAINS.length}</strong>{' '}
+            {tr("adult/social domains blocked")}
+          </span>
+          <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+            {tr("Admin Passcode:")} {tr('{n}/50 chars', { n: state.adminPin.length })}
           </span>
         </div>
       </section>
@@ -816,7 +846,9 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
           <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/80">
             <div className="text-[11px] font-medium text-slate-600 dark:text-slate-400">{tr("Active Admin Lockout")}</div>
             <div className="text-xs font-mono font-bold text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
-              {pinLockoutSeconds > 0 ? `${pinLockoutSeconds}s Remaining` : tr("Unlocked / Ready")}
+              {pinLockoutSeconds > 0
+                ? tr('{s}s Remaining', { s: pinLockoutSeconds })
+                : tr("Unlocked / Ready")}
             </div>
           </div>
 
@@ -825,7 +857,11 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
               <div className="text-[11px] font-medium text-slate-600 dark:text-slate-400">{tr("Internal Distrust Score")}</div>
               <div className="text-xs font-mono font-bold text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
                 {showHiddenScore
-                  ? `${hiddenScore} pts (T1:${DISTRUST_TIER1_THRESHOLD} / T2:${DISTRUST_TIER2_THRESHOLD})`
+                  ? tr('{pts} pts (T1:{t1} / T2:{t2})', {
+                      pts: hiddenScore,
+                      t1: DISTRUST_TIER1_THRESHOLD,
+                      t2: DISTRUST_TIER2_THRESHOLD,
+                    })
                   : tr("Hidden from device UI")}
               </div>
             </div>
@@ -862,11 +898,14 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
           <div className="min-w-0">
             <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
               {panicLockRemaining > 0
-                ? `Emergency Panic Lockdown Active (${panicLockRemaining}m left)`
+                ? tr('Emergency Panic Lockdown Active ({m}m left)', { m: panicLockRemaining })
                 : tr("Emergency Panic Recovery Protocol")}
             </div>
-            <div className="text-[11px] text-slate-600 dark:text-slate-400 tabular-nums mt-0.5">{"\n              "}{tr("Triggers:")}{" "}{state.panicCount ?? 0}{" "}{tr("· Clipboard Wipe:")}{' '}
-              {state.lastClipboardWipedAt ? `Cleared at ${state.lastClipboardWipedAt}` : tr("Not yet triggered")}
+            <div className="text-[11px] text-slate-600 dark:text-slate-400 tabular-nums mt-0.5">
+              {tr("Triggers:")} {state.panicCount ?? 0} {tr("· Clipboard Wipe:")}{' '}
+              {state.lastClipboardWipedAt
+                ? tr('Cleared at {t}', { t: state.lastClipboardWipedAt })
+                : tr("Not yet triggered")}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-1.5 shrink-0">
@@ -916,7 +955,7 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
                 key={evt.id}
                 className="p-2 rounded-lg bg-red-50/70 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-xs text-red-900 dark:text-red-200 flex items-start justify-between gap-2"
               >
-                <span className="font-medium">{evt.detail}</span>
+                <span className="font-medium">{tr(evt.detail)}</span>
                 <span className="font-mono text-[11px] text-red-700 dark:text-red-400 shrink-0 tabular-nums">
                   {evt.timestamp}
                 </span>
@@ -954,7 +993,7 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
                     {event.apiCall}
                   </div>
                   <div className={`text-xs mt-0.5 ${isTamper ? 'text-red-800 dark:text-red-300' : 'text-slate-600 dark:text-slate-400'}`}>
-                    {event.detail}
+                    {tr(event.detail)}
                   </div>
                 </div>
                 <div className="text-end shrink-0">
@@ -972,7 +1011,7 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
                         : 'text-sky-700 dark:text-sky-400'
                     }`}
                   >
-                    {isTamper ? tr("Tamper Warning") : event.outcome}
+                    {isTamper ? tr("Tamper Warning") : tr(event.outcome)}
                   </div>
                 </div>
               </div>

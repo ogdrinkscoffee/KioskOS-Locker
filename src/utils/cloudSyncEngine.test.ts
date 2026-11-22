@@ -96,12 +96,28 @@ test('applyRemoteDeviceToKioskState applies PC password-authorized overrides cle
     source: 'pc_web',
   });
 
-  const merged = applyRemoteDeviceToKioskState(local, remotePayload, nextPin);
+  const merged = applyRemoteDeviceToKioskState(
+    local,
+    {
+      ...remotePayload,
+      adminRestrictions: {
+        ...local.adminRestrictions,
+        DISALLOW_SAFE_BOOT: false,
+      },
+    },
+    nextPin
+  );
   assert.equal(merged.panicLockUntilMs, 0);
   assert.equal(merged.kioskMode, 'multi_app');
   assert.equal(merged.kioskTitle, 'Recovered Focus Phone');
+  assert.equal(merged.adminRestrictions.DISALLOW_SAFE_BOOT, false);
   assert.equal(merged.adminPin, nextPin);
   assert.match(merged.blockedNotice ?? '', /PC Web Remote/i);
+
+  // Backward-compat fallback when remote snapshot omits adminRestrictions
+  const { adminRestrictions: _omitted, ...legacyRemote } = remotePayload;
+  const legacyMerged = applyRemoteDeviceToKioskState(local, legacyRemote);
+  assert.equal(legacyMerged.adminRestrictions.DISALLOW_SAFE_BOOT, true);
 });
 
 test('buildGrowthSyncPayload and applyRemoteGrowthToLocalState preserve self-improvement progress', () => {

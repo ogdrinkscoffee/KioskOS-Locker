@@ -1,5 +1,6 @@
 import {
   BlockerShieldPolicies,
+  DEFAULT_ADMIN_RESTRICTIONS,
   DEFAULT_BLOCKER_SHIELDS,
   DEFAULT_DOWNTIME_SCHEDULE,
   DEFAULT_HARDWARE_LOCKS,
@@ -8,9 +9,9 @@ import {
   KioskOperationMode,
   KioskState,
   MAX_DAILY_APP_LIMIT_MINUTES,
+  RestrictionKey,
 } from './kioskEngine';
 import {
-  AffirmationItem,
   FocusSessionLog,
   GoalItem,
   HabitItem,
@@ -37,6 +38,7 @@ export interface CloudDeviceSnapshot {
   adminPinHash: string;
   allowedPackages: string[];
   allowedDomains: string[];
+  adminRestrictions?: Record<RestrictionKey, boolean>;
   hardwareLocks: HardwareLockPolicies;
   blockerShields: BlockerShieldPolicies;
   appTimeLimits: Record<string, number>;
@@ -63,9 +65,6 @@ export interface CloudGrowthSnapshot {
   cleanCheckInDates: string[];
   urgeVictories: number;
   whyIStarted: string;
-  affirmations: AffirmationItem[];
-  activeAffirmationIndex: number;
-  lastAffirmationCommittedDate: string;
   focusSessions: FocusSessionLog[];
   habits: HabitItem[];
   tasks: TaskItem[];
@@ -176,6 +175,7 @@ export function buildDeviceSyncPayload(params: {
     source,
   } = params;
 
+  const ar = state.adminRestrictions ?? DEFAULT_ADMIN_RESTRICTIONS;
   const hw = state.hardwareLocks ?? DEFAULT_HARDWARE_LOCKS;
   const bs = state.blockerShields ?? DEFAULT_BLOCKER_SHIELDS;
   const ds = state.downtimeSchedule ?? DEFAULT_DOWNTIME_SCHEDULE;
@@ -196,6 +196,12 @@ export function buildDeviceSyncPayload(params: {
     adminPinHash: adminPinHash.slice(0, 64).toLowerCase(),
     allowedPackages: clampStringList(state.allowedPackages, 120),
     allowedDomains: clampStringList(state.allowedDomains, 120),
+    adminRestrictions: {
+      DISALLOW_SAFE_BOOT: Boolean(ar.DISALLOW_SAFE_BOOT),
+      DISALLOW_FACTORY_RESET: Boolean(ar.DISALLOW_FACTORY_RESET),
+      DISALLOW_ADD_USER: Boolean(ar.DISALLOW_ADD_USER),
+      DISALLOW_APPS_CONTROL: Boolean(ar.DISALLOW_APPS_CONTROL),
+    },
     hardwareLocks: {
       statusBarDisabled: Boolean(hw.statusBarDisabled),
       keyguardDisabled: Boolean(hw.keyguardDisabled),
@@ -253,9 +259,6 @@ export function buildGrowthSyncPayload(params: {
     cleanCheckInDates: clampStringList(growth.cleanCheckInDates, 400, 20),
     urgeVictories: Math.max(0, Math.min(1_000_000, Math.floor(growth.urgeVictories))),
     whyIStarted: growth.whyIStarted.slice(0, 2000),
-    affirmations: growth.affirmations.slice(0, 80),
-    activeAffirmationIndex: Math.max(0, Math.min(1000, Math.floor(growth.activeAffirmationIndex))),
-    lastAffirmationCommittedDate: (growth.lastAffirmationCommittedDate ?? '').slice(0, 20),
     focusSessions: growth.focusSessions.slice(0, 200),
     habits: growth.habits.slice(0, 80),
     tasks: growth.tasks.slice(0, 150),
@@ -276,22 +279,30 @@ export function applyRemoteDeviceToKioskState(
     kioskMode: remote.kioskMode,
     singleAppPackage: remote.singleAppPackage ? remote.singleAppPackage : null,
     kioskTitle: remote.kioskTitle,
-    allowedPackages: [...remote.allowedPackages],
-    allowedDomains: [...remote.allowedDomains],
-    hardwareLocks: { ...remote.hardwareLocks },
+    allowedPackages: [...(remote.allowedPackages ?? localState.allowedPackages)],
+    allowedDomains: [...(remote.allowedDomains ?? localState.allowedDomains)],
+    adminRestrictions: remote.adminRestrictions
+      ? {
+          ...DEFAULT_ADMIN_RESTRICTIONS,
+          ...remote.adminRestrictions,
+        }
+      : localState.adminRestrictions,
+    hardwareLocks: { ...(remote.hardwareLocks ?? localState.hardwareLocks) },
     blockerShields: {
-      ...remote.blockerShields,
-      inAppBrowserWhitelist: [...remote.blockerShields.inAppBrowserWhitelist],
-      blockedKeywords: [...remote.blockerShields.blockedKeywords],
+      ...(remote.blockerShields ?? localState.blockerShields),
+      inAppBrowserWhitelist: [...(remote.blockerShields?.inAppBrowserWhitelist ?? localState.blockerShields.inAppBrowserWhitelist)],
+      blockedKeywords: [...(remote.blockerShields?.blockedKeywords ?? localState.blockerShields.blockedKeywords)],
     },
-    appTimeLimits: { ...remote.appTimeLimits },
-    appUsageSeconds: { ...remote.appUsageSeconds },
-    downtimeSchedule: { ...remote.downtimeSchedule },
-    focusBlockUntilMs: remote.focusBlockUntilMs,
-    panicLockUntilMs: remote.panicLockUntilMs,
-    tamperWarningsCount: remote.tamperWarningsCount,
-    tamperEscalationTier: remote.tamperEscalationTier,
-    pinLockedUntilMs: remote.pinLockedUntilMs,
+    appTimeLimits: { ...(remote.appTimeLimits ?? localState.appTimeLimits) },
+    appUsageSeconds: { ...(remote.appUsageSeconds ?? localState.appUsageSeconds) },
+    downtimeSchedule: { ...(remote.downtimeSchedule ?? localState.downtimeSchedule) },
+    focusBlockUntilMs: remote.focusBlockUntilMs ?? localState.focusBlockUntilMs,
+    panicLockUntilMs: remote.panicLockUntilMs ?? localState.panicLockUntilMs,
+    panicCount: remote.panicCount ?? localState.panicCount,
+    blockedAttemptsToday: remote.blockedAttemptsToday ?? localState.blockedAttemptsToday,
+    tamperWarningsCount: remote.tamperWarningsCount ?? localState.tamperWarningsCount,
+    tamperEscalationTier: remote.tamperEscalationTier ?? localState.tamperEscalationTier,
+    pinLockedUntilMs: remote.pinLockedUntilMs ?? localState.pinLockedUntilMs,
     blockedNotice:
       remote.lastModifiedBy === 'pc_web'
         ? 'Applied password-authorized Admin Settings update from PC Web Remote.'
@@ -305,19 +316,16 @@ export function applyRemoteGrowthToLocalState(
 ): SelfImprovementState {
   return {
     ...localGrowth,
-    cleanStreakDays: remote.cleanStreakDays,
-    longestCleanStreakDays: remote.longestCleanStreakDays,
+    cleanStreakDays: remote.cleanStreakDays ?? localGrowth.cleanStreakDays,
+    longestCleanStreakDays: remote.longestCleanStreakDays ?? localGrowth.longestCleanStreakDays,
     lastCleanCheckInDate: remote.lastCleanCheckInDate || null,
-    cleanCheckInDates: [...remote.cleanCheckInDates],
-    urgeVictories: remote.urgeVictories,
-    whyIStarted: remote.whyIStarted,
-    affirmations: remote.affirmations.length > 0 ? [...remote.affirmations] : localGrowth.affirmations,
-    activeAffirmationIndex: remote.activeAffirmationIndex,
-    lastAffirmationCommittedDate: remote.lastAffirmationCommittedDate || null,
-    focusSessions: [...remote.focusSessions],
-    habits: [...remote.habits],
-    tasks: [...remote.tasks],
-    goals: [...remote.goals],
-    notes: [...remote.notes],
+    cleanCheckInDates: [...(remote.cleanCheckInDates ?? [])],
+    urgeVictories: remote.urgeVictories ?? localGrowth.urgeVictories,
+    whyIStarted: remote.whyIStarted ?? localGrowth.whyIStarted,
+    focusSessions: [...(remote.focusSessions ?? [])],
+    habits: [...(remote.habits ?? [])],
+    tasks: [...(remote.tasks ?? [])],
+    goals: [...(remote.goals ?? [])],
+    notes: [...(remote.notes ?? [])],
   };
 }

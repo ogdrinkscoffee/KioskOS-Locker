@@ -7,14 +7,47 @@ import org.json.JSONObject
 import java.util.UUID
 
 /**
- * Habits, tasks, goals and notes, stored as JSON in shared preferences so the
- * app stays account-free and works offline.
+ * Habits, tasks, goals, focus sessions and notes, stored as JSON in shared preferences
+ * so the app stays account-free and works offline.
  */
 class SelfImprovementRepository(context: Context) {
 
     private val prefs = KioskPreferences(context)
 
-    fun today(): Long = System.currentTimeMillis() / 86_400_000L
+    fun today(): Long = KioskPreferences.localEpochDay()
+
+    // ------------------------------------------------------------ focus sessions
+    fun recordFocusSession(minutes: Int) {
+        if (minutes <= 0) return
+        val day = today()
+        val array = JSONArray(prefs.raw(KEY_FOCUS_SESSIONS) ?: "[]")
+        array.put(
+            JSONObject()
+                .put("day", day)
+                .put("minutes", minutes)
+                .put("at", System.currentTimeMillis())
+        )
+        // Retain recent 90 entries cleanly
+        val trimmed = JSONArray()
+        val start = (array.length() - 90).coerceAtLeast(0)
+        for (i in start until array.length()) {
+            trimmed.put(array.get(i))
+        }
+        prefs.putRaw(KEY_FOCUS_SESSIONS, trimmed.toString())
+    }
+
+    fun todayFocusMinutes(): Int {
+        val day = today()
+        return objects(KEY_FOCUS_SESSIONS)
+            .filter { it.optLong("day", -1L) == day }
+            .sumOf { it.optInt("minutes", 0) }
+    }
+
+    fun todayFocusSessionsCount(): Int {
+        val day = today()
+        return objects(KEY_FOCUS_SESSIONS)
+            .count { it.optLong("day", -1L) == day }
+    }
 
     // ------------------------------------------------------------------- habits
     fun habits(): List<Habit> = objects(KEY_HABITS).map {
@@ -83,14 +116,14 @@ class SelfImprovementRepository(context: Context) {
         )
     }
 
-    fun addNote(title: String, body: String) {
+    fun addNote(title: String, body: String, fallbackTitle: String = "Untitled") {
         if (title.isBlank() && body.isBlank()) return
         mutate(KEY_NOTES) { list ->
             list.add(
                 0,
                 JSONObject()
                     .put("id", UUID.randomUUID().toString())
-                    .put("title", title.ifBlank { "Untitled" })
+                    .put("title", title.ifBlank { fallbackTitle })
                     .put("body", body)
                     .put("created", System.currentTimeMillis())
             )
@@ -141,5 +174,6 @@ class SelfImprovementRepository(context: Context) {
         private const val KEY_TASKS = "tasks"
         private const val KEY_GOALS = "goals"
         private const val KEY_NOTES = "notes"
+        private const val KEY_FOCUS_SESSIONS = "focus_sessions"
     }
 }

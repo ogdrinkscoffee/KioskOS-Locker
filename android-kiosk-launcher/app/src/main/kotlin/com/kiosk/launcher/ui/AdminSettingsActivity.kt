@@ -6,6 +6,7 @@ import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
 import android.text.InputFilter
 import android.text.InputType
 import android.view.Gravity
@@ -38,11 +39,14 @@ class AdminSettingsActivity : AppCompatActivity() {
     private lateinit var policy: DevicePolicyHelper
     private lateinit var appRepo: InstalledAppsRepository
 
+    private lateinit var strongRestrictionsContainer: LinearLayout
     private lateinit var locksContainer: LinearLayout
     private lateinit var appsContainer: LinearLayout
     private lateinit var allowAllSwitch: SwitchMaterial
     private lateinit var modeGroup: MaterialButtonToggleGroup
     private lateinit var domainsInput: TextInputEditText
+    private lateinit var blockedKeywordsInput: TextInputEditText
+    private lateinit var clearPanicButton: View
     private lateinit var modeHint: TextView
     private lateinit var policyLog: TextView
 
@@ -64,26 +68,40 @@ class AdminSettingsActivity : AppCompatActivity() {
         toolbar.setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material)
         toolbar.setNavigationOnClickListener { finish() }
 
+        strongRestrictionsContainer = findViewById(R.id.strongRestrictionsContainer)
         locksContainer = findViewById(R.id.locksContainer)
         appsContainer = findViewById(R.id.appsContainer)
         allowAllSwitch = findViewById(R.id.allowAllSwitch)
         modeGroup = findViewById(R.id.modeGroup)
         domainsInput = findViewById(R.id.domainsInput)
+        blockedKeywordsInput = findViewById(R.id.blockedKeywordsInput)
+        clearPanicButton = findViewById(R.id.clearPanicButton)
         modeHint = findViewById(R.id.modeHint)
         policyLog = findViewById(R.id.policyLog)
 
         findViewById<View>(R.id.changePinButton).setOnClickListener { changePin() }
         findViewById<View>(R.id.copyCommandButton).setOnClickListener { copyProvisionCommand() }
         findViewById<View>(R.id.activateAdminButton).setOnClickListener { activateDeviceAdmin() }
+        findViewById<View>(R.id.openSystemSettingsButton).setOnClickListener { openSystemSettings() }
+        clearPanicButton.setOnClickListener {
+            prefs.clearPanicLockdown()
+            policy.applyPolicy()
+            renderRecoveryState()
+            renderPolicyLog()
+            toast(getString(R.string.panic_cleared))
+        }
         findViewById<View>(R.id.openBrowserButton).setOnClickListener {
             startActivity(Intent(this, KioskBrowserActivity::class.java))
         }
-        findViewById<View>(R.id.domainsSave).setOnClickListener { saveDomains() }
+        findViewById<View>(R.id.domainsSave).setOnClickListener { saveBrowserFilters() }
 
         domainsInput.setText(prefs.domains().sorted().joinToString("\n"))
+        blockedKeywordsInput.setText(prefs.blockedKeywords().sorted().joinToString("\n"))
 
         renderOwner()
+        renderRecoveryState()
         renderMode()
+        renderStrongRestrictions()
         renderLocks()
         renderAllowList()
 
@@ -101,13 +119,13 @@ class AdminSettingsActivity : AppCompatActivity() {
         allowAllSwitch.setOnCheckedChangeListener { _, checked ->
             prefs.allowAllApps = checked
             policy.applyPolicy()
-            // Repaint the rows already on screen instead of rescanning for every toggle.
             if (loadedApps.isEmpty()) renderAllowList() else renderAllowListRows(loadedApps)
         }
     }
 
     override fun onResume() {
         super.onResume()
+        renderRecoveryState()
         renderPolicyLog()
     }
 
@@ -117,27 +135,42 @@ class AdminSettingsActivity : AppCompatActivity() {
         val detail = findViewById<TextView>(R.id.ownerDetail)
 
         if (policy.isDeviceOwner) {
-            status.text = "Active — this app owns the device"
-            detail.text = "Kiosk mode, the allowlist and every lock below are enforced by Android."
+            status.setText(R.string.owner_active_title)
+            detail.setText(R.string.owner_active_detail)
         } else {
-            status.text = "Preview mode"
-            detail.text = "The launcher works, but Android only enforces kiosk locks for a device owner app. " +
-                "On a freshly reset device, enable Developer options → USB debugging and run:\n\n" +
-                DevicePolicyHelper.PROVISION_COMMAND
+            status.setText(R.string.owner_preview_title)
+            detail.text = getString(R.string.owner_preview_detail_fmt, DevicePolicyHelper.PROVISION_COMMAND)
         }
+    }
+
+    private fun renderRecoveryState() {
+        clearPanicButton.visibility = if (prefs.isPanicLocked()) View.VISIBLE else View.GONE
+    }
+
+    private fun openSystemSettings() {
+        prefs.grantTemporaryAdminWindow(5)
+        policy.applyPolicy()
+        runCatching {
+            if (policy.isInLockTaskMode()) policy.stopKiosk(this)
+            startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+        toast(getString(R.string.system_settings_unlocked_toast))
     }
 
     private fun copyProvisionCommand() {
         val clipboard = getSystemService(ClipboardManager::class.java)
         clipboard?.setPrimaryClip(
-            ClipData.newPlainText("Kiosk provisioning", DevicePolicyHelper.PROVISION_COMMAND)
+            ClipData.newPlainText(
+                getString(R.string.clipboard_label_provision),
+                DevicePolicyHelper.PROVISION_COMMAND
+            )
         )
-        toast("Provisioning command copied")
+        toast(getString(R.string.provision_copied))
     }
 
     private fun activateDeviceAdmin() {
         if (policy.isAdminActive) {
-            toast("Device admin is already active")
+            toast(getString(R.string.admin_already_active))
             return
         }
         val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
@@ -147,7 +180,7 @@ class AdminSettingsActivity : AppCompatActivity() {
             )
             .putExtra(
                 DevicePolicyManager.EXTRA_ADD_EXPLANATION,
-                "Lets KioskOS keep this device in kiosk mode."
+                getString(R.string.admin_explanation)
             )
         runCatching { startActivity(intent) }
     }
@@ -164,54 +197,149 @@ class AdminSettingsActivity : AppCompatActivity() {
     }
 
     private fun modeDescription(mode: String): String = when (mode) {
-        KioskPreferences.MODE_SINGLE -> "Pins one app. Pick the first allowed app as the kiosk app."
-        KioskPreferences.MODE_BROWSER -> "Opens the allowlisted browser as the kiosk surface."
-        else -> "Shows every allowed app in the kiosk grid."
+        KioskPreferences.MODE_SINGLE -> getString(R.string.mode_desc_single)
+        KioskPreferences.MODE_BROWSER -> getString(R.string.mode_desc_browser)
+        else -> getString(R.string.mode_desc_multi)
+    }
+
+    // --------------------------------------------------------- strong restrictions
+    private fun renderStrongRestrictions() {
+        strongRestrictionsContainer.removeAllViews()
+        addToggle(
+            strongRestrictionsContainer,
+            getString(R.string.restriction_safe_boot),
+            getString(R.string.restriction_safe_boot_desc),
+            prefs.disallowSafeBoot
+        ) {
+            prefs.disallowSafeBoot = it
+            applyLocks()
+        }
+        addToggle(
+            strongRestrictionsContainer,
+            getString(R.string.restriction_factory_reset),
+            getString(R.string.restriction_factory_reset_desc),
+            prefs.disallowFactoryReset
+        ) {
+            prefs.disallowFactoryReset = it
+            applyLocks()
+        }
+        addToggle(
+            strongRestrictionsContainer,
+            getString(R.string.restriction_add_user),
+            getString(R.string.restriction_add_user_desc),
+            prefs.disallowAddUser
+        ) {
+            prefs.disallowAddUser = it
+            applyLocks()
+        }
+        addToggle(
+            strongRestrictionsContainer,
+            getString(R.string.restriction_apps_control),
+            getString(R.string.restriction_apps_control_desc),
+            prefs.disallowAppsControl
+        ) {
+            prefs.disallowAppsControl = it
+            applyLocks()
+        }
     }
 
     // ---------------------------------------------------------------------- locks
     private fun renderLocks() {
         locksContainer.removeAllViews()
-        addToggle("Status bar", "Hide the notification shade", prefs.statusBarLocked) {
+        addToggle(
+            locksContainer,
+            getString(R.string.lock_status_bar),
+            getString(R.string.lock_status_bar_desc),
+            prefs.statusBarLocked
+        ) {
             prefs.statusBarLocked = it
             applyLocks()
         }
-        addToggle("Lock screen", "Skip the keyguard", prefs.keyguardDisabled) {
+        addToggle(
+            locksContainer,
+            getString(R.string.lock_keyguard),
+            getString(R.string.lock_keyguard_desc),
+            prefs.keyguardDisabled
+        ) {
             prefs.keyguardDisabled = it
             applyLocks()
         }
-        addToggle("Camera", "Disable the camera", prefs.cameraDisabled) {
+        addToggle(
+            locksContainer,
+            getString(R.string.lock_camera),
+            getString(R.string.lock_camera_desc),
+            prefs.cameraDisabled
+        ) {
             prefs.cameraDisabled = it
             applyLocks()
         }
-        addToggle("Screenshots", "Block screen capture", prefs.screenCaptureDisabled) {
+        addToggle(
+            locksContainer,
+            getString(R.string.lock_screenshots),
+            getString(R.string.lock_screenshots_desc),
+            prefs.screenCaptureDisabled
+        ) {
             prefs.screenCaptureDisabled = it
             applyLocks()
         }
-        addToggle("USB transfer", "Block file transfer and new media", prefs.usbLocked) {
+        addToggle(
+            locksContainer,
+            getString(R.string.lock_usb),
+            getString(R.string.lock_usb_desc),
+            prefs.usbLocked
+        ) {
             prefs.usbLocked = it
             applyLocks()
         }
-        addToggle("Date & time", "Keep automatic date and time", prefs.dateTimeLocked) {
+        addToggle(
+            locksContainer,
+            getString(R.string.lock_date_time),
+            getString(R.string.lock_date_time_desc),
+            prefs.dateTimeLocked
+        ) {
             prefs.dateTimeLocked = it
             applyLocks()
         }
-        addToggle("Stay awake", "Keep the screen on while plugged in", prefs.stayAwake) {
+        addToggle(
+            locksContainer,
+            getString(R.string.lock_stay_awake),
+            getString(R.string.lock_stay_awake_desc),
+            prefs.stayAwake
+        ) {
             prefs.stayAwake = it
             applyLocks()
         }
         addToggle(
-            "Window guard",
-            "Jump back to kiosk if a blocked app opens (needs accessibility)",
+            locksContainer,
+            getString(R.string.lock_unsupported_browsers),
+            getString(R.string.lock_unsupported_browsers_desc),
+            prefs.blockUnsupportedBrowsers
+        ) {
+            prefs.blockUnsupportedBrowsers = it
+            applyLocks()
+        }
+        addToggle(
+            locksContainer,
+            getString(R.string.lock_short_feeds),
+            getString(R.string.lock_short_feeds_desc),
+            prefs.blockShortFormFeeds
+        ) {
+            prefs.blockShortFormFeeds = it
+            applyLocks()
+        }
+        addToggle(
+            locksContainer,
+            getString(R.string.lock_window_guard),
+            getString(R.string.lock_window_guard_desc),
             prefs.guardEnabled
         ) { enabled ->
             prefs.guardEnabled = enabled
-            prefs.logPolicy("Window guard ${if (enabled) "enabled" else "disabled"}")
+            prefs.logPolicy(getString(if (enabled) R.string.log_guard_enabled else R.string.log_guard_disabled))
             if (enabled) {
                 runCatching {
-                    startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                    startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                 }
-                toast("Enable KioskOS under Accessibility")
+                toast(getString(R.string.accessibility_prompt_toast))
             }
             renderPolicyLog()
         }
@@ -223,6 +351,7 @@ class AdminSettingsActivity : AppCompatActivity() {
     }
 
     private fun addToggle(
+        target: LinearLayout,
         title: String,
         subtitle: String,
         initial: Boolean,
@@ -240,11 +369,13 @@ class AdminSettingsActivity : AppCompatActivity() {
         }
         column.addView(TextView(this).apply {
             text = title
+            textAlignment = View.TEXT_ALIGNMENT_VIEW_START
             setTextColor(colorOf(R.color.text_primary))
             textSize = 14f
         })
         column.addView(TextView(this).apply {
             text = subtitle
+            textAlignment = View.TEXT_ALIGNMENT_VIEW_START
             setTextColor(colorOf(R.color.text_secondary))
             textSize = 11f
         })
@@ -256,7 +387,7 @@ class AdminSettingsActivity : AppCompatActivity() {
 
         row.addView(column)
         row.addView(switch)
-        locksContainer.addView(row)
+        target.addView(row)
     }
 
     // ------------------------------------------------------------------ allowlist
@@ -276,7 +407,8 @@ class AdminSettingsActivity : AppCompatActivity() {
         appsContainer.removeAllViews()
         if (installed.isEmpty()) {
             appsContainer.addView(TextView(this).apply {
-                text = "No launchable apps found."
+                setText(R.string.no_launchable_apps_short)
+                textAlignment = View.TEXT_ALIGNMENT_VIEW_START
                 setTextColor(colorOf(R.color.text_secondary))
                 textSize = 13f
                 setPadding(0, dp(8), 0, dp(8))
@@ -303,7 +435,7 @@ class AdminSettingsActivity : AppCompatActivity() {
     }
 
     // -------------------------------------------------------------------- browser
-    private fun saveDomains() {
+    private fun saveBrowserFilters() {
         val domains = (domainsInput.text?.toString() ?: "")
             .split('\n', ',', ' ')
             .map { raw ->
@@ -316,34 +448,42 @@ class AdminSettingsActivity : AppCompatActivity() {
             .filter { it.isNotEmpty() }
             .toSet()
 
+        val keywords = (blockedKeywordsInput.text?.toString() ?: "")
+            .split('\n', ',')
+            .map { it.trim().lowercase() }
+            .filter { it.isNotEmpty() }
+            .toSet()
+
         prefs.setDomains(domains)
-        prefs.logPolicy("Browser allowlist: ${domains.size} domain(s)")
-        toast("Saved ${domains.size} domain(s)")
+        prefs.setBlockedKeywords(keywords)
+        prefs.logPolicy(getString(R.string.log_browser_allowlist_fmt, domains.size, keywords.size))
+        toast(getString(R.string.domains_saved_fmt, domains.size, keywords.size))
         renderPolicyLog()
     }
 
     // ------------------------------------------------------------------------ PIN
     private fun changePin() {
         val input = EditText(this).apply {
-            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
-            filters = arrayOf(InputFilter.LengthFilter(4))
-            hint = "New 4-digit PIN"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            filters = arrayOf(InputFilter.LengthFilter(KioskPreferences.MAX_PIN_LENGTH))
+            setHint(R.string.new_passcode_hint)
+            textAlignment = View.TEXT_ALIGNMENT_VIEW_START
             setPadding(dp(24), dp(12), dp(24), dp(4))
         }
 
         MaterialAlertDialogBuilder(this)
-            .setTitle("Change admin PIN")
+            .setTitle(R.string.change_passcode_title)
             .setView(input)
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Save") { _, _ ->
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.save) { _, _ ->
                 val pin = input.text?.toString().orEmpty()
-                if (pin.length == 4) {
+                if (pin.length in KioskPreferences.MIN_PIN_LENGTH..KioskPreferences.MAX_PIN_LENGTH && pin.isNotBlank()) {
                     prefs.setPin(pin)
-                    prefs.logPolicy("Admin PIN changed")
-                    toast("PIN updated")
+                    prefs.logPolicy(getString(R.string.log_passcode_changed))
+                    toast(getString(R.string.passcode_updated))
                     renderPolicyLog()
                 } else {
-                    toast("PIN must be exactly 4 digits")
+                    toast(getString(R.string.passcode_length_error))
                 }
             }
             .show()
@@ -353,7 +493,7 @@ class AdminSettingsActivity : AppCompatActivity() {
     private fun renderPolicyLog() {
         val events = prefs.policyEvents().take(6)
         policyLog.text = if (events.isEmpty()) {
-            "No policy events yet."
+            getString(R.string.no_policy_events)
         } else {
             events.joinToString("\n") { "${timeFormat.format(Date(it.time))}  ${it.label}" }
         }

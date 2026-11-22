@@ -11,22 +11,10 @@ interface CommandStep {
 
 const STEPS: CommandStep[] = [
   {
-    id: 'ci-build',
-    title: 'Build the APK in CI',
-    hint: 'Upload the downloaded project to GitHub and run the bundled workflow — no Android Studio needed.',
-    command: 'gh workflow run build-apk.yml && gh run download -n KioskOS-debug-apk',
-  },
-  {
-    id: 'local-build',
-    title: 'Or build locally',
-    hint: 'Open android-kiosk-launcher in Android Studio, or run the helper script with JDK 17 and the Android SDK.',
-    command: 'bash build-apk.sh',
-  },
-  {
     id: 'install',
-    title: 'Install on a factory-reset device',
-    hint: 'The device must have no Google or user accounts before it can become Device Owner.',
-    command: 'adb install -r app/build/outputs/apk/debug/app-debug.apk',
+    title: 'Install KioskOS.apk on a factory-reset device',
+    hint: 'Use the Download APK button first. The device must have no Google or user accounts before it can become Device Owner.',
+    command: 'adb install -r KioskOS.apk',
   },
   {
     id: 'device-owner',
@@ -78,10 +66,6 @@ const MATRIX: { requirement: string; implementation: string }[] = [
     requirement: 'Reboot resilience',
     implementation: 'LOCKED_BOOT_COMPLETED receiver and full configChanges handling',
   },
-  {
-    requirement: 'APK pipeline',
-    implementation: 'Bundled build-apk.yml workflow and build-apk.sh',
-  },
 ];
 
 export const AdbProvisioningView: React.FC = () => {
@@ -102,7 +86,7 @@ export const AdbProvisioningView: React.FC = () => {
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
         <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{tr("Provision a device")}</h2>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{"\n          "}{tr("Six steps from source to a locked-down phone running")}{' '}
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{"\n          "}{tr("Four steps after downloading KioskOS.apk to lock down a phone running")}{' '}
           <span className="font-mono text-[13px] text-slate-800 dark:text-slate-200">
             com.kiosk.launcher
           </span>

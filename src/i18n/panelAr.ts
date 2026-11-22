@@ -61,7 +61,6 @@ export const panelAr: Record<string, string> = {
   'Admin Unlocked': 'الإدارة مفتوحة',
   'Administrator Passcode': 'رمز مرور المسؤول',
   'adult/social domains blocked': 'نطاقات البالغين والتواصل الاجتماعي محظورة',
-  'Affirmed Today': 'مؤكَّد اليوم',
   'AI Daily Prompt': 'اقتراح يومي بالذكاء الاصطناعي',
   allowed: 'مسموح',
   Allowed: 'مسموح',
@@ -141,7 +140,6 @@ export const panelAr: Record<string, string> = {
   Close: 'إغلاق',
   'Close battery panel': 'إغلاق لوحة البطارية',
   Column: 'عمود',
-  'Commit Today': 'التزم اليوم',
   Complete: 'إكمال',
   'Complete & Log': 'إكمال وتسجيل',
   completed: 'مكتمل',
@@ -167,8 +165,6 @@ export const panelAr: Record<string, string> = {
   'Current:': 'الحالي:',
   Custom: 'مخصص',
   'Custom Launcher Title': 'عنوان المشغّل المخصص',
-  'Daily Affirmation': 'التأكيد اليومي',
-  'Daily Affirmation ·': 'التأكيد اليومي ·',
   'Daily Cap:': 'الحد اليومي:',
   'Daily Habits': 'العادات اليومية',
   'Daily habits completion': 'إنجاز العادات اليومية',
@@ -213,8 +209,6 @@ export const panelAr: Record<string, string> = {
   'e.g., 90 Days Clean + Launch Side Project': 'مثال: 90 يومًا نظيفًا + إطلاق مشروع جانبي',
   'e.g., Cold shower, 10 pages reading, No screens after 22:00':
     'مثال: دش بارد، قراءة 10 صفحات، بلا شاشات بعد 22:00',
-  'e.g., I close every trigger fast and keep my word to myself.':
-    'مثال: أُغلق كل مُحفّز بسرعة وأفي بوعدي لنفسي.',
   'e.g., Kindle Reader': 'مثال: Kindle Reader',
   'e.g., Study Kotlin coroutines for 45 mins': 'مثال: دراسة Kotlin coroutines لمدة 45 دقيقة',
   'Emergency Panic & Focus': 'الطوارئ والتركيز',
@@ -250,8 +244,6 @@ export const panelAr: Record<string, string> = {
   'Failed to save schedule.': 'تعذّر حفظ الجدول.',
   'Failed to update passcode.': 'تعذّر تحديث رمز المرور.',
   'Family Private DNS & VPN Lock': 'DNS العائلي الخاص وقفل VPN',
-  'Filter Android project files': 'تصفية ملفات مشروع أندرويد',
-  'Filter files': 'تصفية الملفات',
   'Filter installed apps': 'تصفية التطبيقات المثبتة',
   'Fires LOCKED_BOOT_COMPLETED': 'يُطلق LOCKED_BOOT_COMPLETED',
   Fitness: 'اللياقة',
@@ -269,8 +261,6 @@ export const panelAr: Record<string, string> = {
   'Focus session logged.': 'تم تسجيل جلسة التركيز.',
   'Focus Timer': 'مؤقت التركيز',
   'Focus today:': 'تركيز اليوم:',
-  'folder isn’t part of this checkout, so there is nothing real to show or download. Add the folder at the project root and this explorer fills itself from it — no placeholder code is ever displayed.':
-    'المجلد ليس جزءًا من هذه النسخة، لذا لا يوجد ما يُعرض أو يُنزّل فعليًا. أضف المجلد في جذر المشروع ليمتلئ هذا المستكشف تلقائيًا — ولا يُعرض أي كود وهمي أبدًا.',
   'Font size': 'حجم الخط',
   'Font type': 'نوع الخط',
   'Font: Mono': 'الخط: Mono',
@@ -376,7 +366,6 @@ export const panelAr: Record<string, string> = {
   'Multi-App Kiosk HOME': 'رئيسية كشك متعددة التطبيقات',
   'Native Chrome SafeSearch/No-Incognito, In-App WebView Whitelist, Unsupported Browsers, & Private DNS.':
     'بحث آمن وبلا تصفح متخفٍ في Chrome، وقائمة WebView مسموحة داخل التطبيقات، والمتصفحات غير المدعومة، وDNS خاص.',
-  'Native sources aren’t in this build': 'مصادر أندرويد الأصلية غير موجودة في هذه النسخة',
   'Need DO': 'يلزم مالك الجهاز',
   'never require an account': 'لا تتطلب حسابًا أبدًا',
   'New Action Task': 'مهمة تنفيذية جديدة',
@@ -387,12 +376,10 @@ export const panelAr: Record<string, string> = {
   'New Passcode (letters, digits, symbols)': 'رمز مرور جديد (حروف وأرقام ورموز)',
   'New password (4–50 chars)': 'كلمة مرور جديدة (4–50 حرفًا)',
   'Next →': 'التالي ←',
-  'Next affirmation': 'التأكيد التالي',
   'No applications are currently allowed on the Kiosk Home screen. Open Admin Settings (default PIN 1234) to enable apps.':
     'لا توجد تطبيقات مسموحة حاليًا على شاشة رئيسية الكشك. افتح إعدادات الإدارة (الرمز الافتراضي 1234) لتفعيل التطبيقات.',
   'No daily habits configured yet. Open Focus Hub to add accountability habits.':
     'لا توجد عادات يومية مكوّنة بعد. افتح مركز التركيز لإضافة عادات للمساءلة.',
-  'No file matches “': 'لا يوجد ملف مطابق لـ «',
   'No notes in this view. Create a new note above.': 'لا ملاحظات في هذا العرض. أنشئ ملاحظة جديدة بالأعلى.',
   'No Password Required to Check Progress:': 'لا حاجة لكلمة مرور لمتابعة التقدم:',
   'No per-app time limits set yet. Set daily caps inside Admin Settings → Allowed Kiosk Apps or use the quick cap test above.':
@@ -446,7 +433,6 @@ export const panelAr: Record<string, string> = {
   'Porn, In-App Browser & DNS Shields (BlockP / BlockerX)': 'دروع الإباحية والمتصفح المدمج وDNS (BlockP / BlockerX)',
   'Porn, In-App Browser & Family DNS Shields': 'دروع الإباحية والمتصفح المدمج وDNS العائلي',
   'Prevents turning off filters during urges': 'يمنع إيقاف الفلاتر أثناء الرغبة',
-  'Previous affirmation': 'التأكيد السابق',
   Priority: 'الأولوية',
   'Protection Shields': 'دروع الحماية',
   'Provision a device': 'تهيئة جهاز',
@@ -489,7 +475,6 @@ export const panelAr: Record<string, string> = {
   'SafeSearch · No Incognito · Keywords ·': 'بحث آمن · بلا تصفح متخفٍ · كلمات ·',
   Save: 'حفظ',
   'Save Admin Passcode': 'حفظ رمز مرور الإدارة',
-  'Save Affirmation': 'حفظ التأكيد',
   'Save Blocker Lists': 'حفظ قوائم الحظر',
   'Save Diary Entry': 'حفظ تدوينة المذكرة',
   'Save Goal': 'حفظ الهدف',
@@ -531,7 +516,6 @@ export const panelAr: Record<string, string> = {
   'Single-App': 'تطبيق واحد',
   'Single-App Dedicated Lock Configured': 'قفل تطبيق واحد مخصص مُعدّ',
   'Single-App Lock': 'قفل تطبيق واحد',
-  'Six steps from source to a locked-down phone running': 'ست خطوات من المصدر إلى هاتف مقفل يشغّل',
   'Size: Heading (24px)': 'الحجم: عنوان (24px)',
   'Size: Large (20px)': 'الحجم: كبير (20px)',
   'Size: Normal (16px)': 'الحجم: عادي (16px)',
@@ -620,7 +604,6 @@ export const panelAr: Record<string, string> = {
   'Web, In-App & Porn Shields (BlockP)': 'دروع الويب والمتصفح المدمج والإباحية (BlockP)',
   'Why This Matters': 'لماذا هذا مهم',
   'Workspace Recovery Mode': 'وضع استعادة مساحة العمل',
-  'Write Your Personal Affirmation': 'اكتب تأكيدك الشخصي',
   'Your local offline kiosk & self-improvement data remains safely stored on this device.':
     'تبقى بيانات الكشك المحلية والتطوير الذاتي محفوظة بأمان على هذا الجهاز.',
 
@@ -645,11 +628,6 @@ export const panelAr: Record<string, string> = {
   'Browser Only': 'متصفح فقط',
   '1.1.1.3 Family': '1.1.1.3 عائلي',
   CleanBrowsing: 'CleanBrowsing',
-  'Manifest & policy': 'البيان والسياسة',
-  'Kotlin core': 'نواة Kotlin',
-  'UI & layouts': 'الواجهة والتخطيطات',
-  'Gradle & tests': 'Gradle والاختبارات',
-  lines: 'أسطر',
   All: 'الكل',
   Portrait: 'عمودي',
   Landscape: 'أفقي',
@@ -666,22 +644,18 @@ export const panelAr: Record<string, string> = {
   'Copy command for': 'نسخ الأمر الخاص بـ',
 
   // Provisioning steps.
-  'Build the APK in CI': 'بناء APK في التكامل المستمر',
-  'Or build locally': 'أو ابنِ محليًا',
-  'Install on a factory-reset device': 'التثبيت على جهاز مُعاد ضبطه من المصنع',
+  'Four steps after downloading KioskOS.apk to lock down a phone running':
+    'أربع خطوات بعد تنزيل KioskOS.apk لإغلاق هاتف يعمل بـ',
+  'Install KioskOS.apk on a factory-reset device': 'تثبيت KioskOS.apk على جهاز مُعاد ضبطه من المصنع',
+  'Use the Download APK button first. The device must have no Google or user accounts before it can become Device Owner.':
+    'استخدم زر تنزيل APK أولًا. يجب ألا يحتوي الجهاز على حسابات Google أو حسابات مستخدمين قبل أن يصبح مالك الجهاز.',
   'Set Device Owner': 'تعيين مالك الجهاز',
   'Enable the window guard': 'تفعيل حارس النوافذ',
   'Reboot and verify': 'إعادة التشغيل والتحقق',
-  'Upload the downloaded project to GitHub and run the bundled workflow — no Android Studio needed.':
-    'ارفع المشروع المُنزّل إلى GitHub وشغّل سير العمل المرفق — دون الحاجة إلى Android Studio.',
-  'Open android-kiosk-launcher in Android Studio, or run the helper script with JDK 17 and the Android SDK.':
-    'افتح android-kiosk-launcher في Android Studio، أو شغّل السكربت المساعد مع JDK 17 وحزمة أندرويد SDK.',
-  'The device must have no Google or user accounts before it can become Device Owner.':
-    'يجب ألا يحتوي الجهاز على حسابات Google أو حسابات مستخدمين قبل أن يصبح مالك الجهاز.',
   'Enforces DISALLOW_SAFE_BOOT, DISALLOW_FACTORY_RESET, DISALLOW_ADD_USER and DISALLOW_APPS_CONTROL immediately.':
     'يفرض فورًا DISALLOW_SAFE_BOOT وDISALLOW_FACTORY_RESET وDISALLOW_ADD_USER وDISALLOW_APPS_CONTROL.',
   'Optional. Blocks Settings and package-installer dialogs while the admin passcode is locked.':
-    'اختياري. يحظر نواتج الإعدادات ومثبّت الحزم أثناء قفل رمز مرور الإدارة.',
+    'اختياري. يحظر نوافذ الإعدادات ومثبّت الحزم أثناء قفل رمز مرور الإدارة.',
   'BootCompletedReceiver restores the kiosk home screen with all restrictions intact.':
     'يستعيد BootCompletedReceiver شاشة رئيسية الكشك مع كل القيود سليمة.',
   'DeviceAdminReceiver & BIND_DEVICE_ADMIN': 'DeviceAdminReceiver وBIND_DEVICE_ADMIN',
@@ -691,7 +665,6 @@ export const panelAr: Record<string, string> = {
   'Allowlist and LockTask': 'القائمة المسموحة وLockTask',
   'Block Settings and uninstall': 'حظر الإعدادات والإزالة',
   'Reboot resilience': 'الصمود بعد إعادة التشغيل',
-  'APK pipeline': 'خط إنتاج APK',
   'Declared in AndroidManifest.xml with @xml/device_admin metadata':
     'مُعلن في AndroidManifest.xml مع بيانات @xml/device_admin',
   'KioskLauncherActivity intent-filter and addPersistentPreferredActivity()':
@@ -705,5 +678,262 @@ export const panelAr: Record<string, string> = {
     'setPackagesSuspended() وsetUninstallBlocked() وDISALLOW_APPS_CONTROL',
   'LOCKED_BOOT_COMPLETED receiver and full configChanges handling':
     'مستقبل LOCKED_BOOT_COMPLETED ومعالجة كاملة لـ configChanges',
-  'Bundled build-apk.yml workflow and build-apk.sh': 'سير عمل build-apk.yml المرفق وbuild-apk.sh',
+  'Strong OS-level admin restrictions enforced when Device Owner is active.':
+    'قيود إدارية قوية على مستوى النظام تُفرض عند تفعيل مالك الجهاز.',
+  'Strong Admin Restrictions (UserManager)': 'قيود الإدارة القوية (UserManager)',
+  'Disable Safe Mode': 'تعطيل الوضع الآمن',
+  'Disable Factory Reset': 'تعطيل إعادة ضبط المصنع',
+  'Disable Add User / Guest Profiles': 'تعطيل إضافة مستخدم / ملف الضيف',
+  'Disable App Control & Uninstall': 'تعطيل التحكم بالتطبيقات وإزالتها',
+
+  // Legal & Terms modal
+  'Intellectual property': 'الملكية الفكرية',
+  'All software, simulators, APK packages, source code, graphics and branding associated with KioskOS are the exclusive property of the creator and are protected by copyright law. All rights reserved.':
+    'جميع البرمجيات والمحاكيات وحزم APK والشفرة المصدرية والرسومات والعلامة التجارية المرتبطة بـ KioskOS هي ملكية حصرية للمطوّر ومحمية بموجب قوانين حقوق النشر. جميع الحقوق محفوظة.',
+  'Permitted licence': 'الترخيص المسموح به',
+  'You are granted a limited, personal, non-exclusive, non-transferable licence to use this web application and install the official KioskOS APK on Android devices that you own or are explicitly authorised to manage.':
+    'يُمنح لك ترخيص محدود وشخصي وغير حصري وغير قابل للتحويل لاستخدام هذا التطبيق وتثبيت حزمة KioskOS APK الرسمية على أجهزة أندرويد التي تملكها أو لديك تفويض صريح بإدارتها.',
+  'Usage restrictions': 'قيود الاستخدام',
+  'You may not copy, clone, scrape, modify, rebrand, decompile, reverse-engineer, mirror, sublicense or commercially distribute KioskOS, its UI design or its APK, in whole or in part, without prior written consent.':
+    'لا يجوز لك نسخ أو استنساخ أو سحب أو تعديل أو إعادة تسمية أو تفكيك أو إجراء هندسة عكسية أو إعادة نشر أو ترخيص أو توزيع KioskOS أو تصميم واجهته أو ملف APK تجاريًا، كليًا أو جزئيًا، دون موافقة خطية مسبقة.',
+  'Device Owner responsibility': 'مسؤولية مالك الجهاز',
+  'KioskOS uses Android Device Owner and DevicePolicyManager lockdown APIs. You are solely responsible for securing your administrator passcode, backing up your device before provisioning, and complying with applicable law.':
+    'يستخدم KioskOS واجهات أندرويد الخاصة بمالك الجهاز وإغلاق DevicePolicyManager. أنت وحدك المسؤول عن حماية رمز مرور المسؤول، وأخذ نسخة احتياطية قبل التهيئة، والالتزام بالقوانين المعمول بها.',
+  Disclaimer: 'إخلاء المسؤولية',
+  'KioskOS is provided “as is”, without warranties of any kind. The copyright holder assumes no liability for device lockouts, data loss or system issues resulting from installation or use.':
+    'يُقدَّم KioskOS «كما هو» دون أي ضمانات من أي نوع. لا يتحمل صاحب حقوق النشر أي مسؤولية عن قفل الأجهزة أو فقدان البيانات أو أي مشكلات في النظام ناتجة عن التثبيت أو الاستخدام.',
+
+  // Policy inspector details & status formatting
+  'Blocks booting into Android Safe Mode to bypass the kiosk launcher.':
+    'يمنع الإقلاع إلى الوضع الآمن لتجاوز مشغّل الكشك.',
+  'Prevents wiping the device via Settings or hardware recovery triggers.':
+    'يمنع مسح الجهاز عبر الإعدادات أو أوضاع الاسترداد.',
+  'Disables creating secondary or guest user profiles.':
+    'يعطّل إنشاء ملفات مستخدمين ثانوية أو حساب ضيف.',
+  'Blocks modifying, force-stopping, or uninstalling apps unless unlocked by Admin Passcode.':
+    'يمنع تعديل التطبيقات أو إيقافها إجباريًا أو إزالتها إلا بعد فتح القفل برمز الإدارة.',
+  'Blocks pulling down notification shade, Quick Settings toggles, and system alerts.':
+    'يمنع سحب شريط الإشعارات وأزرار الإعدادات السريعة وتنبيهات النظام.',
+  'Prevents sideloading APKs or extracting files via MTP/USB drives and SD cards.':
+    'يمنع تثبيت ملفات APK خارجيًا أو نقل الملفات عبر USB وبطاقات SD.',
+  'Prevents altering device clock to bypass daily sobriety streaks or scheduled locks.':
+    'يمنع تغيير ساعة الجهاز للتحايل على سلاسل التعافي أو الأقفال المجدولة.',
+  'Disables hardware camera access across all installed apps.':
+    'يعطّل الوصول إلى كاميرا الجهاز عبر جميع التطبيقات المثبتة.',
+  'Bypasses Android keyguard lockscreen for instant dedicated terminal boot.':
+    'يتجاوز شاشة القفل لإقلاع فوري ومخصص للكشك.',
+  'Blocks screenshots and screen recording across kiosk sessions.':
+    'يمنع لقطات الشاشة وتسجيل الشاشة أثناء جلسات الكشك.',
+  'Keeps display awake during continuous kiosk check-in or deep focus timers.':
+    'يبقي الشاشة مضاءة أثناء العمل المستمر أو مؤقتات التركيز العميق.',
+  'Forces Google SafeSearch, Strict YouTube Restricted Mode, URLBlocklist & disables Incognito.':
+    'يفرض البحث الآمن من Google والوضع المقيّد الصارم في YouTube وقائمة الحظر ويعطّل التصفح المتخفي.',
+  'Blocks CustomTabs and embedded WebViews inside social/messaging apps unless whitelisted.':
+    'يمنع CustomTabs وWebView داخل تطبيقات التواصل والمراسلة ما لم تكن في القائمة المسموحة.',
+  'Suspends unmonitored privacy/alternative browsers so web filters cannot be bypassed.':
+    'يُعلّق المتصفحات البديلة غير المراقبة لمنع تجاوز فلاتر الويب.',
+  'Blocks infinite-scroll short-form video feeds while preserving productive search & study.':
+    'يحظر خلاصات الفيديو القصيرة مع الإبقاء على البحث المفيد والدراسة.',
+  'Disable Porn on Browsers': 'حظر الإباحية في المتصفحات',
+  'SafeSearch + Strict YouTube + Block Incognito': 'بحث آمن + YouTube صارم + حظر التصفح المتخفي',
+  'Block In-App Browsers (Except Whitelist)': 'حظر المتصفحات داخل التطبيقات (باستثناء المسموحة)',
+  'Block Unsupported Browsers': 'حظر المتصفحات غير المدعومة',
+  'Block Short-Form Feeds': 'حظر خلاصات الفيديو القصيرة',
+  'Block Status Bar Shade': 'حظر شريط الحالة والإشعارات',
+  'Block USB & External Media': 'حظر USB والوسائط الخارجية',
+  'Lock Date & Time (Anti-Tamper)': 'قفل التاريخ والوقت (مكافحة العبث)',
+  'Disable Device Camera': 'تعطيل كاميرا الجهاز',
+  'Skip Lockscreen Keyguard': 'تجاوز شاشة قفل الشاشة',
+  'Block Screenshots': 'حظر لقطات الشاشة',
+  'Keep Kiosk Screen Awake': 'إبقاء شاشة الكشك مضاءة',
+  Cloudflare: 'Cloudflare',
+  On: 'مُفعّل',
+  pkgs: 'حزم',
+  '{m}m left (Focus & Growth exempt)': 'متبقٍ {m} د (التركيز والنمو مستثنى)',
+  '{u}m / {l}m ({r}m left)': '{u} د / {l} د (متبقٍ {r} د)',
+  '{n}/50 chars': '{n}/50 حرفًا',
+  '{s}s Remaining': 'متبقٍ {s} ث',
+  '{pts} pts (T1:{t1} / T2:{t2})': '{pts} نقطة (م1:{t1} / م2:{t2})',
+  'Emergency Panic Lockdown Active ({m}m left)': 'إغلاق الطوارئ نشط (متبقٍ {m} د)',
+  'Cleared at {t}': 'مُسحت عند {t}',
+
+  // Device simulator, battery, pin gate, browser & app controls
+  '({m}m)': '({m} د)',
+  Allowlist: 'القائمة المسموحة',
+  'Allow {label} on kiosk home': 'السماح بـ {label} في رئيسية الكشك',
+  'Launch {label} in LockTask': 'تشغيل {label} في LockTask',
+  'Daily time limit for {label}': 'الحد اليومي لتطبيق {label}',
+  'Added {label} ({pkg}) to Kiosk allowlist.': 'تمت إضافة {label} ({pkg}) إلى قائمة الكشك المسموحة.',
+  'Admin passcode updated (4–50 chars) and persisted.': 'تم تحديث رمز مرور الإدارة (4–50 حرفًا) وحفظه.',
+  'Incorrect passcode. Default passcode is 1234 unless changed.':
+    'رمز المرور غير صحيح. الرمز الافتراضي هو 1234 ما لم يتم تغييره.',
+  'Too many failed attempts. Locked for {s}s.': 'محاولات فاشلة كثيرة. مقفل لمدة {s} ثانية.',
+  '{button} button disabled in startLockTask() mode. Use Exit LockTask with Admin Passcode.':
+    'تم تعطيل زر {button} في وضع startLockTask(). استخدم الخروج من LockTask برمز الإدارة.',
+  'KioskLauncherActivity is pinned as HOME launcher.': 'تم تثبيت KioskLauncherActivity كمشغّل رئيسية افتراضي.',
+  'Battery {level} percent{charging}. Open battery controls':
+    'البطارية {level} بالمائة{charging}. فتح تحكم البطارية',
+  '~{m}m to full': '~{m} د للاكتمال',
+  '~{h}h {m}m screen-on remaining': '~{h} س {m} د تشغيل متبقية',
+  'Executing LOCKED_BOOT_COMPLETED, re-enforcing Device Owner restrictions, and restoring KioskLauncherActivity ({mode}) as HOME.':
+    'جارٍ تنفيذ LOCKED_BOOT_COMPLETED وإعادة فرض قيود مالك الجهاز واستعادة KioskLauncherActivity ({mode}) كرئيسية.',
+  '{m}m left': 'متبقٍ {m} د',
+  'Freedom Focus Lock · {m}m left': 'قفل تركيز Freedom · متبقٍ {m} د',
+  'Quiet Hours ({start}:00–{end}:00) Active': 'ساعات الهدوء ({start}:00–{end}:00) نشطة',
+  '{r}m / {l}m left': 'متبقٍ {r} د / {l} د',
+  'Limit reached ({m}m/d)': 'انتهى الحد اليومي ({m} د/يوم)',
+  'Test instagram.com': 'اختبار instagram.com',
+  'Test pornhub.com': 'اختبار pornhub.com',
+  'Test ?q=nsfw': 'اختبار ?q=nsfw',
+  'Test /shorts': 'اختبار /shorts',
+  '{m}m today': '{m} د اليوم',
+  'Security cooldown active ({s}s remaining).': 'فترة التهدئة الأمنية نشطة (متبقٍ {s} ث).',
+  'Strict Shield Lock: {m}m left': 'قفل الدرع الصارم: متبقٍ {m} د',
+  'Shields time-locked for 60 minutes.': 'تم قفل الدروع زمنيًا لمدة 60 دقيقة.',
+  'Shields time-locked for 24 hours.': 'تم قفل الدروع زمنيًا لمدة 24 ساعة.',
+  'Saved whitelist, domains & keywords.': 'تم حفظ القائمة المسموحة والنطاقات والكلمات المحظورة.',
+  'Freedom Focus Lock active ({m}m left)': 'قفل تركيز Freedom نشط (متبقٍ {m} د)',
+  'Started 25m Freedom Focus Lock.': 'بدأ قفل تركيز Freedom لمدة 25 دقيقة.',
+  'Started 60m Freedom Focus Lock.': 'بدأ قفل تركيز Freedom لمدة 60 دقيقة.',
+  'Ended Freedom Focus Lock.': 'انتهى قفل تركيز Freedom.',
+  'Saved Quiet Hours window.': 'تم حفظ فترة ساعات الهدوء.',
+  '{u}m / {l}m daily': '{u} د / {l} د يوميًا',
+  'Set {label} daily cap to {m}m.': 'تم ضبط الحد اليومي لتطبيق {label} على {m} د.',
+  'Removed daily limit for {label}.': 'تمت إزالة الحد اليومي لتطبيق {label}.',
+  '{m}m / day': '{m} د / يوم',
+  '{m}m/day': '{m} د/يوم',
+  '{m}m left today': 'متبقٍ {m} د اليوم',
+  "Reset today's usage for {label}.": 'تم تصفير استخدام اليوم لتطبيق {label}.',
+
+  // Self-improvement workspace & accountability charts
+  'Stay present. Complete one focused block at a time.': 'كن حاضرًا في اللحظة. أنجز جلسة تركيز واحدة في كل مرة.',
+  'Deep work block (Zero distractions)': 'جلسة عمل عميق (دون أي مشتتات)',
+  'Completed {m}m focus session.': 'أكملت جلسة تركيز لمدة {m} د.',
+  'Logged {m}m focus block.': 'تم تسجيل جلسة تركيز لمدة {m} د.',
+  'Goal Plan': 'خطة الهدف',
+  Milestone: 'مرحلة',
+  Status: 'الحالة',
+  '{m}m': '{m} د',
+  'Date:': 'التاريخ:',
+  'Habit Rate': 'معدل العادات',
+  'Mark {title} for {date}': 'تحديد {title} ليوم {date}',
+  'Delete habit {title}': 'حذف العادة {title}',
+  all: 'الكل',
+  active: 'النشطة',
+  'Toggle task {title}': 'تبديل المهمة {title}',
+  priority: 'أولوية',
+  'Delete task {title}': 'حذف المهمة {title}',
+  'Week 1 clean\nFinish module 1\nComplete 30-day review': 'أسبوع أول نظيف\nإنهاء الوحدة 1\nمراجعة 30 يومًا',
+  'Why It Matters': 'لماذا يهمّني',
+  'Delete goal {title}': 'حذف الهدف {title}',
+  'Add milestone to {title}': 'إضافة مرحلة إلى {title}',
+
+  // Rich notes editor & diary templates
+  'Item / Trigger': 'البند / المُحفّز',
+  'Plan / Metric': 'الخطة / المعيار',
+  'Entry 1': 'إدخال 1',
+  'Entry 2': 'إدخال 2',
+  Detail: 'التفصيل',
+  Planned: 'مخطط',
+  'New cell': 'خلية جديدة',
+  'Daily Reflection — {date}': 'تأمل يومي — {date}',
+  'Morning & Evening Check-In': 'متابعة الصباح والمساء',
+  'Main Goal Today:': 'هدفي الرئيسي اليوم:',
+  'Stay clean, focused, and away from mindless feeds.': 'البقاء نظيفًا ومركّزًا وبعيدًا عن التصفح العشوائي.',
+  Area: 'المجال',
+  Check: 'الفحص',
+  'Focus / Work': 'التركيز / العمل',
+  '2 deep blocks': 'جلستا تركيز عميق',
+  'Sleep & Night Rule': 'النوم وقاعدة الليل',
+  'Phone outside room': 'الهاتف خارج الغرفة',
+  'Urge Trigger & Reset Log': 'سجل الرغبة وإعادة الضبط',
+  'Urge Pause Reflection': 'تأمل عند التوقف عن الرغبة',
+  'I paused before reacting. Here is what triggered the feeling and how I redirected my energy:':
+    'توقّفت قبل الاندفاع. إليك ما أثار الشعور وكيف وجّهت طاقتي:',
+  'Trigger / Emotion:': 'المُحفّز / الشعور:',
+  'Environment:': 'البيئة:',
+  'Action Taken Instead:': 'الإجراء البديل المتخذ:',
+  'Request failed ({status}).': 'فشل الطلب ({status}).',
+  '{d}-day streak': 'سلسلة {d} يوم',
+  'Prompt:': 'الاقتراح:',
+  'and active goals.': 'والأهداف النشطة.',
+  'Untitled Note': 'ملاحظة بدون عنوان',
+  'Unpin {title}': 'إلغاء تثبيت {title}',
+  'Pin {title}': 'تثبيت {title}',
+  'Delete {title}': 'حذف {title}',
+  'Action item': 'عنصر تنفيذ',
+
+  // PC remote workspace & cloud sync messages
+  'Sign in first.': 'سجّل الدخول أولًا.',
+  'Offline or Firestore unreachable — changes remain saved locally and will sync later.':
+    'لا يوجد اتصال أو تعذّر الوصول لـ Firestore — التغييرات محفوظة محليًا وستُزامن لاحقًا.',
+  'PC is offline — connect to push remote updates to your phone.':
+    'الحاسوب دون اتصال — اتصل بالإنترنت لإرسال التحديثات إلى هاتفك.',
+  'Too many wrong passwords. Wait {secs}s before retrying.':
+    'كلمات مرور خاطئة كثيرة. انتظر {secs} ث قبل المحاولة مرة أخرى.',
+  'No synced mobile device record found yet. Click Sync Device Now first.':
+    'لا يوجد سجل هاتف متزامن بعد. اضغط مزامنة الآن أولًا.',
+  'Admin Password verified. Remote settings unlocked for troubleshooting.':
+    'تم التحقق من كلمة مرور الإدارة. فُتحت الإعدادات عن بُعد لإصلاح المشكلات.',
+  'Too many failed attempts. Remote Admin Gate locked for 30s.':
+    'محاولات فاشلة كثيرة. أُقفلت بوابة الإدارة عن بُعد لمدة 30 ثانية.',
+  'Incorrect Admin Password ({n}/5 attempts).': 'كلمة مرور الإدارة غير صحيحة ({n}/5 محاولات).',
+  'Last synced {t}': 'آخر مزامنة {t}',
+  'Last write: {src}': 'آخر تعديل: {src}',
+  '{n} / 4 Active': '{n} / 4 نشط',
+  'Strict {m}m': 'صارم {m} د',
+  'Panic Lock ({m}m)': 'قفل الطوارئ ({m} د)',
+  'Focus Lock ({m}m)': 'قفل التركيز ({m} د)',
+  'PIN Locked ({s}s)': 'الرمز مقفل ({s} ث)',
+  '{n} Warnings': '{n} تحذيرات',
+  'Cleared Emergency Panic Lock remotely.': 'تم إلغاء قفل الطوارئ عن بُعد.',
+  'Ended Freedom Focus Lock remotely.': 'تم إنهاء قفل تركيز Freedom عن بُعد.',
+  'Cleared Tamper / PIN Lockout cooldown remotely.': 'تم مسح إغلاق العبث والرمز عن بُعد.',
+  'Switched remote kiosk boot mode to {mode}.': 'تم تبديل وضع تشغيل الكشك عن بُعد إلى {mode}.',
+  'Updated phone Kiosk Header Title to "{title}".': 'تم تحديث عنوان لوحة الكشك إلى «{title}».',
+  'Strict Anti-Relapse Lock active ({m}m left) — DNS cannot be turned off.':
+    'القفل الصارم ضد الانتكاس نشط (متبقٍ {m} د) — لا يمكن إيقاف DNS.',
+  'Set Family DNS mode to {dns}.': 'تم ضبط DNS العائلي على {dns}.',
+  'Strict Anti-Relapse Lock active ({m}m left).': 'القفل الصارم ضد الانتكاس نشط (متبقٍ {m} د).',
+  '{label} {state} remotely.': 'تم تعديل {label}: {state} عن بُعد.',
+  'Remote daily limit for {label}': 'الحد اليومي عن بُعد لـ {label}',
+  'Strict Anti-Relapse Lock prevents raising or removing limits for {m}m.':
+    'القفل الصارم ضد الانتكاس يمنع رفع الحدود أو إزالتها لمدة {m} د.',
+  'Updated {label} daily cap to {cap}.': 'تم تحديث الحد اليومي لـ {label} إلى {cap}.',
+  '{action} {label} on Kiosk Home.': '{action} {label} على رئيسية الكشك.',
+  'New Admin Password must be 4 to 50 non-blank characters.':
+    'يجب أن تكون كلمة مرور الإدارة الجديدة من 4 إلى 50 حرفًا دون مسافات فارغة.',
+  'New password confirmation does not match.': 'تأكيد كلمة المرور الجديدة غير متطابق.',
+  'Updated device Admin Password ({n} chars) & rotated salted hash.':
+    'تم تحديث كلمة مرور إدارة الجهاز ({n} حرفًا) وتجديد التجزئة المُملّحة.',
+
+  // Default seeded growth items & initial kiosk policy logs
+  'Clean Day (No Porn)': 'يوم نظيف (بدون إباحية)',
+  'Zero Social Media Scrolling': 'صفر تصفح لوسائل التواصل',
+  'Phone Charged Outside Bedroom': 'شحن الهاتف خارج غرفة النوم',
+  '45m Deep Work / Study': '45 د عمل عميق / مذاكرة',
+  'Physical Workout or Walk': 'تمرين بدني أو مشي',
+  'Complete morning intention diary entry': 'إتمام تدوين نية الصباح في اليوميات',
+  'Finish 2 deep-work focus blocks without phone checks': 'إنجاز فترتي تركيز عميق دون تفقد الهاتف',
+  'Evening 30-minute strength or cardio session': 'جلسة تمارين قوة أو جري مسائية لمدة 30 دقيقة',
+  '30 Days Completely Porn & Social-Media Free': '30 يومًا دون إباحية أو تصفح تواصل اجتماعي',
+  'Reset dopamine baseline, eliminate late-night triggers, and build reliable self-trust.':
+    'إعادة ضبط توازن الدوبامين، إزالة محفزات آخر الليل، وبناء ثقة راسخة بالنفس.',
+  'Lock browsers & social apps behind Admin PIN': 'قفل المتصفحات وتطبيقات التواصل برمز الإدارة',
+  'Reach 7 consecutive clean days': 'الوصول إلى 7 أيام نظيفة متتالية',
+  'Reach 14 consecutive clean days': 'الوصول إلى 14 يومًا نظيفًا متتاليًا',
+  'Complete full 30-day reset milestone': 'إتمام هدف الـ 30 يومًا بالكامل',
+  'Build Consistent Deep Work & Reading Routine': 'بناء روتين ثابت للعمل العميق والقراءة',
+  'Channel freed time into measurable skill growth and daily reading.':
+    'توجيه الوقت المتاح نحو تطوير المهارات والقراءة اليومية.',
+  'Read 20 pages daily for 14 days': 'قراءة 20 صفحة يوميًا لمدة 14 يومًا',
+  'Complete 25 focused work sessions': 'إتمام 25 جلسة عمل مركّز',
+  'Pinned KioskLauncherActivity as default HOME launcher.':
+    'تم تثبيت واجهة الكشك KioskLauncherActivity كشاشة رئيسية افتراضية (HOME).',
+  'Enforced DISALLOW_SAFE_BOOT, DISALLOW_FACTORY_RESET, DISALLOW_ADD_USER, DISALLOW_APPS_CONTROL, USB block, Family DNS 1.1.1.3 & SafeSearch/Incognito lock.':
+    'تم تفعيل قيود الوضع الآمن وضبط المصنع وإضافة المستخدمين والتحكم بالتطبيقات، وحظر USB، وتفعيل DNS العائلي 1.1.1.3، وقفل البحث الآمن والتصفح المتخفي.',
+  'Block All In-App Browsers Except Whitelist':
+    'حظر كل المتصفحات داخل التطبيقات (باستثناء المسموحة)',
+  'Block Short-Form Video Feeds': 'حظر خلاصات الفيديوهات القصيرة',
+  'DNS Off': 'DNS متوقف',
 };

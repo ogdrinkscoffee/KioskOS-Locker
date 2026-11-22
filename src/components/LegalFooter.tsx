@@ -85,10 +85,10 @@ export function LegalFooter() {
               {TERMS.map((section) => (
                 <section key={section.heading}>
                   <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white">
-                    {section.heading}
+                    {tr(section.heading)}
                   </h3>
                   <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
-                    {section.body}
+                    {tr(section.body)}
                   </p>
                 </section>
               ))}

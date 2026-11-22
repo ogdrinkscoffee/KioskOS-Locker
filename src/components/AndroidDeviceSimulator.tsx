@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import {
   BlockerShieldToggleKey,
+  DEFAULT_ADMIN_RESTRICTIONS,
   DEFAULT_BLOCKER_SHIELDS,
   DEFAULT_DOWNTIME_SCHEDULE,
   DowntimeSchedule,
@@ -41,6 +42,7 @@ import {
   KioskState,
   MAX_ADMIN_PIN_LENGTH,
   PinGateTarget,
+  RestrictionKey,
   SELF_IMPROVEMENT_PACKAGE,
   getAllInstalledApps,
   getAppRemainingSeconds,
@@ -57,7 +59,6 @@ import {
   formatCountdown,
   formatIsoDate,
   getTodayFocusSummary,
-  getTodaysAffirmation,
 } from '../utils/selfImprovementEngine';
 import { KioskAccountabilityDashboard } from './KioskAccountabilityDashboard';
 import { useI18n } from '../i18n/LocaleProvider';
@@ -76,6 +77,7 @@ interface AndroidDeviceSimulatorProps {
   onSetAdminUnlock: (unlocked: boolean) => void;
   onSetKioskMode: (mode: KioskOperationMode, singleAppPackage?: string | null) => void;
   onUpdateKioskTitle: (title: string) => void;
+  onToggleAdminRestriction: (key: RestrictionKey) => void;
   onToggleHardwarePolicy: (key: HardwareLockPolicyKey) => void;
   onToggleBlockerShield: (key: BlockerShieldToggleKey) => { ok: boolean; error?: string };
   onSetFamilyDnsMode: (mode: FamilyDnsMode) => { ok: boolean; error?: string };
@@ -96,7 +98,6 @@ interface AndroidDeviceSimulatorProps {
   onToggleHabitToday: (habitId: string) => void;
   onToggleTask: (taskId: string) => void;
   onLogCleanDay: () => void;
-  onCycleAffirmation: (delta: number) => void;
   onRecordFocusSession: (minutes: number, label: string) => void;
   onQuickSaveDiaryNote: (title: string, body: string) => void;
   onOpenFullSelfImprovement: () => void;
@@ -128,6 +129,13 @@ function getAppIcon(packageName: string, className = 'w-5 h-5') {
       return <PackageSearch className={className} />;
   }
 }
+
+const ADMIN_RESTRICTION_TOGGLE_ITEMS: { key: RestrictionKey; label: string; apiHint: string }[] = [
+  { key: 'DISALLOW_SAFE_BOOT', label: 'Disable Safe Mode', apiHint: 'UserManager.DISALLOW_SAFE_BOOT' },
+  { key: 'DISALLOW_FACTORY_RESET', label: 'Disable Factory Reset', apiHint: 'UserManager.DISALLOW_FACTORY_RESET' },
+  { key: 'DISALLOW_ADD_USER', label: 'Disable Add User / Guest Profiles', apiHint: 'UserManager.DISALLOW_ADD_USER' },
+  { key: 'DISALLOW_APPS_CONTROL', label: 'Disable App Control & Uninstall', apiHint: 'UserManager.DISALLOW_APPS_CONTROL' },
+];
 
 const HARDWARE_TOGGLE_ITEMS: { key: HardwareLockPolicyKey; label: string; apiHint: string }[] = [
   { key: 'statusBarDisabled', label: 'Block Status Bar Shade', apiHint: 'setStatusBarDisabled' },
@@ -176,6 +184,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
   onSetAdminUnlock,
   onSetKioskMode,
   onUpdateKioskTitle,
+  onToggleAdminRestriction,
   onToggleHardwarePolicy,
   onToggleBlockerShield,
   onSetFamilyDnsMode,
@@ -196,7 +205,6 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
   onToggleHabitToday,
   onToggleTask,
   onLogCleanDay,
-  onCycleAffirmation,
   onRecordFocusSession,
   onQuickSaveDiaryNote,
   onOpenFullSelfImprovement,
@@ -410,10 +418,10 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
       setPinError(null);
       setShowPinEntry(false);
     } else if (res.lockedOutSeconds && res.lockedOutSeconds > 0) {
-      setPinError(`Too many failed attempts. Locked for ${res.lockedOutSeconds}s.`);
+      setPinError(tr('Too many failed attempts. Locked for {s}s.', { s: res.lockedOutSeconds }));
       setPinEntry('');
     } else {
-      setPinError('Incorrect passcode. Default passcode is 1234 unless changed.');
+      setPinError(tr('Incorrect passcode. Default passcode is 1234 unless changed.'));
       setPinEntry('');
     }
   };
@@ -432,7 +440,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
       setCurrentPinInput('');
       setNewPinInput('');
       setConfirmPinInput('');
-      setPinChangeFeedback({ type: 'ok', text: 'Admin passcode updated (4–50 chars) and persisted.' });
+      setPinChangeFeedback({ type: 'ok', text: tr('Admin passcode updated (4–50 chars) and persisted.') });
     } else {
       setPinChangeFeedback({ type: 'error', text: res.error ?? tr("Failed to update passcode.") });
     }
@@ -444,7 +452,10 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
     if (res.ok) {
       setCustomAppFeedback({
         type: 'ok',
-        text: `Added ${customAppLabel.trim()} (${customAppPkg.trim()}) to Kiosk allowlist.`,
+        text: tr('Added {label} ({pkg}) to Kiosk allowlist.', {
+          label: customAppLabel.trim(),
+          pkg: customAppPkg.trim(),
+        }),
       });
       setCustomAppLabel('');
       setCustomAppPkg('');
@@ -483,12 +494,14 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
       state.lockTaskActive
     ) {
       setNavBlockedMessage(
-        `${buttonName} button disabled in startLockTask() mode. Use Exit LockTask with Admin Passcode.`
+        tr('{button} button disabled in startLockTask() mode. Use Exit LockTask with Admin Passcode.', {
+          button: tr(buttonName),
+        })
       );
       return;
     }
     if (state.activeScreen === 'home') {
-      setNavBlockedMessage('KioskLauncherActivity is pinned as HOME launcher.');
+      setNavBlockedMessage(tr('KioskLauncherActivity is pinned as HOME launcher.'));
       return;
     }
     if (buttonName === 'Home' && state.activeScreen === 'android_settings') {
@@ -533,15 +546,18 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                 type="button"
                 data-testid="battery-indicator-button"
                 aria-expanded={batteryPanelOpen}
-                aria-label={`Battery ${batteryLevel} percent${isCharging ? tr(", charging") : ''}. Open battery controls`}
+                aria-label={tr('Battery {level} percent{charging}. Open battery controls', {
+                  level: batteryLevel,
+                  charging: isCharging ? tr(', charging') : '',
+                })}
                 onClick={() => setBatteryPanelOpen((prev) => !prev)}
-                className={`ml-0.5 px-1.5 py-0.5 rounded inline-flex items-center gap-1.5 shrink-0 transition-colors ${
+                className={`ms-0.5 px-1.5 py-0.5 rounded inline-flex items-center gap-1.5 shrink-0 transition-colors ${
                   batteryPanelOpen
                     ? 'bg-slate-800 text-white'
                     : 'hover:bg-slate-800/80 text-slate-100'
                 }`}
               >
-                <span className="relative inline-flex items-center" aria-hidden="true">
+                <span dir="ltr" className="relative inline-flex items-center" aria-hidden="true">
                   <span className="w-[18px] h-[10px] rounded-[2px] border border-slate-400 p-[1.5px] flex items-center">
                     <span
                       className={`h-full rounded-[1px] transition-all duration-300 ${
@@ -558,8 +574,9 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                   </span>
                   <span className="w-[2px] h-[5px] bg-slate-400 rounded-r-[1px] ml-[1px]" />
                 </span>
-                {isCharging && <Zap className="w-2.5 h-2.5 text-sky-400 -ml-0.5" aria-hidden="true" />}
+                {isCharging && <Zap className="w-2.5 h-2.5 text-sky-400 -ms-0.5" aria-hidden="true" />}
                 <span
+                  dir="ltr"
                   data-testid="battery-percentage"
                   className={`tabular-nums text-[11px] font-semibold ${
                     isCharging
@@ -596,7 +613,8 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                     aria-hidden="true"
                   />
                   <div className="min-w-0">
-                    <div className="font-semibold text-slate-900 dark:text-slate-100 tabular-nums">{"\n                      "}{tr("Battery ·")}{" "}{batteryLevel}%{' '}
+                    <div className="font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
+                      {tr("Battery ·")} <span dir="ltr">{batteryLevel}%</span>{' '}
                       <span className="font-normal text-slate-500 dark:text-slate-400">
                         {isCharging
                           ? batteryLevel >= 100
@@ -611,8 +629,11 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                       {isCharging
                         ? batteryLevel >= 100
                           ? tr("Connected to AC power")
-                          : `~${Math.max(1, Math.round(((100 - batteryLevel) * 1.1)))}m to full`
-                        : `~${Math.floor((batteryLevel * 5.2) / 60)}h ${Math.round((batteryLevel * 5.2) % 60)}m screen-on remaining`}
+                          : tr('~{m}m to full', { m: Math.max(1, Math.round((100 - batteryLevel) * 1.1)) })
+                        : tr('~{h}h {m}m screen-on remaining', {
+                            h: Math.floor((batteryLevel * 5.2) / 60),
+                            m: Math.round((batteryLevel * 5.2) % 60),
+                          })}
                       {' · '}
                       {hostBatterySynced
                         ? tr("Host telemetry")
@@ -627,7 +648,9 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                   onClick={() => setBatteryPanelOpen(false)}
                   aria-label={tr("Close battery panel")}
                   className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 font-medium px-1.5 py-0.5 shrink-0"
-                >{"\n                  "}{tr("Done")}{"\n                "}</button>
+                >
+                  {tr("Done")}
+                </button>
               </div>
 
               <div className="flex items-center gap-2">
@@ -748,7 +771,8 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
               <div className="h-full flex flex-col items-center justify-center text-center px-4">
                 <RefreshCw className="w-8 h-8 text-sky-600 dark:text-sky-400 animate-spin mb-3" aria-hidden="true" />
                 <p className="font-semibold text-slate-900 dark:text-slate-100 text-base">{tr("Rebooting Android Device")}</p>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 max-w-xs">{"\n                  "}{tr("Executing LOCKED_BOOT_COMPLETED, re-enforcing Device Owner restrictions, and restoring KioskLauncherActivity (")}{state.kioskMode}) as HOME.
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 max-w-xs">
+                  {tr('Executing LOCKED_BOOT_COMPLETED, re-enforcing Device Owner restrictions, and restoring KioskLauncherActivity ({mode}) as HOME.', { mode: state.kioskMode })}
                 </p>
               </div>
             )}
@@ -851,9 +875,11 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                     <div className="min-w-0">
                       <div className="font-semibold inline-flex items-center gap-1.5 tabular-nums">
                         <OctagonAlert className="w-3.5 h-3.5 text-red-600 dark:text-red-400 shrink-0" aria-hidden="true" />
-                        <span>{tr("Emergency Panic Lock ·")}{" "}{panicLockMinutes}m left</span>
+                        <span>{tr("Emergency Panic Lock ·")} {tr('{m}m left', { m: panicLockMinutes })}</span>
                       </div>
-                      <div className="text-[11px] text-red-800 dark:text-red-300 truncate">{"\n                        "}{tr("Apps killed · Clipboard wiped")}{state.lastClipboardWipedAt ? ` (${state.lastClipboardWipedAt})` : ''}{" "}{tr("· Locked to Dashboard")}{"\n                      "}</div>
+                      <div className="text-[11px] text-red-800 dark:text-red-300 truncate">
+                        {tr("Apps killed · Clipboard wiped")}{state.lastClipboardWipedAt ? ` (${state.lastClipboardWipedAt})` : ''} {tr("· Locked to Dashboard")}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -864,10 +890,15 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                     <div className="min-w-0">
                       <span className="font-semibold">
                         {focusBlockMinutes > 0
-                          ? `Freedom Focus Lock · ${focusBlockMinutes}m left`
-                          : `Quiet Hours (${String(downtime.startHour).padStart(2, '0')}:00–${String(downtime.endHour).padStart(2, '0')}:00) Active`}
+                          ? tr('Freedom Focus Lock · {m}m left', { m: focusBlockMinutes })
+                          : tr('Quiet Hours ({start}:00–{end}:00) Active', {
+                              start: String(downtime.startHour).padStart(2, '0'),
+                              end: String(downtime.endHour).padStart(2, '0'),
+                            })}
                       </span>
-                      <div className="text-[11px] text-amber-800 dark:text-amber-300 truncate">{"\n                        "}{tr("Focus & Growth remains open; other apps paused.")}{"\n                      "}</div>
+                      <div className="text-[11px] text-amber-800 dark:text-amber-300 truncate">
+                        {tr("Focus & Growth remains open; other apps paused.")}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -915,7 +946,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                           remSec !== null
                             ? remSec <= 0
                               ? tr("0m left · Blocked")
-                              : `${Math.ceil(remSec / 60)}m / ${limitMins}m left`
+                              : tr('{r}m / {l}m left', { r: Math.ceil(remSec / 60), l: limitMins })
                             : null;
                         return (
                           <button
@@ -953,7 +984,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                                   }`}
                                 >
                                   {remSec !== null && remSec <= 0
-                                    ? `Limit reached (${limitMins}m/d)`
+                                    ? tr('Limit reached ({m}m/d)', { m: limitMins })
                                     : blockReason
                                     ? blockReason.includes('Panic')
                                       ? tr("Locked (Panic Mode)")
@@ -1069,10 +1100,10 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                         </button>
                       ))}
                       {[
-                        { label: 'Test instagram.com', url: 'https://instagram.com' },
-                        { label: 'Test pornhub.com', url: 'https://pornhub.com' },
-                        { label: 'Test ?q=nsfw', url: 'https://wikipedia.org?q=nsfw' },
-                        { label: 'Test /shorts', url: 'https://wikipedia.org/shorts' },
+                        { label: tr('Test instagram.com'), url: 'https://instagram.com' },
+                        { label: tr('Test pornhub.com'), url: 'https://pornhub.com' },
+                        { label: tr('Test ?q=nsfw'), url: 'https://wikipedia.org?q=nsfw' },
+                        { label: tr('Test /shorts'), url: 'https://wikipedia.org/shorts' },
                       ].map((t) => (
                         <button
                           key={t.label}
@@ -1211,24 +1242,12 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
 
                 {kioskSiTab === 'today' ? (
                   <div className="space-y-2.5">
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 space-y-1.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-semibold text-sky-700 dark:text-sky-400">{"\n                          "}{tr("Daily Affirmation")}{"\n                        "}</span>
-                        <button
-                          type="button"
-                          onClick={() => onCycleAffirmation(1)}
-                          className="text-[11px] font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
-                        >{"\n                          "}{tr("Next →")}{"\n                        "}</button>
-                      </div>
-                      <p className="text-xs text-slate-800 dark:text-slate-200 leading-snug">
-                        &ldquo;{getTodaysAffirmation(selfImprovement).text}&rdquo;
-                      </p>
-                    </div>
-
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 flex items-center justify-between">
                       <div>
                         <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">{tr("Clean Day Check-In")}</div>
-                        <div className="text-[11px] text-slate-600 dark:text-slate-400">{"\n                          "}{tr("No porn · No social media")}{"\n                        "}</div>
+                        <div className="text-[11px] text-slate-600 dark:text-slate-400">
+                          {tr("No porn · No social media")}
+                        </div>
                       </div>
                       <button
                         type="button"
@@ -1251,7 +1270,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                             onClick={() => onToggleHabitToday(h.id)}
                             className="w-full py-1.5 flex items-center justify-between text-start border-b border-slate-100 dark:border-slate-800 last:border-b-0"
                           >
-                            <span className="text-xs text-slate-800 dark:text-slate-200 truncate pr-2">{h.title}</span>
+                            <span className="text-xs text-slate-800 dark:text-slate-200 truncate pe-2">{tr(h.title)}</span>
                             <span
                               className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${
                                 done
@@ -1276,11 +1295,11 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                           className="w-full py-1.5 flex items-center justify-between text-start border-b border-slate-100 dark:border-slate-800 last:border-b-0"
                         >
                           <span
-                            className={`text-xs truncate pr-2 ${
+                            className={`text-xs truncate pe-2 ${
                               t.completed ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-200'
                             }`}
                           >
-                            {t.title}
+                            {tr(t.title)}
                           </span>
                           <span
                             className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${
@@ -1297,7 +1316,8 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                   </div>
                 ) : kioskSiTab === 'timer' ? (
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3 text-center">
-                    <div className="text-[11px] font-semibold text-sky-700 dark:text-sky-400 tabular-nums">{"\n                      "}{tr("LockTask Focus Sprint ·")}{" "}{simFocusSummary.minutes}m today
+                    <div className="text-[11px] font-semibold text-sky-700 dark:text-sky-400 tabular-nums">
+                      {tr("LockTask Focus Sprint ·")} {tr('{m}m today', { m: simFocusSummary.minutes })}
                     </div>
                     <div className="text-4xl font-mono font-bold text-slate-900 dark:text-slate-100 tabular-nums">
                       {formatCountdown(simSecondsLeft)}
@@ -1319,7 +1339,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                               : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300'
                           }`}
                         >
-                          {mins}m
+                          {tr('{m}m', { m: mins })}
                         </button>
                       ))}
                     </div>
@@ -1513,7 +1533,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                           setPinEntry(e.target.value);
                         }}
                         placeholder={tr("Enter passcode...")}
-                        className="w-full h-10 pl-3 pr-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 font-mono text-sm focus:outline-2 focus:outline-sky-600 disabled:bg-slate-100 dark:disabled:bg-slate-800"
+                        className="w-full h-10 ps-3 pe-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 font-mono text-sm focus:outline-2 focus:outline-sky-600 disabled:bg-slate-100 dark:disabled:bg-slate-800"
                       />
                       <button
                         type="button"
@@ -1527,7 +1547,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                     {(pinError || lockoutRemaining > 0) && (
                       <p role="alert" className="text-xs text-red-600 dark:text-red-400 mt-1.5 font-medium">
                         {lockoutRemaining > 0
-                          ? `Security cooldown active (${lockoutRemaining}s remaining).`
+                          ? tr('Security cooldown active ({s}s remaining).', { s: lockoutRemaining })
                           : pinError}
                       </p>
                     )}
@@ -1654,14 +1674,16 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                             : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'
                         }`}
                       >
-                        {modeOpt.label}
+                        {tr(modeOpt.label)}
                       </button>
                     ))}
                   </div>
 
                   {state.kioskMode === 'single_app' && (
                     <div>
-                      <label htmlFor="single-app-select" className="block text-[11px] text-slate-600 dark:text-slate-400 mb-0.5">{"\n                        "}{tr("Dedicated Single App")}{"\n                      "}</label>
+                      <label htmlFor="single-app-select" className="block text-[11px] text-slate-600 dark:text-slate-400 mb-0.5">
+                        {tr("Dedicated Single App")}
+                      </label>
                       <select
                         id="single-app-select"
                         value={state.singleAppPackage ?? SELF_IMPROVEMENT_PACKAGE}
@@ -1681,7 +1703,9 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
 
                   <div className="flex items-end gap-2">
                     <div className="flex-1 min-w-0">
-                      <label htmlFor="kiosk-title-input" className="block text-[11px] text-slate-600 dark:text-slate-400 mb-0.5">{"\n                        "}{tr("Custom Launcher Title")}{"\n                      "}</label>
+                      <label htmlFor="kiosk-title-input" className="block text-[11px] text-slate-600 dark:text-slate-400 mb-0.5">
+                        {tr("Custom Launcher Title")}
+                      </label>
                       <input
                         id="kiosk-title-input"
                         type="text"
@@ -1707,12 +1731,16 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                 {/* Unified Web, In-App Browser & Porn Blocker (BlockP / BlockerX) */}
                 <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-2.5">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">{"\n                      "}{tr("Web, In-App & Porn Shields (BlockP)")}{"\n                    "}</span>
+                    <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                      {tr("Web, In-App & Porn Shields (BlockP)")}
+                    </span>
                     <button
                       type="button"
                       onClick={() => onLaunchApp(KIOSK_BROWSER_PACKAGE)}
                       className="text-[11px] font-semibold text-sky-700 dark:text-sky-400 hover:text-sky-900 dark:hover:text-sky-300 whitespace-nowrap"
-                    >{"\n                      "}{tr("Open Browser")}{"\n                    "}</button>
+                    >
+                      {tr("Open Browser")}
+                    </button>
                   </div>
 
                   {/* Strict Anti-Relapse Shield Time-Lock */}
@@ -1720,28 +1748,34 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                     <div className="min-w-0">
                       <div className="text-[11px] font-semibold text-slate-800 dark:text-slate-200 truncate">
                         {strictLockMinutes > 0
-                          ? `Strict Shield Lock: ${strictLockMinutes}m left`
+                          ? tr('Strict Shield Lock: {m}m left', { m: strictLockMinutes })
                           : tr("Strict Anti-Relapse Time-Lock")}
                       </div>
-                      <div className="text-[10px] text-slate-500 dark:text-slate-400">{"\n                        "}{tr("Prevents turning off filters during urges")}{"\n                      "}</div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                        {tr("Prevents turning off filters during urges")}
+                      </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         type="button"
                         onClick={() => {
                           onActivateStrictLock(60);
-                          setShieldFeedback({ type: 'ok', text: 'Shields time-locked for 60 minutes.' });
+                          setShieldFeedback({ type: 'ok', text: tr('Shields time-locked for 60 minutes.') });
                         }}
                         className="px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 text-[10px] font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap"
-                      >{"\n                        "}{tr("Lock 1h")}{"\n                      "}</button>
+                      >
+                        {tr("Lock 1h")}
+                      </button>
                       <button
                         type="button"
                         onClick={() => {
                           onActivateStrictLock(1440);
-                          setShieldFeedback({ type: 'ok', text: 'Shields time-locked for 24 hours.' });
+                          setShieldFeedback({ type: 'ok', text: tr('Shields time-locked for 24 hours.') });
                         }}
                         className="px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 text-[10px] font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap"
-                      >{"\n                        "}{tr("Lock 24h")}{"\n                      "}</button>
+                      >
+                        {tr("Lock 24h")}
+                      </button>
                     </div>
                   </div>
 
@@ -1753,15 +1787,15 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                         <div key={item.key} className="py-1.5 flex items-center justify-between gap-2">
                           <div className="min-w-0">
                             <div className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">
-                              {item.label}
+                              {tr(item.label)}
                             </div>
-                            <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{item.hint}</div>
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{tr(item.hint)}</div>
                           </div>
                           <button
                             type="button"
                             role="switch"
                             aria-checked={active}
-                            aria-label={item.label}
+                            aria-label={tr(item.label)}
                             onClick={() => {
                               const res = onToggleBlockerShield(item.key);
                               if (!res.ok && res.error) {
@@ -1776,7 +1810,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                                 : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300'
                             }`}
                           >
-                            {active ? 'On' : tr("Off")}
+                            {active ? tr("On") : tr("Off")}
                           </button>
                         </div>
                       );
@@ -1785,7 +1819,9 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
 
                   {/* Family Private DNS + VPN Block */}
                   <div>
-                    <div className="text-[11px] font-medium text-slate-700 dark:text-slate-300 mb-1">{"\n                      "}{tr("Family Private DNS & VPN Lock")}{"\n                    "}</div>
+                    <div className="text-[11px] font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      {tr("Family Private DNS & VPN Lock")}
+                    </div>
                     <div className="grid grid-cols-3 gap-1.5">
                       {(
                         [
@@ -1811,7 +1847,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                               : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                           }`}
                         >
-                          {dnsOpt.label}
+                          {tr(dnsOpt.label)}
                         </button>
                       ))}
                     </div>
@@ -1820,7 +1856,9 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                   {/* In-App Whitelist, Allowed Domains & Blocked Keywords */}
                   <div className="space-y-1.5 pt-1">
                     <div>
-                      <label htmlFor="inapp-whitelist-input" className="block text-[10px] text-slate-600 dark:text-slate-400 mb-0.5">{"\n                        "}{tr("In-App Browser Whitelist (comma-separated packages)")}{"\n                      "}</label>
+                      <label htmlFor="inapp-whitelist-input" className="block text-[10px] text-slate-600 dark:text-slate-400 mb-0.5">
+                        {tr("In-App Browser Whitelist (comma-separated packages)")}
+                      </label>
                       <input
                         id="inapp-whitelist-input"
                         type="text"
@@ -1830,7 +1868,9 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                       />
                     </div>
                     <div>
-                      <label htmlFor="allowed-domains-input" className="block text-[10px] text-slate-600 dark:text-slate-400 mb-0.5">{"\n                        "}{tr("Kiosk Browser Allowed Domains")}{"\n                      "}</label>
+                      <label htmlFor="allowed-domains-input" className="block text-[10px] text-slate-600 dark:text-slate-400 mb-0.5">
+                        {tr("Kiosk Browser Allowed Domains")}
+                      </label>
                       <input
                         id="allowed-domains-input"
                         type="text"
@@ -1840,7 +1880,9 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                       />
                     </div>
                     <div>
-                      <label htmlFor="blocked-keywords-input" className="block text-[10px] text-slate-600 dark:text-slate-400 mb-0.5">{"\n                        "}{tr("Blocked Search / URL Keywords")}{"\n                      "}</label>
+                      <label htmlFor="blocked-keywords-input" className="block text-[10px] text-slate-600 dark:text-slate-400 mb-0.5">
+                        {tr("Blocked Search / URL Keywords")}
+                      </label>
                       <input
                         id="blocked-keywords-input"
                         type="text"
@@ -1868,15 +1910,60 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                       onUpdateInAppWhitelist(inAppWhitelistDraft.split(','));
                       onUpdateAllowedDomains(domainsDraft.split(','));
                       onUpdateBlockedKeywords(keywordsDraft.split(','));
-                      setShieldFeedback({ type: 'ok', text: 'Saved whitelist, domains & keywords.' });
+                      setShieldFeedback({ type: 'ok', text: tr('Saved whitelist, domains & keywords.') });
                     }}
                     className="w-full min-h-[34px] rounded-lg bg-slate-900 dark:bg-sky-600 hover:bg-slate-800 dark:hover:bg-sky-500 text-white text-xs font-semibold"
-                  >{"\n                    "}{tr("Save Blocker Lists")}{"\n                  "}</button>
+                  >
+                    {tr("Save Blocker Lists")}
+                  </button>
+                </div>
+
+                {/* Strong Admin Restrictions (UserManager) */}
+                <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-2">
+                  <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    {tr("Strong Admin Restrictions (UserManager)")}
+                  </div>
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {ADMIN_RESTRICTION_TOGGLE_ITEMS.map((item) => {
+                      const active = (state.adminRestrictions ?? DEFAULT_ADMIN_RESTRICTIONS)[item.key];
+                      return (
+                        <div
+                          key={item.key}
+                          className="py-1.5 flex items-center justify-between gap-2"
+                        >
+                          <div className="min-w-0">
+                            <div className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">
+                              {tr(item.label)}
+                            </div>
+                            <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400 truncate">
+                              {item.apiHint}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={active}
+                            aria-label={tr(item.label)}
+                            onClick={() => onToggleAdminRestriction(item.key)}
+                            className={`min-w-[48px] px-2 py-1 rounded text-[11px] font-semibold border transition-colors shrink-0 ${
+                              active
+                                ? 'bg-slate-900 dark:bg-sky-600 border-slate-900 dark:border-sky-500 text-white'
+                                : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300'
+                            }`}
+                          >
+                            {active ? tr("On") : tr("Off")}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Hardware & Anti-Tamper Lockdown */}
                 <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-2">
-                  <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">{"\n                    "}{tr("Hardware & Anti-Tamper Lockdown")}{"\n                  "}</div>
+                  <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    {tr("Hardware & Anti-Tamper Lockdown")}
+                  </div>
                   <div className="divide-y divide-slate-100 dark:divide-slate-800">
                     {HARDWARE_TOGGLE_ITEMS.map((item) => {
                       const active = state.hardwareLocks?.[item.key] ?? false;
@@ -1887,7 +1974,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                         >
                           <div className="min-w-0">
                             <div className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">
-                              {item.label}
+                              {tr(item.label)}
                             </div>
                             <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400 truncate">
                               {item.apiHint}
@@ -1897,7 +1984,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                             type="button"
                             role="switch"
                             aria-checked={active}
-                            aria-label={item.label}
+                            aria-label={tr(item.label)}
                             onClick={() => onToggleHardwarePolicy(item.key)}
                             className={`min-w-[48px] px-2 py-1 rounded text-[11px] font-semibold border transition-colors shrink-0 ${
                               active
@@ -1905,7 +1992,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                                 : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300'
                             }`}
                           >
-                            {active ? 'On' : tr("Off")}
+                            {active ? tr("On") : tr("Off")}
                           </button>
                         </div>
                       );
@@ -1975,7 +2062,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[11px] font-semibold text-slate-800 dark:text-slate-200">
                         {focusBlockMinutes > 0
-                          ? `Freedom Focus Lock active (${focusBlockMinutes}m left)`
+                          ? tr('Freedom Focus Lock active ({m}m left)', { m: focusBlockMinutes })
                           : tr("Freedom Focus Lock (Blocks non-Focus apps)")}
                       </span>
                     </div>
@@ -1986,24 +2073,28 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                           const res = onSetFocusBlockSession(25);
                           setLimitFeedback(
                             res.ok
-                              ? { type: 'ok', text: 'Started 25m Freedom Focus Lock.' }
+                              ? { type: 'ok', text: tr('Started 25m Freedom Focus Lock.') }
                               : { type: 'error', text: res.error ?? tr("Blocked.") }
                           );
                         }}
                         className="py-1 px-2 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 text-[11px] font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap"
-                      >{"\n                        "}{tr("Focus 25m")}{"\n                      "}</button>
+                      >
+                        {tr("Focus 25m")}
+                      </button>
                       <button
                         type="button"
                         onClick={() => {
                           const res = onSetFocusBlockSession(60);
                           setLimitFeedback(
                             res.ok
-                              ? { type: 'ok', text: 'Started 60m Freedom Focus Lock.' }
+                              ? { type: 'ok', text: tr('Started 60m Freedom Focus Lock.') }
                               : { type: 'error', text: res.error ?? tr("Blocked.") }
                           );
                         }}
                         className="py-1 px-2 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 text-[11px] font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap"
-                      >{"\n                        "}{tr("Focus 60m")}{"\n                      "}</button>
+                      >
+                        {tr("Focus 60m")}
+                      </button>
                       <button
                         type="button"
                         disabled={focusBlockMinutes <= 0}
@@ -2011,12 +2102,14 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                           const res = onSetFocusBlockSession(0);
                           setLimitFeedback(
                             res.ok
-                              ? { type: 'ok', text: 'Ended Freedom Focus Lock.' }
+                              ? { type: 'ok', text: tr('Ended Freedom Focus Lock.') }
                               : { type: 'error', text: res.error ?? tr("Blocked by Strict Lock.") }
                           );
                         }}
                         className="py-1 px-2 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 text-[11px] font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap disabled:opacity-40"
-                      >{"\n                        "}{tr("End Block")}{"\n                      "}</button>
+                      >
+                        {tr("End Block")}
+                      </button>
                     </div>
                   </div>
 
@@ -2024,8 +2117,11 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                   <div className="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-800">
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <div className="text-xs font-medium text-slate-800 dark:text-slate-200">{"\n                          "}{tr("Scheduled Quiet Hours (Downtime)")}{"\n                        "}</div>
-                        <div className="text-[10px] text-slate-500 dark:text-slate-400">{"\n                          "}{tr("Blocks non-essential apps daily (")}{String(downtime.startHour).padStart(2, '0')}:00–{String(downtime.endHour).padStart(2, '0')}:00)
+                        <div className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                          {tr("Scheduled Quiet Hours (Downtime)")}
+                        </div>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                          {tr("Blocks non-essential apps daily (")}<span dir="ltr">{String(downtime.startHour).padStart(2, '0')}:00–{String(downtime.endHour).padStart(2, '0')}:00</span>)
                         </div>
                       </div>
                       <button
@@ -2047,13 +2143,15 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                             : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300'
                         }`}
                       >
-                        {downtime.enabled ? 'On' : tr("Off")}
+                        {downtime.enabled ? tr("On") : tr("Off")}
                       </button>
                     </div>
 
                     <div className="flex items-end gap-1.5">
                       <div className="flex-1">
-                        <label htmlFor="downtime-start-hour" className="block text-[10px] text-slate-600 dark:text-slate-400 mb-0.5">{"\n                          "}{tr("Start Hour (0–23)")}{"\n                        "}</label>
+                        <label htmlFor="downtime-start-hour" className="block text-[10px] text-slate-600 dark:text-slate-400 mb-0.5">
+                          {tr("Start Hour (0–23)")}
+                        </label>
                         <input
                           id="downtime-start-hour"
                           type="number"
@@ -2065,7 +2163,9 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                         />
                       </div>
                       <div className="flex-1">
-                        <label htmlFor="downtime-end-hour" className="block text-[10px] text-slate-600 dark:text-slate-400 mb-0.5">{"\n                          "}{tr("End Hour (0–23)")}{"\n                        "}</label>
+                        <label htmlFor="downtime-end-hour" className="block text-[10px] text-slate-600 dark:text-slate-400 mb-0.5">
+                          {tr("End Hour (0–23)")}
+                        </label>
                         <input
                           id="downtime-end-hour"
                           type="number"
@@ -2087,12 +2187,14 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                           });
                           setLimitFeedback(
                             res.ok
-                              ? { type: 'ok', text: 'Saved Quiet Hours window.' }
+                              ? { type: 'ok', text: tr('Saved Quiet Hours window.') }
                               : { type: 'error', text: res.error ?? tr("Failed to save schedule.") }
                           );
                         }}
                         className="h-8 px-2.5 rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-[11px] font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap"
-                      >{"\n                        "}{tr("Save")}{"\n                      "}</button>
+                      >
+                        {tr("Save")}
+                      </button>
                     </div>
 
                     <label className="flex items-center justify-between gap-2 text-[11px] text-slate-700 dark:text-slate-300 pt-0.5 cursor-pointer">
@@ -2129,7 +2231,9 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
 
                 {/* Allowed Kiosk Apps & Per-App Daily Time Limits Manager */}
                 <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-2">
-                  <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">{"\n                    "}{tr("Allowed Kiosk Apps & Daily Time Limits")}{"\n                  "}</div>
+                  <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    {tr("Allowed Kiosk Apps & Daily Time Limits")}
+                  </div>
                   <input
                     type="search"
                     aria-label={tr("Filter installed apps")}
@@ -2158,7 +2262,9 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                               <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400 truncate">
                                 {app.packageName} ·{' '}
                                 <span className={limitMins > 0 ? 'text-sky-700 dark:text-sky-400 font-semibold' : ''}>
-                                  {limitMins > 0 ? `${usedMins}m / ${limitMins}m daily` : tr("Unlimited")}
+                                  {limitMins > 0
+                                    ? tr('{u}m / {l}m daily', { u: usedMins, l: limitMins })
+                                    : tr("Unlimited")}
                                 </span>
                               </div>
                             </div>
@@ -2167,7 +2273,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                                 type="button"
                                 onClick={() => onLaunchApp(app.packageName)}
                                 disabled={!allowed}
-                                aria-label={`Launch ${app.label} in LockTask`}
+                                aria-label={tr('Launch {label} in LockTask', { label: app.label })}
                                 className="px-2 py-1 rounded border border-slate-200 dark:border-slate-700 text-[11px] font-medium text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/50 disabled:opacity-40 disabled:cursor-not-allowed"
                               >
                                 LockTask
@@ -2176,7 +2282,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                                 type="button"
                                 role="switch"
                                 aria-checked={allowed}
-                                aria-label={`Allow ${app.label} on kiosk home`}
+                                aria-label={tr('Allow {label} on kiosk home', { label: app.label })}
                                 onClick={() => onToggleAllowedApp(app.packageName)}
                                 className={`min-w-[64px] px-2.5 py-1 rounded text-[11px] font-semibold border transition-colors ${
                                   allowed
@@ -2195,10 +2301,12 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                               <label
                                 htmlFor={`limit-${app.packageName}`}
                                 className="text-[10px] text-slate-600 dark:text-slate-400"
-                              >{"\n                                "}{tr("Daily Cap:")}{"\n                              "}</label>
+                              >
+                                {tr("Daily Cap:")}
+                              </label>
                               <select
                                 id={`limit-${app.packageName}`}
-                                aria-label={`Daily time limit for ${app.label}`}
+                                aria-label={tr('Daily time limit for {label}', { label: app.label })}
                                 value={limitMins}
                                 onChange={(e) => {
                                   const nextLimit = Number.parseInt(e.target.value, 10);
@@ -2210,19 +2318,22 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                                       type: 'ok',
                                       text:
                                         nextLimit > 0
-                                          ? `Set ${app.label} daily cap to ${nextLimit}m.`
-                                          : `Removed daily limit for ${app.label}.`,
+                                          ? tr('Set {label} daily cap to {m}m.', {
+                                              label: app.label,
+                                              m: nextLimit,
+                                            })
+                                          : tr('Removed daily limit for {label}.', { label: app.label }),
                                     });
                                   }
                                 }}
                                 className="h-7 px-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-[11px] font-mono text-slate-800 dark:text-slate-200"
                               >
                                 <option value={0}>{tr("Unlimited")}</option>
-                                <option value={5}>5m / day</option>
-                                <option value={15}>15m / day</option>
-                                <option value={30}>30m / day</option>
-                                <option value={60}>60m / day</option>
-                                <option value={120}>120m / day</option>
+                                <option value={5}>{tr('{m}m / day', { m: 5 })}</option>
+                                <option value={15}>{tr('{m}m / day', { m: 15 })}</option>
+                                <option value={30}>{tr('{m}m / day', { m: 30 })}</option>
+                                <option value={60}>{tr('{m}m / day', { m: 60 })}</option>
+                                <option value={120}>{tr('{m}m / day', { m: 120 })}</option>
                               </select>
                             </div>
                             {((state.appUsageSeconds ?? {})[app.packageName] ?? 0) > 0 && (
@@ -2232,12 +2343,14 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                                   const res = onResetAppUsage(app.packageName);
                                   setLimitFeedback(
                                     res.ok
-                                      ? { type: 'ok', text: `Reset today's usage for ${app.label}.` }
+                                      ? { type: 'ok', text: tr("Reset today's usage for {label}.", { label: app.label }) }
                                       : { type: 'error', text: res.error ?? tr("Blocked by Strict Lock.") }
                                   );
                                 }}
                                 className="px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-[10px] font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap"
-                              >{"\n                                "}{tr("Reset Usage")}{"\n                              "}</button>
+                              >
+                                {tr("Reset Usage")}
+                              </button>
                             )}
                           </div>
                         </div>
@@ -2394,7 +2507,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
               onClick={() => handleSystemNavButton('Back')}
               className="p-1.5 rounded hover:bg-slate-800 hover:text-white transition-colors"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
             </button>
             <button
               type="button"

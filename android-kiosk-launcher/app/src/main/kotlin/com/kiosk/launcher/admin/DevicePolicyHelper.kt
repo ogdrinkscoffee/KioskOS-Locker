@@ -3,6 +3,8 @@ package com.kiosk.launcher.admin
 import android.app.Activity
 import android.app.ActivityManager
 import android.app.admin.DevicePolicyManager
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -51,6 +53,11 @@ class DevicePolicyHelper(context: Context) {
         }
 
         runCatching {
+            val suspended = prefs.blockUnsupportedBrowsers && !prefs.isAdminTemporarilyUnlocked()
+            dpm.setPackagesSuspended(admin, UNSUPPORTED_BROWSERS, suspended)
+        }
+
+        runCatching {
             dpm.setGlobalSetting(
                 admin,
                 Settings.Global.STAY_ON_WHILE_PLUGGED_IN,
@@ -61,17 +68,34 @@ class DevicePolicyHelper(context: Context) {
         prefs.logPolicy("Policy applied")
     }
 
-    private fun restrictions(): Map<String, Boolean> = mapOf(
-        UserManager.DISALLOW_SAFE_BOOT to true,
-        UserManager.DISALLOW_FACTORY_RESET to true,
-        UserManager.DISALLOW_ADD_USER to true,
-        UserManager.DISALLOW_APPS_CONTROL to true,
-        UserManager.DISALLOW_CONFIG_DATE_TIME to prefs.dateTimeLocked,
-        UserManager.DISALLOW_USB_FILE_TRANSFER to prefs.usbLocked,
-        UserManager.DISALLOW_MOUNT_PHYSICAL_MEDIA to prefs.usbLocked
-    )
+    fun wipeClipboard() {
+        val clipboard = appContext.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                clipboard.clearPrimaryClip()
+            } else {
+                clipboard.setPrimaryClip(ClipData.newPlainText("", ""))
+            }
+        }
+    }
+
+    private fun restrictions(): Map<String, Boolean> {
+        val unlocked = prefs.isAdminTemporarilyUnlocked()
+        return mapOf(
+            UserManager.DISALLOW_SAFE_BOOT to prefs.disallowSafeBoot,
+            UserManager.DISALLOW_FACTORY_RESET to prefs.disallowFactoryReset,
+            UserManager.DISALLOW_ADD_USER to prefs.disallowAddUser,
+            UserManager.DISALLOW_APPS_CONTROL to (prefs.disallowAppsControl && !unlocked),
+            UserManager.DISALLOW_CONFIG_DATE_TIME to prefs.dateTimeLocked,
+            UserManager.DISALLOW_USB_FILE_TRANSFER to prefs.usbLocked,
+            UserManager.DISALLOW_MOUNT_PHYSICAL_MEDIA to prefs.usbLocked
+        )
+    }
 
     private fun lockTaskPackages(): Array<String> {
+        if (prefs.isPanicLocked()) {
+            return arrayOf(appContext.packageName)
+        }
         val packages = prefs.allowedPackages().toMutableSet()
         packages.add(appContext.packageName)
         return packages.toTypedArray()
@@ -104,5 +128,16 @@ class DevicePolicyHelper(context: Context) {
     companion object {
         const val PROVISION_COMMAND =
             "adb shell dpm set-device-owner com.kiosk.launcher/.admin.KioskDeviceAdminReceiver"
+
+        val UNSUPPORTED_BROWSERS = arrayOf(
+            "org.mozilla.firefox",
+            "com.opera.browser",
+            "com.opera.mini.native",
+            "com.brave.browser",
+            "com.duckduckgo.mobile.android",
+            "com.UCMobile.intl",
+            "org.torproject.torbrowser",
+            "com.kiwibrowser.browser"
+        )
     }
 }

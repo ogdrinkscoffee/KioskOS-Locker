@@ -18,7 +18,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="KioskOS"
+            android:text="@string/app_name"
             android:textColor="@color/text_primary"
             android:textSize="15sp"
             android:textStyle="bold" />
@@ -33,7 +33,7 @@
             android:paddingTop="4dp"
             android:paddingEnd="9dp"
             android:paddingBottom="4dp"
-            android:text="Preview"
+            android:text="@string/pill_preview"
             android:textColor="@color/text_secondary"
             android:textSize="10sp" />
 
@@ -48,6 +48,7 @@
             android:layout_height="wrap_content"
             android:text=""
             android:textColor="@color/text_secondary"
+            android:textDirection="ltr"
             android:textSize="11sp" />
 
         <TextView
@@ -55,8 +56,9 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="10dp"
-            android:text="09:41"
+            android:text="@string/default_clock"
             android:textColor="@color/text_primary"
+            android:textDirection="ltr"
             android:textSize="15sp"
             android:textStyle="bold" />
     </LinearLayout>
@@ -70,12 +72,63 @@
         android:textColor="@color/text_secondary"
         android:textSize="11sp" />
 
+    <!-- Panic lockdown banner -->
+    <TextView
+        android:id="@+id/panicBanner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/bg_pill"
+        android:paddingStart="12dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="8dp"
+        android:text=""
+        android:textAlignment="viewStart"
+        android:textColor="@color/danger"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+    <!-- Kiosk operation mode banner (Single / Browser) -->
+    <LinearLayout
+        android:id="@+id/modeBannerRow"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/bg_pill"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingTop="6dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="6dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/modeBannerText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text=""
+            android:textAlignment="viewStart"
+            android:textColor="@color/text_primary"
+            android:textSize="12sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/modeActionButton"
+            style="@style/Widget.KioskOS.Button.Text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/open_kiosk_browser" />
+    </LinearLayout>
+
     <!-- Streak -->
     <com.google.android.material.card.MaterialCardView
         style="@style/Widget.KioskOS.Card"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp">
+        android:layout_marginTop="14dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -86,7 +139,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Recovery streak"
+                android:text="@string/eyebrow_recovery_streak"
                 android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
 
             <LinearLayout
@@ -103,6 +156,7 @@
                     android:includeFontPadding="false"
                     android:text="0"
                     android:textColor="@color/text_primary"
+                    android:textDirection="ltr"
                     android:textSize="36sp"
                     android:textStyle="bold" />
 
@@ -111,7 +165,8 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
                     android:layout_weight="1"
-                    android:text="clean days"
+                    android:text="@string/clean_days_label"
+                    android:textAlignment="viewStart"
                     android:textColor="@color/text_secondary"
                     android:textSize="12sp" />
 
@@ -121,7 +176,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
-                    android:text="Log clean day" />
+                    android:text="@string/log_clean_day" />
             </LinearLayout>
 
             <TextView
@@ -130,6 +185,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
                 android:text=""
+                android:textAlignment="viewStart"
                 android:textColor="@color/text_secondary"
                 android:textSize="11sp" />
         </LinearLayout>
@@ -146,7 +202,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Allowed apps"
+            android:text="@string/allowed_apps_title"
             android:textColor="@color/text_primary"
             android:textSize="13sp"
             android:textStyle="bold" />
@@ -199,7 +255,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Focus" />
+            android:text="@string/action_focus" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/adminButton"
@@ -208,7 +264,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:layout_weight="1"
-            android:text="Admin" />
+            android:text="@string/action_admin" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/panicButton"
@@ -217,6 +273,8 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:layout_weight="1"
-            android:text="Panic" />
+            android:backgroundTint="@color/danger"
+            android:text="@string/action_panic"
+            android:textColor="@color/white" />
     </LinearLayout>
 </LinearLayout>
