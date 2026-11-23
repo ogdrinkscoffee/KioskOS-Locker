@@ -117,7 +117,7 @@ class KioskLauncherActivity : AppCompatActivity() {
             panic()
         }
 
-        policy.setAsHomeLauncher()
+        if (!prefs.homeLauncherDeclined) policy.setAsHomeLauncher()
     }
 
     override fun onResume() {
@@ -128,6 +128,9 @@ class KioskLauncherActivity : AppCompatActivity() {
             policy.applyPolicy()
         }
         renderAll()
+        // Idempotent: only enters when this is a device owner kiosk with no admin
+        // unlock window open, and does nothing while lock task is already held.
+        policy.enterLockTask(this)
     }
 
     override fun onStart() {

@@ -144,6 +144,11 @@ class KioskPreferences(context: Context) {
         get() = bool(KEY_GUARD, false)
         set(value) = setBool(KEY_GUARD, value)
 
+    /** Set when an admin opts out, so the launcher stops re-pinning itself as Home. */
+    var homeLauncherDeclined: Boolean
+        get() = bool(KEY_HOME_LAUNCHER_DECLINED, false)
+        set(value) = setBool(KEY_HOME_LAUNCHER_DECLINED, value)
+
     // Browser & shield toggles
     var blockUnsupportedBrowsers: Boolean
         get() = bool(KEY_BLOCK_UNSUPPORTED_BROWSERS, true)
@@ -331,6 +336,7 @@ class KioskPreferences(context: Context) {
         private const val KEY_DATE_TIME = "lock_date_time"
         private const val KEY_STAY_AWAKE = "stay_awake"
         private const val KEY_GUARD = "guard_enabled"
+        private const val KEY_HOME_LAUNCHER_DECLINED = "home_launcher_declined"
         private const val KEY_BLOCK_UNSUPPORTED_BROWSERS = "block_unsupported_browsers"
         private const val KEY_BLOCK_SHORT_FEEDS = "block_short_form_feeds"
         private const val KEY_PANIC_LOCK_UNTIL = "panic_lock_until_ms"

@@ -7,8 +7,8 @@ export const APK_META = {
   version: '1.1.2',
   versionCode: 4,
   sizeMb: '4.8',
-  sizeBytes: 4998560,
-  sha256: 'a186f027af3eac0e1aca36e2ee70e371f1289bdecc9f596e1463625c71321c39',
+  sizeBytes: 5042036,
+  sha256: '27774d2a28f60df6457b9a16bd93578ff239d4516f8e9a0c7c5ee46ca0ef5640',
 } as const;
 
 /** Interpolation values for the `download.apk*` strings. */

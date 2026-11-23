@@ -49,6 +49,11 @@ class AdminSettingsActivity : AppCompatActivity() {
     private lateinit var clearPanicButton: View
     private lateinit var modeHint: TextView
     private lateinit var policyLog: TextView
+    private lateinit var defaultLauncherSwitch: SwitchMaterial
+    private lateinit var defaultLauncherDetail: TextView
+
+    /** Guards the switch listener while it is being synced to the observed state. */
+    private var syncingLauncherSwitch = false
 
     /** Bumped per scan so a slow, stale result can't repaint the list. */
     private var allowListRequest = 0
@@ -78,6 +83,13 @@ class AdminSettingsActivity : AppCompatActivity() {
         clearPanicButton = findViewById(R.id.clearPanicButton)
         modeHint = findViewById(R.id.modeHint)
         policyLog = findViewById(R.id.policyLog)
+        defaultLauncherSwitch = findViewById(R.id.defaultLauncherSwitch)
+        defaultLauncherDetail = findViewById(R.id.defaultLauncherDetail)
+
+        defaultLauncherSwitch.setOnCheckedChangeListener { _, checked ->
+            if (syncingLauncherSwitch) return@setOnCheckedChangeListener
+            if (checked) requestDefaultLauncher() else dropDefaultLauncher()
+        }
 
         findViewById<View>(R.id.changePinButton).setOnClickListener { changePin() }
         findViewById<View>(R.id.copyCommandButton).setOnClickListener { copyProvisionCommand() }
@@ -93,12 +105,16 @@ class AdminSettingsActivity : AppCompatActivity() {
         findViewById<View>(R.id.openBrowserButton).setOnClickListener {
             startActivity(Intent(this, KioskBrowserActivity::class.java))
         }
+        findViewById<View>(R.id.diagnosticsButton).setOnClickListener {
+            startActivity(Intent(this, DiagnosticsActivity::class.java))
+        }
         findViewById<View>(R.id.domainsSave).setOnClickListener { saveBrowserFilters() }
 
         domainsInput.setText(prefs.domains().sorted().joinToString("\n"))
         blockedKeywordsInput.setText(prefs.blockedKeywords().sorted().joinToString("\n"))
 
         renderOwner()
+        renderDefaultLauncher()
         renderRecoveryState()
         renderMode()
         renderStrongRestrictions()
@@ -125,6 +141,7 @@ class AdminSettingsActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        renderDefaultLauncher()
         renderRecoveryState()
         renderPolicyLog()
     }
@@ -142,6 +159,56 @@ class AdminSettingsActivity : AppCompatActivity() {
             detail.text = getString(R.string.owner_preview_detail_fmt, DevicePolicyHelper.PROVISION_COMMAND)
         }
     }
+
+    // --------------------------------------------------------------- default home
+    private fun renderDefaultLauncher() {
+        val active = policy.isDefaultLauncher
+        syncingLauncherSwitch = true
+        defaultLauncherSwitch.isChecked = active
+        syncingLauncherSwitch = false
+        defaultLauncherDetail.text = getString(
+            if (active) R.string.default_launcher_on else R.string.default_launcher_off
+        )
+    }
+
+    private fun requestDefaultLauncher() {
+        prefs.homeLauncherDeclined = false
+        // A device owner can pin Home silently; anyone else confirms in the system prompt.
+        if (policy.pinAsHomeLauncher()) {
+            prefs.logPolicy(getString(R.string.log_default_launcher_on))
+            toast(getString(R.string.default_launcher_set))
+            renderDefaultLauncher()
+            renderPolicyLog()
+            return
+        }
+        if (!openDefaultLauncherSettings(policy.homePickerIntent())) {
+            toast(getString(R.string.default_launcher_manual))
+            renderDefaultLauncher()
+            return
+        }
+        toast(getString(R.string.default_launcher_confirm))
+    }
+
+    private fun dropDefaultLauncher() {
+        prefs.homeLauncherDeclined = true
+        if (policy.clearHomeLauncher()) {
+            prefs.logPolicy(getString(R.string.log_default_launcher_off))
+            toast(getString(R.string.default_launcher_cleared))
+            renderDefaultLauncher()
+            renderPolicyLog()
+            return
+        }
+        // Home can only be changed by the user here, so show them where it lives — and
+        // point at a different Home app, since this branch is the way back out.
+        if (!openDefaultLauncherSettings(Intent(Settings.ACTION_HOME_SETTINGS))) {
+            renderDefaultLauncher()
+        }
+        toast(getString(R.string.default_launcher_manual_off))
+    }
+
+    private fun openDefaultLauncherSettings(intent: Intent): Boolean =
+        runCatching { startActivity(intent); true }.getOrDefault(false) ||
+            runCatching { startActivity(Intent(Settings.ACTION_HOME_SETTINGS)); true }.getOrDefault(false)
 
     private fun renderRecoveryState() {
         clearPanicButton.visibility = if (prefs.isPanicLocked()) View.VISIBLE else View.GONE

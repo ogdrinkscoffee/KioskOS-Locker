@@ -50,6 +50,9 @@
         <activity
             android:name=".ui.KioskBrowserActivity"
             android:exported="false" />
+        <activity
+            android:name=".ui.DiagnosticsActivity"
+            android:exported="false" />
 
         <receiver
             android:name=".admin.KioskDeviceAdminReceiver"
