@@ -439,7 +439,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
               <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700">
                 <div className="text-[11px] text-slate-600 dark:text-slate-400">{tr("Protection Shields")}</div>
                 <div className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
-                  {shieldsCount} / 4 {tr('Enforced')}
+                  {shieldsCount}/4 {tr('Enforced')}
                 </div>
               </div>
               <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700">

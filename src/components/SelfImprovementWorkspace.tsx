@@ -239,7 +239,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
       <div
         role="tablist"
         aria-label={tr("Self-improvement sections")}
-        className="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 dark:border-white/10 dark:bg-white/[0.04]"
+        className="flex max-w-full flex-wrap items-center gap-0.5 rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 dark:border-white/10 dark:bg-white/[0.04]"
       >
         {(
           [
@@ -740,7 +740,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
             <table className="w-full text-start border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                  <th className="py-2 pe-4 text-start">{tr("Habit")}</th>
+                  <th className="py-2 pe-4 text-start min-w-[9rem]">{tr("Habit")}</th>
                   <th className="py-2 px-2 text-end">{tr("Streak")}</th>
                   {recentDates.map((d) => (
                     <th key={d} className="py-2 px-1.5 text-center font-mono tabular-nums">
@@ -755,7 +755,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                   const streak = getHabitStreak(habit);
                   return (
                     <tr key={habit.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/50">
-                      <td className="py-3 pe-4">
+                      <td className="py-3 pe-4 min-w-[9rem]">
                         <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">{tr(habit.title)}</div>
                         <div className="text-[11px] text-slate-500 dark:text-slate-400">{tr(habit.category)}</div>
                       </td>
@@ -877,7 +877,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
               ))}
             </div>
             <span className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-              {state.tasks.filter((t) => t.completed).length} / {state.tasks.length} {tr("completed")}
+              {state.tasks.filter((t) => t.completed).length}/{state.tasks.length} {tr("completed")}
             </span>
           </div>
 

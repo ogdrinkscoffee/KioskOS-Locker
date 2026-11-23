@@ -231,7 +231,7 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
       <div
         role="tablist"
         aria-label={tr("Policy groups")}
-        className="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 dark:border-white/10 dark:bg-white/[0.04]"
+        className="flex max-w-full flex-wrap items-center gap-0.5 rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 dark:border-white/10 dark:bg-white/[0.04]"
       >
         {POLICY_SECTIONS.map((tab) => {
           const active = policySection === tab.id;
@@ -381,7 +381,7 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{"\n              "}{tr("Native Chrome SafeSearch/No-Incognito, In-App WebView Whitelist, Unsupported Browsers, & Private DNS.")}{"\n            "}</p>
           </div>
           <span className="text-xs text-slate-600 dark:text-slate-400 tabular-nums shrink-0">
-            {activeBlockerCount} / {BLOCKER_SHIELD_ROWS.length}{" "}{tr("Shields")}{"\n          "}</span>
+            {activeBlockerCount}/{BLOCKER_SHIELD_ROWS.length}{" "}{tr("Shields")}{"\n          "}</span>
         </div>
 
         {blockerAlert && (
@@ -662,7 +662,7 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
             </p>
           </div>
           <span className="text-xs text-slate-600 dark:text-slate-400 tabular-nums shrink-0">
-            {Object.values(restrictions).filter(Boolean).length} / 4 {tr('Enforced')}
+            {Object.values(restrictions).filter(Boolean).length}/4 {tr('Enforced')}
           </span>
         </div>
 
@@ -722,7 +722,7 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
             </p>
           </div>
           <span className="text-xs text-slate-600 dark:text-slate-400 tabular-nums shrink-0">
-            {activeHardwareCount} / {HARDWARE_POLICY_ROWS.length} {tr("Active")}
+            {activeHardwareCount}/{HARDWARE_POLICY_ROWS.length} {tr("Active")}
           </span>
         </div>
 

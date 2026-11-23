@@ -231,7 +231,7 @@ export const panelAr: Record<string, string> = {
   'Enter passcode...': 'ادخل رمز المرور...',
   "Enter the device's Admin Password (default": 'ادخل كلمة سر إدارة الجهاز (الافتراضي',
   'Enterprise hardware & tamper policies (SureLock / Scalefusion pattern).':
-    'سياسات عتاد ومكافحة عبث للمؤسسات (على نمط SureLock / Scalefusion).',
+    'سياسات عتاد ومكافحة عبث للمؤسسات (على نمط SureLock أو Scalefusion).',
   'Entry title...': 'عنوان التدوينة...',
   'Escalation Status': 'حالة التصعيد',
   events: 'أحداث',
@@ -653,12 +653,12 @@ export const panelAr: Record<string, string> = {
   'Enable the window guard': 'شغّل حارس النوافذ',
   'Reboot and verify': 'اعيد التشغيل وتأكد',
   'Enforces DISALLOW_SAFE_BOOT, DISALLOW_FACTORY_RESET, DISALLOW_ADD_USER and DISALLOW_APPS_CONTROL immediately.':
-    'بيفرض على طول DISALLOW_SAFE_BOOT وDISALLOW_FACTORY_RESET وDISALLOW_ADD_USER وDISALLOW_APPS_CONTROL.',
+    'بيفرض على طول DISALLOW_SAFE_BOOT, DISALLOW_FACTORY_RESET, DISALLOW_ADD_USER, DISALLOW_APPS_CONTROL.',
   'Optional. Blocks Settings and package-installer dialogs while the admin passcode is locked.':
     'اختياري. بيقفل نوافذ الإعدادات ومثبّت الحزم طول ما رمز مرور الإدارة مقفول.',
   'BootCompletedReceiver restores the kiosk home screen with all restrictions intact.':
     'BootCompletedReceiver بيرجّع شاشة رئيسية الكشك وكل القيود زي ما هي.',
-  'DeviceAdminReceiver & BIND_DEVICE_ADMIN': 'DeviceAdminReceiver وBIND_DEVICE_ADMIN',
+  'DeviceAdminReceiver & BIND_DEVICE_ADMIN': 'DeviceAdminReceiver, BIND_DEVICE_ADMIN',
   'HOME + DEFAULT launcher categories': 'فئات المشغّل HOME + DEFAULT',
   'Device Owner UserManager restrictions': 'قيود UserManager لمالك الجهاز',
   'PIN-protected admin settings': 'إعدادات إدارة محمية برمز',
@@ -668,14 +668,14 @@ export const panelAr: Record<string, string> = {
   'Declared in AndroidManifest.xml with @xml/device_admin metadata':
     'معلن في AndroidManifest.xml مع بيانات @xml/device_admin',
   'KioskLauncherActivity intent-filter and addPersistentPreferredActivity()':
-    'intent-filter لـ KioskLauncherActivity وaddPersistentPreferredActivity()',
+    'intent-filter لـ KioskLauncherActivity مع addPersistentPreferredActivity()',
   'DISALLOW_SAFE_BOOT, FACTORY_RESET, ADD_USER, APPS_CONTROL':
-    'DISALLOW_SAFE_BOOT وFACTORY_RESET وADD_USER وAPPS_CONTROL',
+    'DISALLOW_SAFE_BOOT, FACTORY_RESET, ADD_USER, APPS_CONTROL',
   'Salted SHA-256 PIN in direct-boot protected storage': 'رمز SHA-256 مملّح في تخزين محمي للتشغيل المباشر',
   'setLockTaskPackages() followed by setLockTaskEnabled(true)':
     'setLockTaskPackages() وبعده setLockTaskEnabled(true)',
   'setPackagesSuspended(), setUninstallBlocked(), DISALLOW_APPS_CONTROL':
-    'setPackagesSuspended() وsetUninstallBlocked() وDISALLOW_APPS_CONTROL',
+    'setPackagesSuspended(), setUninstallBlocked(), DISALLOW_APPS_CONTROL',
   'LOCKED_BOOT_COMPLETED receiver and full configChanges handling':
     'مستقبل LOCKED_BOOT_COMPLETED ومعالجة كاملة لـ configChanges',
   'Strong OS-level admin restrictions enforced when Device Owner is active.':
@@ -750,10 +750,10 @@ export const panelAr: Record<string, string> = {
   On: 'شغال',
   pkgs: 'حزم',
   '{m}m left (Focus & Growth exempt)': 'فاضل {m} د (التركيز والنمو مستثنى)',
-  '{u}m / {l}m ({r}m left)': '{u} د / {l} د (فاضل {r} د)',
+  '{u}m / {l}m ({r}m left)': '{u}/{l} د (فاضل {r} د)',
   '{n}/50 chars': '{n}/50 حرف',
   '{s}s Remaining': 'فاضل {s} ث',
-  '{pts} pts (T1:{t1} / T2:{t2})': '{pts} نقطة (م1:{t1} / م2:{t2})',
+  '{pts} pts (T1:{t1} / T2:{t2})': '{pts} نقطة (م1:{t1} · م2:{t2})',
   'Emergency Panic Lockdown Active ({m}m left)': 'قفل الطوارئ شغال (فاضل {m} د)',
   'Cleared at {t}': 'اتمسح الساعة {t}',
 
@@ -780,7 +780,7 @@ export const panelAr: Record<string, string> = {
   '{m}m left': 'فاضل {m} د',
   'Freedom Focus Lock · {m}m left': 'قفل تركيز Freedom · فاضل {m} د',
   'Quiet Hours ({start}:00–{end}:00) Active': 'ساعات الهدوء ({start}:00–{end}:00) شغالة',
-  '{r}m / {l}m left': 'فاضل {r} د / {l} د',
+  '{r}m / {l}m left': 'فاضل {r}/{l} د',
   'Limit reached ({m}m/d)': 'الحد خلص ({m} د/يوم)',
   'Test instagram.com': 'جرّب instagram.com',
   'Test pornhub.com': 'جرّب pornhub.com',
@@ -797,7 +797,7 @@ export const panelAr: Record<string, string> = {
   'Started 60m Freedom Focus Lock.': 'قفل تركيز Freedom بدأ لمدة 60 دقيقة.',
   'Ended Freedom Focus Lock.': 'قفل تركيز Freedom خلص.',
   'Saved Quiet Hours window.': 'فترة ساعات الهدوء اتحفظت.',
-  '{u}m / {l}m daily': '{u} د / {l} د يوميًا',
+  '{u}m / {l}m daily': '{u}/{l} د يوميًا',
   'Set {label} daily cap to {m}m.': 'الحد اليومي لـ {label} اتظبط على {m} د.',
   'Removed daily limit for {label}.': 'الحد اليومي لـ {label} اتشال.',
   '{m}m / day': '{m} د / يوم',
@@ -880,7 +880,7 @@ export const panelAr: Record<string, string> = {
   'Incorrect Admin Password ({n}/5 attempts).': 'كلمة سر الإدارة غلط ({n}/5 محاولات).',
   'Last synced {t}': 'آخر مزامنة {t}',
   'Last write: {src}': 'آخر تعديل: {src}',
-  '{n} / 4 Active': '{n} / 4 شغال',
+  '{n} / 4 Active': '{n}/4 شغال',
   'Strict {m}m': 'صارم {m} د',
   'Panic Lock ({m}m)': 'قفل الطوارئ ({m} د)',
   'Focus Lock ({m}m)': 'قفل التركيز ({m} د)',
