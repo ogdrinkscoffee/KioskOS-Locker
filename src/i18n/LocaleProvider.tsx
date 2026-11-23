@@ -34,7 +34,7 @@ interface I18nValue {
    * disappearing, and no dictionary lookup can ever produce a raw key.
    */
   tr: (text: string, vars?: Record<string, string | number>) => string;
-  /** Arabic needs the right day form: 1 يوم، 2 يومان، 3–10 أيام، 11+ يومًا. */
+  /** Egyptian Arabic day forms: 1 يوم، 2 يومين، 3–10 أيام، 11+ يوم. */
   pluralDays: (count: number) => string;
 }
 
@@ -81,9 +81,9 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       if (locale !== 'ar') return count === 1 ? 'day' : 'days';
       const n = Math.abs(count) % 100;
       if (count === 1) return 'يوم';
-      if (count === 2) return 'يومان';
+      if (count === 2) return 'يومين';
       if (n >= 3 && n <= 10) return 'أيام';
-      if (n >= 11 && n <= 99) return 'يومًا';
+      if (n >= 11 && n <= 99) return 'يوم';
       return 'يوم';
     },
     [locale]

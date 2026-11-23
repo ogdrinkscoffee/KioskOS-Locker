@@ -27,8 +27,8 @@ class DiagnosticsReportTest {
         generatedAt: Long = 1_700_000_000_000L
     ) = DiagnosticsSnapshot(
         headings = headings,
-        appVersion = "1.2.0",
-        versionCode = 5,
+        appVersion = "1.2.1",
+        versionCode = 6,
         androidRelease = "14",
         sdkInt = 34,
         deviceModel = "Google Pixel 7",
@@ -141,7 +141,7 @@ class DiagnosticsReportTest {
 
         assertTrue(text.startsWith("Ironclad OS diagnostics report"))
         assertTrue(text.contains("Generated T1700000000000"))
-        assertTrue(text.contains("Ironclad OS 1.2.0 (5) · Android 14 (SDK 34) · Google Pixel 7"))
+        assertTrue(text.contains("Ironclad OS 1.2.1 (6) · Android 14 (SDK 34) · Google Pixel 7"))
     }
 
     @Test
