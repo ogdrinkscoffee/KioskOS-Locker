@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Responsive metrics for the Focus & Growth workspace (phones). -->
+    <dimen name="si_gutter">20dp</dimen>
+    <dimen name="si_max_content_width">760dp</dimen>
+    <dimen name="si_card_padding">18dp</dimen>
+    <dimen name="si_chart_height">170dp</dimen>
+    <dimen name="si_stat_value_size">18sp</dimen>
+    <dimen name="si_day_cell_height">40dp</dimen>
+    <dimen name="si_day_cell_gap">3dp</dimen>
+    <dimen name="si_day_cell_text">11sp</dimen>
+</resources>

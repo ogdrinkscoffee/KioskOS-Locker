@@ -36,6 +36,7 @@ import { AdbProvisioningView } from './components/AdbProvisioningView';
 import { PolicySummary } from './components/PolicySummary';
 import { PcRemoteWorkspace } from './components/PcRemoteWorkspace';
 import { useI18n } from './i18n/LocaleProvider';
+import { APK_META_VARS } from './generated/apkMeta';
 import {
   OperationType,
   User,
@@ -1220,7 +1221,7 @@ export default function App() {
               href="/downloads/KioskOS.apk"
               download="KioskOS.apk"
               aria-label={t('download.apkAria')}
-              title={t('download.apkTitle')}
+              title={t('download.apkTitle', APK_META_VARS)}
               className="btn-primary whitespace-nowrap"
             >
               <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
@@ -1229,6 +1230,11 @@ export default function App() {
           </div>
         </div>
       </header>
+
+      {/* APK release notes: own row under the top bar so it never widens the header. */}
+              <p className="mx-auto w-full max-w-6xl px-4 py-2 text-[11px] font-medium leading-snug text-slate-500 sm:px-6 dark:text-slate-400">
+          {t('download.apkNotes', APK_META_VARS)}
+        </p>
 
       {/* Main Content */}
       <main id="top" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">

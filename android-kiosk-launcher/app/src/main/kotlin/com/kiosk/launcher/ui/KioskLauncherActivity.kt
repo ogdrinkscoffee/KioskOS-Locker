@@ -214,9 +214,13 @@ class KioskLauncherActivity : AppCompatActivity() {
 
     private fun renderStreak() {
         streakValue.text = prefs.streak.toString()
-        val habits = focus.habits()
-        val done = habits.count { it.doneDay == focus.today() }
-        streakMeta.text = getString(R.string.streak_meta_fmt, prefs.bestStreak, done, habits.size)
+        val progress = focus.todayHabitProgress()
+        streakMeta.text = getString(
+            R.string.streak_meta_fmt,
+            prefs.bestStreak,
+            progress.completed,
+            progress.total
+        )
     }
 
     private fun renderApps() {

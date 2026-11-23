@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tablets: roomier gutters, a wider centered column and bigger day cells. -->
+    <dimen name="si_gutter">32dp</dimen>
+    <dimen name="si_max_content_width">920dp</dimen>
+    <dimen name="si_card_padding">22dp</dimen>
+    <dimen name="si_chart_height">230dp</dimen>
+    <dimen name="si_stat_value_size">22sp</dimen>
+    <dimen name="si_day_cell_height">52dp</dimen>
+    <dimen name="si_day_cell_gap">5dp</dimen>
+    <dimen name="si_day_cell_text">14sp</dimen>
+</resources>

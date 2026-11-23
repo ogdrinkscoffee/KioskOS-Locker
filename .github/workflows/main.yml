@@ -22,14 +22,33 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools platforms;android-35 build-tools;35.0.0
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build Debug APK
-        run: gradle assembleDebug
+      # Signed with the committed kiosk-release.jks (see keystore.properties) so
+      # CI-built APKs install over the version the website offers.
+      - name: Build signed Release APK
+        run: gradle assembleRelease
 
-      - name: Upload Debug APK
+      # Fails if the APK that was just built still carries an older versionName /
+      # versionCode than app/build.gradle.kts declares.
+      - name: Verify built APK matches the declared version
+        working-directory: ${{ github.workspace }}
+        run: node scripts/apk-meta.mjs --check --apk android-kiosk-launcher/app/build/outputs/apk/release/app-release.apk
+
+      # Fails if public/downloads/KioskOS.apk or src/generated/apkMeta.ts (the
+      # version and size shown on the site) disagree with each other.
+      - name: Verify the download page matches the published APK
+        working-directory: ${{ github.workspace }}
+        run: node scripts/apk-meta.mjs --check
+
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: KioskOS-debug-apk
-          path: android-kiosk-launcher/app/build/outputs/apk/debug/*.apk
+          name: KioskOS-release-apk
+          path: android-kiosk-launcher/app/build/outputs/apk/release/app-release.apk

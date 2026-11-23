@@ -5,8 +5,8 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-// Release signing comes from an untracked file so no credentials live in git.
-// Copy keystore.properties.example to keystore.properties and fill it in.
+// Release signing is committed (keystore.properties + kiosk-release.jks) so the
+// downloadable APK keeps one stable identity and updates install in place.
 // Without that file the release variant still builds, but stays unsigned.
 val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties().apply {
@@ -24,8 +24,8 @@ android {
         applicationId = "com.kiosk.launcher"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 4
+        versionName = "1.1.2"
     }
 
     signingConfigs {
@@ -63,6 +63,11 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    testOptions {
+        // Robolectric needs the merged resources to build an Android context.
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 dependencies {
@@ -71,4 +76,8 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.recyclerview:recyclerview:1.3.2")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("androidx.test:core:1.6.1")
+    testImplementation("org.robolectric:robolectric:4.14.1")
 }

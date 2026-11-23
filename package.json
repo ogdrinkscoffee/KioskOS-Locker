@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=127.0.0.1",
+    "apk:meta": "node scripts/apk-meta.mjs",
+    "apk:check": "node scripts/apk-meta.mjs --check",
+    "prebuild": "node scripts/apk-meta.mjs --check",
     "start": "node server.ts",
     "build": "vite build",
     "preview": "vite preview",

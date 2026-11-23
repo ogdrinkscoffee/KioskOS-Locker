@@ -11,9 +11,10 @@ android-kiosk-launcher/app/build/
 android-kiosk-launcher/local.properties
 android-kiosk-launcher/.kotlin/
 
-# Release signing material must never be committed
-android-kiosk-launcher/keystore.properties
-android-kiosk-launcher/*.jks
+# Release signing lives in android-kiosk-launcher/kiosk-release.jks and
+# android-kiosk-launcher/keystore.properties, both committed on purpose:
+# the sideloaded APK must keep one identity so updates install in place.
+# Keep any other local keystore out of git.
 android-kiosk-launcher/*.keystore
 
 # Exported deliverables are regenerable, keep them out of history

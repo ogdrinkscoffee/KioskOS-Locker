@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="habit_categories">
+        <item>@string/category_recovery</item>
+        <item>@string/category_discipline</item>
+        <item>@string/category_focus</item>
+        <item>@string/category_health</item>
+    </string-array>
+
+    <string-array name="goal_categories">
+        <item>@string/category_recovery</item>
+        <item>@string/category_fitness</item>
+        <item>@string/category_career</item>
+        <item>@string/category_mindset</item>
+    </string-array>
+
+    <string-array name="task_priorities">
+        <item>@string/priority_high</item>
+        <item>@string/priority_medium</item>
+        <item>@string/priority_low</item>
+    </string-array>
+
+    <string-array name="note_notebooks">
+        <item>@string/notebook_diary</item>
+        <item>@string/notebook_goals</item>
+        <item>@string/notebook_urge</item>
+        <item>@string/notebook_notes</item>
+    </string-array>
+</resources>

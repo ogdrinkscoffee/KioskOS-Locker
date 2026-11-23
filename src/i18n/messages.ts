@@ -37,7 +37,10 @@ const en = {
 
   'download.apk': 'Download APK',
   'download.apkAria': 'Download the KioskOS Android APK',
-  'download.apkTitle': 'Download the updated KioskOS APK (5.8 MB)',
+  // {size} and {version} are filled from src/generated/apkMeta.ts.
+  'download.apkTitle': 'Download the updated KioskOS APK ({size} MB, v{version})',
+  'download.apkNotes':
+    'New in v{version}: habits with streaks, goals with milestones, notebooks, urge pause, 30-day charts',
 
   'hero.eyebrow': 'Device Owner · Native Kotlin',
   'hero.title': 'Android Device Owner Kiosk Launcher',
@@ -82,7 +85,9 @@ const ar: Record<MessageKey, string> = {
 
   'download.apk': 'تنزيل APK',
   'download.apkAria': 'نزّل تطبيق KioskOS لأندرويد',
-  'download.apkTitle': 'نزّل ملف KioskOS APK المحدّث (5.8 ميجابايت)',
+  'download.apkTitle': 'نزّل ملف KioskOS APK المحدّث ({size} ميجابايت، الإصدار {version})',
+  'download.apkNotes':
+    'جديد في الإصدار {version}: عادات مع سلسلة إنجاز، أهداف بمراحل، دفاتر ملاحظات، توقف لتهدئة الرغبة، ومخططات 30 يومًا',
 
   'hero.eyebrow': 'مالك الجهاز · كوتلن أصلي',
   'hero.title': 'مشغّل كشك أندرويد بصفة مالك الجهاز',

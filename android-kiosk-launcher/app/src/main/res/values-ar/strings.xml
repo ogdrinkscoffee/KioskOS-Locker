@@ -2,7 +2,6 @@
 <resources>
     <string name="app_name">KioskOS</string>
     <string name="accessibility_description">يُبقي مشغّل الكشك في المقدمة عند فتح تطبيق محظور. لا يقرأ KioskOS محتوى الشاشة أبدًا.</string>
-    <string name="device_admin_description">يسمح لـ KioskOS بتشغيل هذا الجهاز في وضع الكشك.</string>
 
     <!-- Common actions -->
     <string name="cancel">إلغاء</string>
@@ -182,17 +181,99 @@
     <string name="stat_habits_today">عادات اليوم</string>
     <string name="stat_open_tasks">المهام المفتوحة</string>
     <string name="stat_goal_progress">تقدم الأهداف</string>
+    <string name="stat_urges_resisted">رغبات قاومتها</string>
+    <string name="close">إغلاق</string>
 
-    <string name="new_habit_hint">عادة جديدة</string>
+    <!-- Recovery actions -->
+    <string name="urge_grounding_pause">توقف لتهدئة الرغبة</string>
+    <string name="urge_reset_title">إعادة ضبط الرغبة خلال 60 ثانية</string>
+    <string name="urge_reset_hint">تنفّس ببطء لمدة 60 ثانية قبل فتح أي تطبيق.</string>
+    <string name="urge_log_victory">قاومت — سجّل انتصارًا</string>
+    <string name="urge_logged">تم تسجيل مقاومة الرغبة</string>
+    <string name="urge_stat_fmt">%1$d رغبة قاومتها</string>
+    <string name="reset_streak">تصفير السلسلة</string>
+    <string name="confirm_reset">تأكيد التصفير</string>
+    <string name="reset_streak_title">تصفير السلسلة النظيفة؟</string>
+    <string name="reset_streak_message">سيصبح طول السلسلة الحالية 0، مع الاحتفاظ بأفضل سلسلة وبالسجل.</string>
+    <string name="reset_streak_done">تم تصفير السلسلة</string>
+    <string name="eyebrow_why_i_started">لماذا أقفلت هذا الجهاز</string>
+    <string name="why_i_started_hint">سببك الشخصي للبقاء نظيفًا — اقرأه عند الشعور بالرغبة.</string>
+    <string name="save_reminder">حفظ التذكير</string>
+    <string name="reminder_saved">تم حفظ التذكير</string>
+
+    <!-- Focus timer -->
+    <string name="focus_intention_hint">ما الهدف الواحد الذي تركّز عليه؟</string>
+    <string name="focus_fullscreen">وضع بلا مشتتات</string>
+    <string name="focus_fullscreen_hint">ابقَ حاضرًا وأكمل جلسة تركيز واحدة في كل مرة.</string>
+    <string name="exit_focus_view">إغلاق الوضع</string>
+    <string name="focus_mode_label_fmt">وضع التركيز · %1$s</string>
+    <string name="focus_deep_work">عمل عميق</string>
+
+    <!-- 30-day analytics -->
+    <string name="chart_clean_title">السلسلة النظيفة (آخر 30 يومًا)</string>
+    <string name="chart_clean_caption">أيام متتالية بلا إباحية ولا وسائل تواصل مسجلة</string>
+    <string name="chart_habit_title">إنجاز العادات (آخر 30 يومًا)</string>
+    <string name="chart_habit_caption">نسبة العادات المكتملة يوميًا</string>
+    <string name="chart_no_data">لا توجد بيانات بعد — سجّل يومًا نظيفًا أو عادة</string>
+    <string name="chart_current_fmt">الحالية: %1$d يوم</string>
+    <string name="chart_avg_fmt">متوسط 30 يومًا: %1$d%%</string>
+
+    <!-- Categories, priorities, notebooks -->
+    <string name="category_recovery">التعافي</string>
+    <string name="category_discipline">الانضباط</string>
+    <string name="category_focus">التركيز</string>
+    <string name="category_health">الصحة</string>
+    <string name="category_fitness">اللياقة</string>
+    <string name="category_career">العمل والدراسة</string>
+    <string name="category_mindset">العقلية</string>
+    <string name="priority_high">عالية</string>
+    <string name="priority_medium">متوسطة</string>
+    <string name="priority_low">منخفضة</string>
+    <string name="notebook_diary">المفكرة</string>
+    <string name="notebook_goals">الأهداف والرؤية</string>
+    <string name="notebook_urge">تأمل الرغبات</string>
+    <string name="notebook_notes">ملاحظات</string>
+
+    <!-- Habits -->
+    <string name="new_habit_hint">عادة يومية جديدة</string>
     <string name="habits_empty">لا توجد عادات بعد. أضف عادتك الأولى.</string>
+    <string name="habit_meta_fmt">%1$s · %2$d يوم متتالي</string>
+    <string name="habit_title_required">اكتب اسم العادة أولًا</string>
+    <string name="habit_day_desc_fmt">تسجيل %1$s في %2$s</string>
+
+    <!-- Tasks -->
     <string name="new_task_hint">مهمة جديدة</string>
     <string name="tasks_empty">لا توجد مهام حاليًا.</string>
-    <string name="new_goal_hint">هدف جديد</string>
-    <string name="goals_empty">لا توجد أهداف بعد.</string>
-    <string name="goal_step_10">+10%</string>
+    <string name="tasks_empty_filter">لا توجد مهام في هذا التصنيف.</string>
+    <string name="task_time_hint">09:00</string>
+    <string name="task_meta_fmt">أولوية %1$s%2$s</string>
+    <string name="task_title_required">اكتب اسم المهمة أولًا</string>
+    <string name="task_count_fmt">%1$d / %2$d مكتملة</string>
+    <string name="filter_all">الكل</string>
+    <string name="filter_active">النشطة</string>
+    <string name="filter_completed">المكتملة</string>
+
+    <!-- Goals -->
+    <string name="goals_empty">لا توجد أهداف بعد. أنشئ هدفًا وقسّمه إلى مراحل.</string>
+    <string name="create_goal">إنشاء هدف جديد</string>
+    <string name="goal_title_hint">عنوان الهدف</string>
+    <string name="goal_target_date">اختر تاريخًا مستهدفًا</string>
+    <string name="goal_target_fmt">الموعد: %1$s</string>
+    <string name="goal_why_hint">لماذا يهمك هذا</string>
+    <string name="goal_milestones_hint">المراحل (مرحلة في كل سطر)</string>
+    <string name="goal_meta_fmt">%1$s · الموعد %2$s</string>
+    <string name="milestone_progress">تقدم المراحل</string>
+    <string name="add_milestone_hint">أضف مرحلة أخرى…</string>
+    <string name="goal_title_required">أضف عنوان الهدف أولًا</string>
+
+    <!-- Notes -->
     <string name="new_note_title">ملاحظة جديدة</string>
-    <string name="notes_empty">لا توجد ملاحظات بعد.</string>
+    <string name="notes_empty">لا توجد ملاحظات بعد. سجّل تأملًا.</string>
     <string name="note_title_hint">العنوان</string>
-    <string name="note_body_hint">الملاحظة</string>
+    <string name="note_body_hint">اكتب تأملك أو تفصيل هدفك أو ملاحظاتك هنا…</string>
     <string name="note_untitled">بدون عنوان</string>
+    <string name="note_search_hint">ابحث في الملاحظات…</string>
+    <string name="pin_note">تثبيت الملاحظة</string>
+    <string name="note_meta_fmt">%1$s · %2$s</string>
+    <string name="edit_note_title">تعديل الملاحظة</string>
 </resources>

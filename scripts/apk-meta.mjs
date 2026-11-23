@@ -1,0 +1,171 @@
+#!/usr/bin/env node
+/**
+ * Single source of truth for the APK version and size shown on the website.
+ *
+ * The numbers on the download page (button tooltip + release-notes line) used to be
+ * typed into src/i18n/messages.ts, so the site could advertise a version the file in
+ * public/downloads did not have. They now come from src/generated/apkMeta.ts, which
+ * this script writes from two real sources:
+ *
+ *   version / versionCode -> android-kiosk-launcher/app/build.gradle.kts
+ *   sizeBytes / sizeMb / sha256 -> public/downloads/KioskOS.apk
+ *
+ * Usage:
+ *   node scripts/apk-meta.mjs          regenerate src/generated/apkMeta.ts
+ *   node scripts/apk-meta.mjs --check   fail if anything disagrees (used by the site build and CI)
+ *   node scripts/apk-meta.mjs --check --apk <path>
+ *                                      also validate a freshly built APK's embedded version
+ *
+ * When aapt2 is available (CI and any machine with the Android SDK) the version and
+ * versionCode inside the APK are read back and must match build.gradle.kts, so bumping
+ * the Gradle version without rebuilding the shipped APK is an error rather than a stale page.
+ */
+import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const gradleFile = path.join(root, 'android-kiosk-launcher/app/build.gradle.kts');
+const publishedApk = path.join(root, 'public/downloads/KioskOS.apk');
+const generatedFile = path.join(root, 'src/generated/apkMeta.ts');
+
+const args = process.argv.slice(2);
+const checkOnly = args.includes('--check');
+const apkArgIndex = args.indexOf('--apk');
+const extraApk = apkArgIndex === -1 ? null : path.resolve(process.cwd(), args[apkArgIndex + 1] ?? '');
+
+function fail(message) {
+  console.error(`apk-meta: ${message}`);
+  process.exit(1);
+}
+
+function readGradleVersion() {
+  if (!existsSync(gradleFile)) fail(`missing ${path.relative(root, gradleFile)}`);
+  const source = readFileSync(gradleFile, 'utf8');
+  const versionName = source.match(/versionName\s*=\s*"([^"]+)"/)?.[1];
+  const versionCode = source.match(/versionCode\s*=\s*(\d+)/)?.[1];
+  if (!versionName || !versionCode) {
+    fail('could not read versionName/versionCode from android-kiosk-launcher/app/build.gradle.kts');
+  }
+  return { versionName, versionCode: Number(versionCode) };
+}
+
+function findAapt2() {
+  const candidates = [];
+  const sdk = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
+  if (sdk) {
+    const buildTools = path.join(sdk, 'build-tools');
+    if (existsSync(buildTools)) {
+      // Highest build-tools version first.
+      for (const version of readdirSync(buildTools).sort().reverse()) {
+        candidates.push(path.join(buildTools, version, 'aapt2'));
+      }
+    }
+  }
+  candidates.push('aapt2');
+  for (const candidate of candidates) {
+    try {
+      execFileSync(candidate, ['version'], { stdio: 'ignore' });
+      return candidate;
+    } catch {
+      // try the next candidate
+    }
+  }
+  return null;
+}
+
+/** Version baked into the APK itself; null when aapt2 is unavailable. */
+function readApkBadging(apkPath, label) {
+  if (!existsSync(apkPath)) fail(`${label} not found at ${path.relative(root, apkPath) || apkPath}`);
+  const aapt2 = findAapt2();
+  if (!aapt2) {
+    console.warn(`apk-meta: aapt2 not found, skipping the embedded version check for ${label}`);
+    return null;
+  }
+  let badging;
+  try {
+    badging = execFileSync(aapt2, ['dump', 'badging', apkPath], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+  } catch (error) {
+    fail(`aapt2 could not read ${label}: ${error.message}`);
+  }
+  const match = badging.match(/versionCode='(\d+)'.*versionName='([^']*)'/);
+  if (!match) fail(`could not read versionCode/versionName from ${label}`);
+  return { versionCode: Number(match[1]), versionName: match[2] };
+}
+
+function assertVersionsAgree(declared, embedded, label) {
+  if (!embedded) return;
+  if (embedded.versionName !== declared.versionName || embedded.versionCode !== declared.versionCode) {
+    fail(
+      `${label} is v${embedded.versionName} (code ${embedded.versionCode}) but ` +
+        `build.gradle.kts declares v${declared.versionName} (code ${declared.versionCode}). ` +
+        'Rebuild the APK, or fix the version in app/build.gradle.kts.'
+    );
+  }
+}
+
+function readPublishedApk() {
+  if (!existsSync(publishedApk)) fail('missing public/downloads/KioskOS.apk');
+  const bytes = readFileSync(publishedApk);
+  return {
+    sizeBytes: bytes.length,
+    sizeMb: (bytes.length / (1024 * 1024)).toFixed(1),
+    sha256: createHash('sha256').update(bytes).digest('hex'),
+  };
+}
+
+function render(declared, published) {
+  return `// Generated by scripts/apk-meta.mjs — do not edit by hand.
+// Version: android-kiosk-launcher/app/build.gradle.kts
+// Size and checksum: public/downloads/KioskOS.apk
+// Refresh with \`npm run apk:meta\` (build-apk.sh and CI do it for you).
+
+export const APK_META = {
+  version: '${declared.versionName}',
+  versionCode: ${declared.versionCode},
+  sizeMb: '${published.sizeMb}',
+  sizeBytes: ${published.sizeBytes},
+  sha256: '${published.sha256}',
+} as const;
+
+/** Interpolation values for the \`download.apk*\` strings. */
+export const APK_META_VARS = { version: APK_META.version, size: APK_META.sizeMb };
+`;
+}
+
+const declared = readGradleVersion();
+const embedded = readApkBadging(publishedApk, 'public/downloads/KioskOS.apk');
+assertVersionsAgree(declared, embedded, 'the published APK');
+
+if (extraApk) {
+  assertVersionsAgree(declared, readApkBadging(extraApk, 'the built APK'), 'the built APK');
+}
+
+const published = readPublishedApk();
+const next = render(declared, published);
+
+if (checkOnly) {
+  const current = existsSync(generatedFile) ? readFileSync(generatedFile, 'utf8') : null;
+  if (current === null) {
+    fail('src/generated/apkMeta.ts is missing. Run `npm run apk:meta`.');
+  }
+  if (current !== next) {
+    fail(
+      'src/generated/apkMeta.ts does not match the shipped APK. ' +
+        'Run `npm run apk:meta` and commit the result.'
+    );
+  }
+  console.log(
+    `apk-meta: ok — KioskOS.apk v${declared.versionName} (code ${declared.versionCode}), ` +
+      `${published.sizeMb} MB, sha256 ${published.sha256.slice(0, 12)}…`
+  );
+} else {
+  mkdirSync(path.dirname(generatedFile), { recursive: true });
+  writeFileSync(generatedFile, next);
+  console.log(
+    `apk-meta: wrote src/generated/apkMeta.ts — v${declared.versionName} (code ${declared.versionCode}), ` +
+      `${published.sizeMb} MB`
+  );
+}

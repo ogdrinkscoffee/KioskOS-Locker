@@ -2,7 +2,6 @@
 <resources>
     <string name="app_name">KioskOS</string>
     <string name="accessibility_description">Keeps the kiosk launcher in front when a blocked app is opened. KioskOS never reads screen content.</string>
-    <string name="device_admin_description">Lets KioskOS run this device in kiosk mode.</string>
 
     <!-- Common actions -->
     <string name="cancel">Cancel</string>
@@ -182,17 +181,99 @@
     <string name="stat_habits_today">Habits today</string>
     <string name="stat_open_tasks">Open tasks</string>
     <string name="stat_goal_progress">Goal progress</string>
+    <string name="stat_urges_resisted">Urges resisted</string>
+    <string name="close">Close</string>
 
-    <string name="new_habit_hint">New habit</string>
+    <!-- Recovery actions -->
+    <string name="urge_grounding_pause">Urge grounding pause</string>
+    <string name="urge_reset_title">60-second urge reset</string>
+    <string name="urge_reset_hint">Breathe slowly for 60s before touching any app.</string>
+    <string name="urge_log_victory">I resisted — log victory</string>
+    <string name="urge_logged">Urge victory logged</string>
+    <string name="urge_stat_fmt">%1$d urges resisted</string>
+    <string name="reset_streak">Reset streak</string>
+    <string name="confirm_reset">Confirm reset</string>
+    <string name="reset_streak_title">Reset the clean streak?</string>
+    <string name="reset_streak_message">This sets the current streak back to 0. Your best streak and logged history stay intact.</string>
+    <string name="reset_streak_done">Clean streak reset</string>
+    <string name="eyebrow_why_i_started">Why I locked this device</string>
+    <string name="why_i_started_hint">Your personal reason to stay clean — read it when an urge hits.</string>
+    <string name="save_reminder">Save reminder</string>
+    <string name="reminder_saved">Reminder saved</string>
+
+    <!-- Focus timer -->
+    <string name="focus_intention_hint">What single goal are you focusing on?</string>
+    <string name="focus_fullscreen">Distraction-free view</string>
+    <string name="focus_fullscreen_hint">Stay present. Complete one focused block at a time.</string>
+    <string name="exit_focus_view">Exit view</string>
+    <string name="focus_mode_label_fmt">Focus mode · %1$s</string>
+    <string name="focus_deep_work">Deep work</string>
+
+    <!-- 30-day analytics -->
+    <string name="chart_clean_title">Clean streak (last 30 days)</string>
+    <string name="chart_clean_caption">Consecutive porn-free &amp; social-media-free days logged</string>
+    <string name="chart_habit_title">Habit completion (last 30 days)</string>
+    <string name="chart_habit_caption">Daily percentage of habits completed</string>
+    <string name="chart_no_data">No data yet — log a clean day or a habit</string>
+    <string name="chart_current_fmt">Current: %1$dd</string>
+    <string name="chart_avg_fmt">30d avg: %1$d%%</string>
+
+    <!-- Categories, priorities, notebooks -->
+    <string name="category_recovery">Recovery</string>
+    <string name="category_discipline">Discipline</string>
+    <string name="category_focus">Focus</string>
+    <string name="category_health">Health</string>
+    <string name="category_fitness">Fitness</string>
+    <string name="category_career">Career &amp; Study</string>
+    <string name="category_mindset">Mindset</string>
+    <string name="priority_high">High</string>
+    <string name="priority_medium">Medium</string>
+    <string name="priority_low">Low</string>
+    <string name="notebook_diary">Diary</string>
+    <string name="notebook_goals">Goals &amp; Vision</string>
+    <string name="notebook_urge">Urge Reflection</string>
+    <string name="notebook_notes">Notes</string>
+
+    <!-- Habits -->
+    <string name="new_habit_hint">New daily habit</string>
     <string name="habits_empty">No habits yet. Add the first one.</string>
-    <string name="new_task_hint">New task</string>
+    <string name="habit_meta_fmt">%1$s · %2$d day streak</string>
+    <string name="habit_title_required">Name the habit first</string>
+    <string name="habit_day_desc_fmt">Mark %1$s for %2$s</string>
+
+    <!-- Tasks -->
+    <string name="new_task_hint">New action task</string>
     <string name="tasks_empty">Nothing queued.</string>
-    <string name="new_goal_hint">New goal</string>
-    <string name="goals_empty">No goals yet.</string>
-    <string name="goal_step_10">+10%</string>
+    <string name="tasks_empty_filter">No tasks in this filter.</string>
+    <string name="task_time_hint">09:00</string>
+    <string name="task_meta_fmt">%1$s priority%2$s</string>
+    <string name="task_title_required">Name the task first</string>
+    <string name="task_count_fmt">%1$d / %2$d completed</string>
+    <string name="filter_all">All</string>
+    <string name="filter_active">Active</string>
+    <string name="filter_completed">Done</string>
+
+    <!-- Goals -->
+    <string name="goals_empty">No goals yet. Create one to break it into milestones.</string>
+    <string name="create_goal">Create new goal</string>
+    <string name="goal_title_hint">Goal title</string>
+    <string name="goal_target_date">Pick a target date</string>
+    <string name="goal_target_fmt">Target: %1$s</string>
+    <string name="goal_why_hint">Why this matters</string>
+    <string name="goal_milestones_hint">Milestones (one per line)</string>
+    <string name="goal_meta_fmt">%1$s · Target %2$s</string>
+    <string name="milestone_progress">Milestone progress</string>
+    <string name="add_milestone_hint">Add another milestone…</string>
+    <string name="goal_title_required">Add a goal title first</string>
+
+    <!-- Notes -->
     <string name="new_note_title">New note</string>
-    <string name="notes_empty">No notes yet.</string>
+    <string name="notes_empty">No notes yet. Capture a reflection.</string>
     <string name="note_title_hint">Title</string>
-    <string name="note_body_hint">Note</string>
+    <string name="note_body_hint">Write your reflection, goal breakdown, or notes here…</string>
     <string name="note_untitled">Untitled</string>
+    <string name="note_search_hint">Search notes…</string>
+    <string name="pin_note">Pin note</string>
+    <string name="note_meta_fmt">%1$s · %2$s</string>
+    <string name="edit_note_title">Edit note</string>
 </resources>

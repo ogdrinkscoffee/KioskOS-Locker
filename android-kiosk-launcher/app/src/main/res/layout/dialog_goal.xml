@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="24dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="24dp">
+
+        <EditText
+            android:id="@+id/goalTitleInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@color/divider"
+            android:hint="@string/goal_title_hint"
+            android:inputType="textCapSentences"
+            android:maxLines="2"
+            android:minHeight="48dp"
+            android:textAlignment="viewStart"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_secondary"
+            android:textSize="14sp" />
+
+        <Spinner
+            android:id="@+id/goalCategory"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="4dp"
+            android:entries="@array/goal_categories"
+            android:spinnerMode="dropdown" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/goalTargetButton"
+            style="@style/Widget.KioskOS.Button.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/goal_target_date" />
+
+        <EditText
+            android:id="@+id/goalWhyInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:backgroundTint="@color/divider"
+            android:hint="@string/goal_why_hint"
+            android:inputType="textCapSentences"
+            android:maxLines="2"
+            android:minHeight="48dp"
+            android:textAlignment="viewStart"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_secondary"
+            android:textSize="14sp" />
+
+        <EditText
+            android:id="@+id/goalMilestonesInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:backgroundTint="@color/divider"
+            android:gravity="top|start"
+            android:hint="@string/goal_milestones_hint"
+            android:inputType="textMultiLine|textCapSentences"
+            android:minLines="3"
+            android:textAlignment="viewStart"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_secondary"
+            android:textSize="13sp" />
+    </LinearLayout>
+</ScrollView>
