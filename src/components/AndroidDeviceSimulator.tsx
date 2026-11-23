@@ -783,7 +783,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <img
                       src="/app-icon.svg"
-                      alt={tr("KioskOS app icon")}
+                      alt={tr("Ironclad OS app icon")}
                       width={32}
                       height={32}
                       className="w-8 h-8 rounded-lg shrink-0"
@@ -2486,7 +2486,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                             {app.label} ({app.packageName})
                           </option>
                         ))}
-                      <option value="com.kiosk.launcher">{tr("KioskOS Launcher (Device Owner)")}</option>
+                      <option value="com.kiosk.launcher">{tr("Ironclad OS Launcher (Device Owner)")}</option>
                     </select>
                     <button
                       type="button"

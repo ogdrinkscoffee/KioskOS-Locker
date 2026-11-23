@@ -6,13 +6,16 @@
 import { LegalFooter } from './components/LegalFooter';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  AlertTriangle,
   Check,
   Cloud,
+  Download,
   Languages,
   MonitorSmartphone,
   Moon,
   ShieldCheck,
   Smartphone,
+  Sparkles,
   Sun,
   Terminal,
   TrendingUp,
@@ -30,6 +33,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { AndroidDeviceSimulator } from './components/AndroidDeviceSimulator';
+import { FeaturesView } from './components/FeaturesView';
 import { PolicyInspectorPanel } from './components/PolicyInspectorPanel';
 import { SelfImprovementWorkspace } from './components/SelfImprovementWorkspace';
 import { AdbProvisioningView } from './components/AdbProvisioningView';
@@ -133,7 +137,7 @@ import {
   updateWhyIStarted,
 } from './utils/selfImprovementEngine';
 
-type WorkspaceTab = 'simulator' | 'growth' | 'policy' | 'pc' | 'adb';
+type WorkspaceTab = 'features' | 'simulator' | 'growth' | 'policy' | 'pc' | 'adb';
 type ThemeMode = 'light' | 'dark';
 
 const STORAGE_KEY = 'kioskos_simulator_state_v1';
@@ -314,7 +318,7 @@ function loadInitialSelfImprovement(): SelfImprovementState {
 
 export default function App() {
   const { t, locale, setLocale, tr } = useI18n();
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>('simulator');
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>('features');
   const [themeMode, setThemeMode] = useState<ThemeMode>(loadInitialTheme);
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const langMenuRef = useRef<HTMLDivElement | null>(null);
@@ -1083,7 +1087,7 @@ export default function App() {
             href="#top"
             onClick={(e) => {
               e.preventDefault();
-              setActiveTab('simulator');
+              setActiveTab('features');
             }}
             className="inline-flex shrink-0 items-center gap-2.5 whitespace-nowrap text-base font-semibold tracking-tight text-slate-900 dark:text-white"
           >
@@ -1094,7 +1098,7 @@ export default function App() {
               height={28}
               className="w-7 h-7 rounded-lg shrink-0"
             />
-            <span>KioskOS</span>
+            <span>Ironclad OS</span>
           </a>
 
           <nav
@@ -1104,6 +1108,7 @@ export default function App() {
             <div className="flex w-max items-center gap-0.5 rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 dark:border-white/10 dark:bg-white/[0.04]">
               {(
                 [
+                  { id: 'features', label: t('nav.features'), shortLabel: t('nav.featuresShort'), Icon: Sparkles },
                   { id: 'simulator', label: t('nav.simulator'), shortLabel: t('nav.simulatorShort'), Icon: Smartphone },
                   { id: 'growth', label: t('nav.growth'), shortLabel: t('nav.growthShort'), Icon: TrendingUp },
                   { id: 'policy', label: t('nav.policy'), shortLabel: t('nav.policyShort'), Icon: ShieldCheck },
@@ -1218,8 +1223,8 @@ export default function App() {
               )}
             </button>
             <a
-              href="/downloads/KioskOS.apk"
-              download="KioskOS.apk"
+              href="/downloads/IroncladOS.apk"
+              download="Ironclad-OS.apk"
               aria-label={t('download.apkAria')}
               title={t('download.apkTitle', APK_META_VARS)}
               className="btn-primary whitespace-nowrap"
@@ -1238,24 +1243,52 @@ export default function App() {
 
       {/* Main Content */}
       <main id="top" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mb-7 max-w-2xl">
-          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-700 dark:text-sky-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-sky-500" aria-hidden="true" />
-            {t('hero.eyebrow')}
+        <section className="mb-8 grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_292px]">
+          <div className="max-w-2xl">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-700 dark:text-sky-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-sky-500" aria-hidden="true" />
+              {t('hero.eyebrow')}
+            </div>
+            <h1 className="mt-3 text-[30px] font-semibold leading-[1.1] tracking-tight text-slate-900 dark:text-white sm:text-[40px]">
+              {t('hero.title')}
+            </h1>
+            <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-slate-600 dark:text-slate-400">
+              {t('hero.lead')}
+            </p>
+            <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
+              <a
+                href="/downloads/IroncladOS.apk"
+                download="Ironclad-OS.apk"
+                title={t('download.apkTitle', APK_META_VARS)}
+                className="btn-primary min-h-11 px-5 text-sm"
+              >
+                <Download className="h-4 w-4" aria-hidden="true" />
+                {t('hero.cta')}
+              </a>
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                {t('hero.meta', APK_META_VARS)}
+              </span>
+            </div>
+            <ul className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-slate-500 dark:text-slate-400">
+              <li>{t('hero.bullet.reset')}</li>
+              <li>{t('hero.bullet.block')}</li>
+              <li>{t('hero.bullet.allowlist')}</li>
+              <li>{t('hero.bullet.bypass')}</li>
+            </ul>
           </div>
-          <h1 className="mt-2.5 text-[27px] font-semibold leading-[1.15] tracking-tight text-slate-900 dark:text-white sm:text-[33px]">
-            {t('hero.title')}
-          </h1>
-          <p className="mt-2.5 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-            {t('hero.lead')}
-          </p>
-          <ul className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-slate-500 dark:text-slate-400">
-            <li>{t('hero.bullet.allowlist')}</li>
-            <li>{t('hero.bullet.locktask')}</li>
-            <li>{t('hero.bullet.blockers')}</li>
-            <li>{t('hero.bullet.sync')}</li>
-          </ul>
-        </div>
+          <div className="relative hidden overflow-hidden rounded-2xl border border-slate-200/80 bg-[#0a1220] shadow-sm lg:block dark:border-white/10">
+            <img
+              src="/brand/ironclad-shield.jpg"
+              alt={t('hero.imageAlt')}
+              width={1024}
+              height={1024}
+              loading="eager"
+              className="h-full w-full object-cover"
+            />
+          </div>
+        </section>
+
+        {activeTab === 'features' && <FeaturesView />}
 
         {activeTab === 'simulator' && (
           <div
@@ -1413,6 +1446,22 @@ export default function App() {
 
         {activeTab === 'adb' && <AdbProvisioningView />}
       </main>
+      <div className="mx-auto w-full max-w-6xl px-4 pb-8 sm:px-6">
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-300/70 bg-amber-50/80 p-4 dark:border-amber-500/25 dark:bg-amber-500/[0.07]">
+          <AlertTriangle
+            className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
+            aria-hidden="true"
+          />
+          <div>
+            <p className="text-[13px] font-semibold text-amber-900 dark:text-amber-200">
+              {t('notice.title')}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-amber-800 dark:text-amber-200/80">
+              {t('notice.body')}
+            </p>
+          </div>
+        </div>
+      </div>
       <LegalFooter/>
     </div>
   );

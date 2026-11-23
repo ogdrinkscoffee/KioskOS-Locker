@@ -36,7 +36,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/goalTargetButton"
-            style="@style/Widget.KioskOS.Button.Outlined"
+            style="@style/Widget.IroncladOS.Button.Outlined"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"

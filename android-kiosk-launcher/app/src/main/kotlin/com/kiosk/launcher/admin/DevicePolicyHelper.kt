@@ -114,7 +114,7 @@ class DevicePolicyHelper(context: Context) {
         }.getOrDefault(false)
 
     /**
-     * Pins KioskOS as Home. Only a device owner can do this silently; returns false
+     * Pins Ironclad OS as Home. Only a device owner can do this silently; returns false
      * otherwise (or when Android refuses), so callers can fall back to the system UI.
      */
     fun pinAsHomeLauncher(): Boolean {

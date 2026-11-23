@@ -8,7 +8,7 @@
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
-        style="@style/Widget.KioskOS.Toolbar"
+        style="@style/Widget.IroncladOS.Toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         app:title="@string/diagnostics_title" />
@@ -29,7 +29,7 @@
             android:paddingBottom="28dp">
 
             <com.google.android.material.card.MaterialCardView
-                style="@style/Widget.KioskOS.Card"
+                style="@style/Widget.IroncladOS.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
 
@@ -43,7 +43,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/eyebrow_diagnostics"
-                        android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
+                        android:textAppearance="@style/TextAppearance.IroncladOS.Eyebrow" />
 
                     <TextView
                         android:id="@+id/diagnosticsReport"
@@ -68,7 +68,7 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/diagnosticsRefresh"
-                    style="@style/Widget.KioskOS.Button.Outlined"
+                    style="@style/Widget.IroncladOS.Button.Outlined"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
@@ -76,7 +76,7 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/diagnosticsCopy"
-                    style="@style/Widget.KioskOS.Button.Outlined"
+                    style="@style/Widget.IroncladOS.Button.Outlined"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
@@ -86,7 +86,7 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/diagnosticsExport"
-                style="@style/Widget.KioskOS.Button"
+                style="@style/Widget.IroncladOS.Button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"

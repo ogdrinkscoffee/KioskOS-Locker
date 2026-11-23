@@ -24,13 +24,13 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.KioskOS">
+        android:theme="@style/Theme.IroncladOS">
 
         <activity
             android:name=".ui.KioskLauncherActivity"
             android:exported="true"
             android:launchMode="singleTask"
-            android:theme="@style/Theme.KioskOS">
+            android:theme="@style/Theme.IroncladOS">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />

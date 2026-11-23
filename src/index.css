@@ -224,7 +224,18 @@
 html[dir="rtl"] h1,
 html[dir="rtl"] h2,
 html[dir="rtl"] h3,
-html[dir="rtl"] h4,
+html[dir="rtl"] h4 {
+  /* Arabic glyphs carry tall ascenders, deep descenders and harakat that the
+     compact LTR leading cannot hold; without this the lines overlap. */
+  line-height: 1.5;
+}
+
+/* Compact LTR leading classes are too tight for Arabic script too. */
+html[dir="rtl"] .leading-tight,
+html[dir="rtl"] .leading-snug {
+  line-height: 1.45;
+}
+
 html[dir="rtl"] .tracking-tight,
 html[dir="rtl"] .tracking-tighter,
 html[dir="rtl"] .tracking-wide,

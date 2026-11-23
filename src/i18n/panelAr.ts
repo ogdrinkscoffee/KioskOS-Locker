@@ -21,7 +21,7 @@ export const panelAr: Record<string, string> = {
   '(Discharging)': '(قيد التفريغ)',
   '(Fully Charged)': '(مكتملة الشحن)',
   '(Low Battery)': '(بطارية منخفضة)',
-  '© 2026 KioskOS. All rights reserved.': '© 2026 KioskOS. جميع الحقوق محفوظة.',
+  '© 2026 Ironclad OS. All rights reserved.': '© 2026 Ironclad OS. جميع الحقوق محفوظة.',
   '+ Col': '+ عمود',
   '+ Diary Template': '+ قالب المذكرة',
   '+ Row': '+ صف',
@@ -321,8 +321,8 @@ export const panelAr: Record<string, string> = {
   'Kiosk Operation Mode': 'وضع تشغيل الكشك',
   'Kiosk Operation Mode & Branding': 'وضع تشغيل الكشك والعلامة',
   'Kiosk Owner': 'مالك الكشك',
-  'KioskOS app icon': 'أيقونة تطبيق KioskOS',
-  'KioskOS Launcher (Device Owner)': 'مشغّل KioskOS (مالك الجهاز)',
+  'Ironclad OS app icon': 'أيقونة تطبيق Ironclad OS',
+  'Ironclad OS Launcher (Device Owner)': 'مشغّل Ironclad OS (مالك الجهاز)',
   'Kotlin Policy Execution Trace': 'أثر تنفيذ سياسات Kotlin',
   'Launched via': 'تم التشغيل عبر',
   'left of': 'متبقٍ من',
@@ -644,9 +644,9 @@ export const panelAr: Record<string, string> = {
   'Copy command for': 'نسخ الأمر الخاص بـ',
 
   // Provisioning steps.
-  'Four steps after downloading KioskOS.apk to lock down a phone running':
-    'أربع خطوات بعد تنزيل KioskOS.apk لإغلاق هاتف يعمل بـ',
-  'Install KioskOS.apk on a factory-reset device': 'تثبيت KioskOS.apk على جهاز مُعاد ضبطه من المصنع',
+  'Four steps after downloading IroncladOS.apk to lock down a phone running':
+    'أربع خطوات بعد تنزيل IroncladOS.apk لإغلاق هاتف يعمل بـ',
+  'Install IroncladOS.apk on a factory-reset device': 'تثبيت IroncladOS.apk على جهاز مُعاد ضبطه من المصنع',
   'Use the Download APK button first. The device must have no Google or user accounts before it can become Device Owner.':
     'استخدم زر تنزيل APK أولًا. يجب ألا يحتوي الجهاز على حسابات Google أو حسابات مستخدمين قبل أن يصبح مالك الجهاز.',
   'Set Device Owner': 'تعيين مالك الجهاز',
@@ -688,20 +688,20 @@ export const panelAr: Record<string, string> = {
 
   // Legal & Terms modal
   'Intellectual property': 'الملكية الفكرية',
-  'All software, simulators, APK packages, source code, graphics and branding associated with KioskOS are the exclusive property of the creator and are protected by copyright law. All rights reserved.':
-    'جميع البرمجيات والمحاكيات وحزم APK والشفرة المصدرية والرسومات والعلامة التجارية المرتبطة بـ KioskOS هي ملكية حصرية للمطوّر ومحمية بموجب قوانين حقوق النشر. جميع الحقوق محفوظة.',
+  'All software, simulators, APK packages, source code, graphics and branding associated with Ironclad OS are the exclusive property of the creator and are protected by copyright law. All rights reserved.':
+    'جميع البرمجيات والمحاكيات وحزم APK والشفرة المصدرية والرسومات والعلامة التجارية المرتبطة بـ Ironclad OS هي ملكية حصرية للمطوّر ومحمية بموجب قوانين حقوق النشر. جميع الحقوق محفوظة.',
   'Permitted licence': 'الترخيص المسموح به',
-  'You are granted a limited, personal, non-exclusive, non-transferable licence to use this web application and install the official KioskOS APK on Android devices that you own or are explicitly authorised to manage.':
-    'يُمنح لك ترخيص محدود وشخصي وغير حصري وغير قابل للتحويل لاستخدام هذا التطبيق وتثبيت حزمة KioskOS APK الرسمية على أجهزة أندرويد التي تملكها أو لديك تفويض صريح بإدارتها.',
+  'You are granted a limited, personal, non-exclusive, non-transferable licence to use this web application and install the official Ironclad OS APK on Android devices that you own or are explicitly authorised to manage.':
+    'يُمنح لك ترخيص محدود وشخصي وغير حصري وغير قابل للتحويل لاستخدام هذا التطبيق وتثبيت حزمة Ironclad OS APK الرسمية على أجهزة أندرويد التي تملكها أو لديك تفويض صريح بإدارتها.',
   'Usage restrictions': 'قيود الاستخدام',
-  'You may not copy, clone, scrape, modify, rebrand, decompile, reverse-engineer, mirror, sublicense or commercially distribute KioskOS, its UI design or its APK, in whole or in part, without prior written consent.':
-    'لا يجوز لك نسخ أو استنساخ أو سحب أو تعديل أو إعادة تسمية أو تفكيك أو إجراء هندسة عكسية أو إعادة نشر أو ترخيص أو توزيع KioskOS أو تصميم واجهته أو ملف APK تجاريًا، كليًا أو جزئيًا، دون موافقة خطية مسبقة.',
+  'You may not copy, clone, scrape, modify, rebrand, decompile, reverse-engineer, mirror, sublicense or commercially distribute Ironclad OS, its UI design or its APK, in whole or in part, without prior written consent.':
+    'لا يجوز لك نسخ أو استنساخ أو سحب أو تعديل أو إعادة تسمية أو تفكيك أو إجراء هندسة عكسية أو إعادة نشر أو ترخيص أو توزيع Ironclad OS أو تصميم واجهته أو ملف APK تجاريًا، كليًا أو جزئيًا، دون موافقة خطية مسبقة.',
   'Device Owner responsibility': 'مسؤولية مالك الجهاز',
-  'KioskOS uses Android Device Owner and DevicePolicyManager lockdown APIs. You are solely responsible for securing your administrator passcode, backing up your device before provisioning, and complying with applicable law.':
-    'يستخدم KioskOS واجهات أندرويد الخاصة بمالك الجهاز وإغلاق DevicePolicyManager. أنت وحدك المسؤول عن حماية رمز مرور المسؤول، وأخذ نسخة احتياطية قبل التهيئة، والالتزام بالقوانين المعمول بها.',
+  'Ironclad OS uses Android Device Owner and DevicePolicyManager lockdown APIs. You are solely responsible for securing your administrator passcode, backing up your device before provisioning, and complying with applicable law.':
+    'يستخدم Ironclad OS واجهات أندرويد الخاصة بمالك الجهاز وإغلاق DevicePolicyManager. أنت وحدك المسؤول عن حماية رمز مرور المسؤول، وأخذ نسخة احتياطية قبل التهيئة، والالتزام بالقوانين المعمول بها.',
   Disclaimer: 'إخلاء المسؤولية',
-  'KioskOS is provided “as is”, without warranties of any kind. The copyright holder assumes no liability for device lockouts, data loss or system issues resulting from installation or use.':
-    'يُقدَّم KioskOS «كما هو» دون أي ضمانات من أي نوع. لا يتحمل صاحب حقوق النشر أي مسؤولية عن قفل الأجهزة أو فقدان البيانات أو أي مشكلات في النظام ناتجة عن التثبيت أو الاستخدام.',
+  'Ironclad OS is provided “as is”, without warranties of any kind. The copyright holder assumes no liability for device lockouts, data loss or system issues resulting from installation or use.':
+    'يُقدَّم Ironclad OS «كما هو» دون أي ضمانات من أي نوع. لا يتحمل صاحب حقوق النشر أي مسؤولية عن قفل الأجهزة أو فقدان البيانات أو أي مشكلات في النظام ناتجة عن التثبيت أو الاستخدام.',
 
   // Policy inspector details & status formatting
   'Blocks booting into Android Safe Mode to bypass the kiosk launcher.':

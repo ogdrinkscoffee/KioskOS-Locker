@@ -8,7 +8,7 @@
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
-        style="@style/Widget.KioskOS.Toolbar"
+        style="@style/Widget.IroncladOS.Toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         app:title="@string/focus_growth_title" />
@@ -93,7 +93,7 @@
                 android:orientation="vertical">
 
                 <com.google.android.material.card.MaterialCardView
-                    style="@style/Widget.KioskOS.Card"
+                    style="@style/Widget.IroncladOS.Card"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content">
 
@@ -107,7 +107,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/eyebrow_clean_streak"
-                            android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
+                            android:textAppearance="@style/TextAppearance.IroncladOS.Eyebrow" />
 
                         <LinearLayout
                             android:layout_width="match_parent"
@@ -139,7 +139,7 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/siMarkClean"
-                                style="@style/Widget.KioskOS.Button"
+                                style="@style/Widget.IroncladOS.Button"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="@string/log_day" />
@@ -173,7 +173,7 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/siUrgePauseToggle"
-                                style="@style/Widget.KioskOS.Button.Outlined"
+                                style="@style/Widget.IroncladOS.Button.Outlined"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
@@ -181,7 +181,7 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/siResetStreak"
-                                style="@style/Widget.KioskOS.Button.Outlined"
+                                style="@style/Widget.IroncladOS.Button.Outlined"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_marginStart="8dp"
@@ -203,7 +203,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="@string/urge_reset_title"
-                                android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
+                                android:textAppearance="@style/TextAppearance.IroncladOS.Eyebrow" />
 
                             <TextView
                                 android:id="@+id/siUrgeCountdown"
@@ -228,7 +228,7 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/siLogVictory"
-                                style="@style/Widget.KioskOS.Button"
+                                style="@style/Widget.IroncladOS.Button"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="10dp"
@@ -236,7 +236,7 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/siUrgeClose"
-                                style="@style/Widget.KioskOS.Button.Text"
+                                style="@style/Widget.IroncladOS.Button.Text"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_gravity="end"
@@ -246,7 +246,7 @@
                 </com.google.android.material.card.MaterialCardView>
 
                 <com.google.android.material.card.MaterialCardView
-                    style="@style/Widget.KioskOS.Card"
+                    style="@style/Widget.IroncladOS.Card"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp">
@@ -261,7 +261,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/eyebrow_why_i_started"
-                            android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
+                            android:textAppearance="@style/TextAppearance.IroncladOS.Eyebrow" />
 
                         <EditText
                             android:id="@+id/siWhyInput"
@@ -280,7 +280,7 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/siWhySave"
-                            style="@style/Widget.KioskOS.Button.Outlined"
+                            style="@style/Widget.IroncladOS.Button.Outlined"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_gravity="end"
@@ -291,7 +291,7 @@
 
                 <!-- Focus timer -->
                 <com.google.android.material.card.MaterialCardView
-                    style="@style/Widget.KioskOS.Card"
+                    style="@style/Widget.IroncladOS.Card"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp">
@@ -313,7 +313,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
                                 android:text="@string/eyebrow_focus_timer"
-                                android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
+                                android:textAppearance="@style/TextAppearance.IroncladOS.Eyebrow" />
 
                             <TextView
                                 android:id="@+id/focusTodayLabel"
@@ -344,7 +344,7 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/preset15m"
-                                style="@style/Widget.KioskOS.Button.Text"
+                                style="@style/Widget.IroncladOS.Button.Text"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
@@ -352,7 +352,7 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/preset25m"
-                                style="@style/Widget.KioskOS.Button.Text"
+                                style="@style/Widget.IroncladOS.Button.Text"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
@@ -360,7 +360,7 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/preset45m"
-                                style="@style/Widget.KioskOS.Button.Text"
+                                style="@style/Widget.IroncladOS.Button.Text"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
@@ -368,7 +368,7 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/preset60m"
-                                style="@style/Widget.KioskOS.Button.Text"
+                                style="@style/Widget.IroncladOS.Button.Text"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
@@ -409,7 +409,7 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/timerStart"
-                                style="@style/Widget.KioskOS.Button"
+                                style="@style/Widget.IroncladOS.Button"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
@@ -417,7 +417,7 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/timerPause"
-                                style="@style/Widget.KioskOS.Button.Outlined"
+                                style="@style/Widget.IroncladOS.Button.Outlined"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_marginStart="8dp"
@@ -426,7 +426,7 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/timerReset"
-                                style="@style/Widget.KioskOS.Button.Outlined"
+                                style="@style/Widget.IroncladOS.Button.Outlined"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_marginStart="8dp"
@@ -442,7 +442,7 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/timerComplete"
-                                style="@style/Widget.KioskOS.Button.Outlined"
+                                style="@style/Widget.IroncladOS.Button.Outlined"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
@@ -450,7 +450,7 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/focusFullscreen"
-                                style="@style/Widget.KioskOS.Button.Outlined"
+                                style="@style/Widget.IroncladOS.Button.Outlined"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_marginStart="8dp"
@@ -462,7 +462,7 @@
 
                 <!-- Stats -->
                 <com.google.android.material.card.MaterialCardView
-                    style="@style/Widget.KioskOS.Card"
+                    style="@style/Widget.IroncladOS.Card"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp">
@@ -586,7 +586,7 @@
 
                 <!-- 30-day analytics -->
                 <com.google.android.material.card.MaterialCardView
-                    style="@style/Widget.KioskOS.Card"
+                    style="@style/Widget.IroncladOS.Card"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp">
@@ -607,7 +607,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
                                 android:text="@string/chart_clean_title"
-                                android:textAppearance="@style/TextAppearance.KioskOS.Title" />
+                                android:textAppearance="@style/TextAppearance.IroncladOS.Title" />
 
                             <TextView
                                 android:id="@+id/cleanChartCaption"
@@ -642,7 +642,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
                                 android:text="@string/chart_habit_title"
-                                android:textAppearance="@style/TextAppearance.KioskOS.Title" />
+                                android:textAppearance="@style/TextAppearance.IroncladOS.Title" />
 
                             <TextView
                                 android:id="@+id/habitChartCaption"
@@ -708,7 +708,7 @@
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/habitAdd"
-                        style="@style/Widget.KioskOS.Button"
+                        style="@style/Widget.IroncladOS.Button"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="8dp"
@@ -788,7 +788,7 @@
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/taskAdd"
-                        style="@style/Widget.KioskOS.Button"
+                        style="@style/Widget.IroncladOS.Button"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="8dp"
@@ -872,7 +872,7 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/goalAdd"
-                    style="@style/Widget.KioskOS.Button"
+                    style="@style/Widget.IroncladOS.Button"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/create_goal" />
@@ -919,7 +919,7 @@
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/noteAdd"
-                        style="@style/Widget.KioskOS.Button"
+                        style="@style/Widget.IroncladOS.Button"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="8dp"

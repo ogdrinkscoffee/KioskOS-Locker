@@ -44,7 +44,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/focusDialogToggle"
-            style="@style/Widget.KioskOS.Button"
+            style="@style/Widget.IroncladOS.Button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="28dp"
@@ -52,7 +52,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/focusDialogComplete"
-            style="@style/Widget.KioskOS.Button.Outlined"
+            style="@style/Widget.IroncladOS.Button.Outlined"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
@@ -60,7 +60,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/focusDialogExit"
-            style="@style/Widget.KioskOS.Button.Text"
+            style="@style/Widget.IroncladOS.Button.Text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"

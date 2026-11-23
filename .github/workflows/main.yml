@@ -1,4 +1,4 @@
-name: Build KioskOS Android APK
+name: Build Ironclad OS Android APK
 
 on:
   push:
@@ -41,7 +41,7 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: node scripts/apk-meta.mjs --check --apk android-kiosk-launcher/app/build/outputs/apk/release/app-release.apk
 
-      # Fails if public/downloads/KioskOS.apk or src/generated/apkMeta.ts (the
+      # Fails if public/downloads/IroncladOS.apk or src/generated/apkMeta.ts (the
       # version and size shown on the site) disagree with each other.
       - name: Verify the download page matches the published APK
         working-directory: ${{ github.workspace }}
@@ -50,5 +50,5 @@ jobs:
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: KioskOS-release-apk
+          name: Ironclad OS-release-apk
           path: android-kiosk-launcher/app/build/outputs/apk/release/app-release.apk

@@ -39,7 +39,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/pinShowToggle"
-            style="@style/Widget.KioskOS.Button.Text"
+            style="@style/Widget.IroncladOS.Button.Text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"

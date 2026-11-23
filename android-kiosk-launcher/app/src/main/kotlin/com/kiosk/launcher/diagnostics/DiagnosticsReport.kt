@@ -66,7 +66,7 @@ object DiagnosticsReport {
         appendLine(snapshot.headings.title)
         appendLine("${snapshot.headings.generated} ${formatTime(snapshot.generatedAt)}")
         appendLine(
-            "KioskOS ${snapshot.appVersion} (${snapshot.versionCode}) · " +
+            "Ironclad OS ${snapshot.appVersion} (${snapshot.versionCode}) · " +
                 "Android ${snapshot.androidRelease} (SDK ${snapshot.sdkInt}) · ${snapshot.deviceModel}"
         )
         appendLine()

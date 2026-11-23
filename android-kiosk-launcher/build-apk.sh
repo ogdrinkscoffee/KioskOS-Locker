@@ -12,13 +12,13 @@ else
 fi
 
 # Release build, signed with the committed kiosk-release.jks so the resulting
-# APK installs over earlier KioskOS downloads instead of asking for a reinstall.
+# APK installs over earlier Ironclad OS downloads instead of asking for a reinstall.
 $GRADLE assembleRelease
 
 APK=app/build/outputs/apk/release/app-release.apk
-cp "$APK" ../public/downloads/KioskOS.apk
+cp "$APK" ../public/downloads/IroncladOS.apk
 
 # Refresh the version/size the website shows from the APK that was just copied.
 (cd .. && node scripts/apk-meta.mjs)
 
-echo "Signed APK built and copied to public/downloads/KioskOS.apk"
+echo "Signed APK built and copied to public/downloads/IroncladOS.apk"

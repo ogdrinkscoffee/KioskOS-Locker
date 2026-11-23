@@ -12,9 +12,9 @@ interface CommandStep {
 const STEPS: CommandStep[] = [
   {
     id: 'install',
-    title: 'Install KioskOS.apk on a factory-reset device',
+    title: 'Install IroncladOS.apk on a factory-reset device',
     hint: 'Use the Download APK button first. The device must have no Google or user accounts before it can become Device Owner.',
-    command: 'adb install -r KioskOS.apk',
+    command: 'adb install -r IroncladOS.apk',
   },
   {
     id: 'device-owner',
@@ -86,7 +86,7 @@ export const AdbProvisioningView: React.FC = () => {
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
         <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{tr("Provision a device")}</h2>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{"\n          "}{tr("Four steps after downloading KioskOS.apk to lock down a phone running")}{' '}
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{"\n          "}{tr("Four steps after downloading IroncladOS.apk to lock down a phone running")}{' '}
           <span className="font-mono text-[13px] text-slate-800 dark:text-slate-200">
             com.kiosk.launcher
           </span>

@@ -9,7 +9,7 @@ import org.junit.Test
 class DiagnosticsReportTest {
 
     private val headings = DiagnosticsHeadings(
-        title = "KioskOS diagnostics report",
+        title = "Ironclad OS diagnostics report",
         generated = "Generated",
         guards = "GUARD LAYERS",
         restrictions = "RESTRICTIONS IN EFFECT",
@@ -27,8 +27,8 @@ class DiagnosticsReportTest {
         generatedAt: Long = 1_700_000_000_000L
     ) = DiagnosticsSnapshot(
         headings = headings,
-        appVersion = "1.1.2",
-        versionCode = 4,
+        appVersion = "1.2.0",
+        versionCode = 5,
         androidRelease = "14",
         sdkInt = 34,
         deviceModel = "Google Pixel 7",
@@ -139,9 +139,9 @@ class DiagnosticsReportTest {
     fun `header carries app, android and device information`() {
         val text = render()
 
-        assertTrue(text.startsWith("KioskOS diagnostics report"))
+        assertTrue(text.startsWith("Ironclad OS diagnostics report"))
         assertTrue(text.contains("Generated T1700000000000"))
-        assertTrue(text.contains("KioskOS 1.1.2 (4) · Android 14 (SDK 34) · Google Pixel 7"))
+        assertTrue(text.contains("Ironclad OS 1.2.0 (5) · Android 14 (SDK 34) · Google Pixel 7"))
     }
 
     @Test

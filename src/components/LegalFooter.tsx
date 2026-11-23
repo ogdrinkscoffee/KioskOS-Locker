@@ -5,23 +5,23 @@ import { useI18n } from '../i18n/LocaleProvider';
 const TERMS: { heading: string; body: string }[] = [
   {
     heading: 'Intellectual property',
-    body: 'All software, simulators, APK packages, source code, graphics and branding associated with KioskOS are the exclusive property of the creator and are protected by copyright law. All rights reserved.',
+    body: 'All software, simulators, APK packages, source code, graphics and branding associated with Ironclad OS are the exclusive property of the creator and are protected by copyright law. All rights reserved.',
   },
   {
     heading: 'Permitted licence',
-    body: 'You are granted a limited, personal, non-exclusive, non-transferable licence to use this web application and install the official KioskOS APK on Android devices that you own or are explicitly authorised to manage.',
+    body: 'You are granted a limited, personal, non-exclusive, non-transferable licence to use this web application and install the official Ironclad OS APK on Android devices that you own or are explicitly authorised to manage.',
   },
   {
     heading: 'Usage restrictions',
-    body: 'You may not copy, clone, scrape, modify, rebrand, decompile, reverse-engineer, mirror, sublicense or commercially distribute KioskOS, its UI design or its APK, in whole or in part, without prior written consent.',
+    body: 'You may not copy, clone, scrape, modify, rebrand, decompile, reverse-engineer, mirror, sublicense or commercially distribute Ironclad OS, its UI design or its APK, in whole or in part, without prior written consent.',
   },
   {
     heading: 'Device Owner responsibility',
-    body: 'KioskOS uses Android Device Owner and DevicePolicyManager lockdown APIs. You are solely responsible for securing your administrator passcode, backing up your device before provisioning, and complying with applicable law.',
+    body: 'Ironclad OS uses Android Device Owner and DevicePolicyManager lockdown APIs. You are solely responsible for securing your administrator passcode, backing up your device before provisioning, and complying with applicable law.',
   },
   {
     heading: 'Disclaimer',
-    body: 'KioskOS is provided “as is”, without warranties of any kind. The copyright holder assumes no liability for device lockouts, data loss or system issues resulting from installation or use.',
+    body: 'Ironclad OS is provided “as is”, without warranties of any kind. The copyright holder assumes no liability for device lockouts, data loss or system issues resulting from installation or use.',
   },
 ];
 
@@ -69,7 +69,7 @@ export function LegalFooter() {
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-base font-semibold text-slate-900 dark:text-white">{"\n                  "}{tr("Terms & conditions")}{"\n                "}</h2>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{"\n                  "}{tr("© 2026 KioskOS. All rights reserved.")}{"\n                "}</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{"\n                  "}{tr("© 2026 Ironclad OS. All rights reserved.")}{"\n                "}</p>
               </div>
               <button
                 type="button"

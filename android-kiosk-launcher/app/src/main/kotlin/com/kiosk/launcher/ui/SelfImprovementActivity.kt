@@ -43,7 +43,7 @@ import kotlin.math.min
 
 /**
  * The Focus & Growth workspace. Mirrors the self-improvement features of the
- * KioskOS web app (streak, urge grounding, focus timer, habits with history,
+ * Ironclad OS web app (streak, urge grounding, focus timer, habits with history,
  * prioritised tasks, milestone goals, notebook notes and 30-day analytics)
  * and adapts its column width to phones and tablets.
  */

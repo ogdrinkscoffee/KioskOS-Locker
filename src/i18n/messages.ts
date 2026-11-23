@@ -1,5 +1,5 @@
 /**
- * UI strings for the KioskOS web console.
+ * UI strings for the Ironclad OS web console.
  *
  * English is the source of truth: `MessageKey` is derived from it, and the Arabic
  * dictionary is typed as `Record<MessageKey, string>`, so a missing translation is a
@@ -16,6 +16,8 @@ const en = {
   'lang.toEnglish': 'English',
 
   'nav.sectionsLabel': 'Workspace sections',
+  'nav.features': 'Features',
+  'nav.featuresShort': 'Features',
   'nav.simulator': 'Simulator',
   'nav.simulatorShort': 'Sim',
   'nav.growth': 'Growth',
@@ -35,23 +37,52 @@ const en = {
   'theme.lightMode': 'Light mode',
   'theme.darkMode': 'Dark mode',
 
-  'download.apk': 'Download APK',
-  'download.apkAria': 'Download the KioskOS Android APK',
+  'download.apk': 'Download Ironclad OS',
+  'download.apkAria': 'Download the Ironclad OS Android APK',
   // {size} and {version} are filled from src/generated/apkMeta.ts.
-  'download.apkTitle': 'Download the updated KioskOS APK ({size} MB, v{version})',
-  'download.apkNotes':
-    'New in v{version}: habits with streaks, goals with milestones, notebooks, urge pause, 30-day charts',
+  'download.apkTitle': 'Download the Ironclad OS APK ({size} MB, v{version})',
+  'download.apkNotes': 'Free download · v{version} · Works offline · No account needed',
 
-  'hero.eyebrow': 'Device Owner · Native Kotlin',
-  'hero.title': 'Android Device Owner Kiosk Launcher',
+  'hero.eyebrow': 'System-level Android lockdown',
+  'hero.title': 'Quit doomscrolling and porn or buy a new phone',
   'hero.lead':
-    'Lock a phone down, allowlist what stays, and test every policy in the simulator before you provision.',
-  'hero.bullet.allowlist': 'PIN-protected allowlist',
-  'hero.bullet.locktask': 'LockTask lockdown',
-  'hero.bullet.blockers': 'Blockers & downtime',
-  'hero.bullet.sync': 'Cross-device sync',
+    'Ironclad OS locks down your Android device at the system level—permanently blocking porn, social media, and unwanted apps. Not even a factory reset can undo it (toggleable).',
+  'hero.cta': 'Download Ironclad OS APK',
+  'hero.meta': 'v{version} · {size} MB · Android',
+  'hero.bullet.reset': 'Survives factory resets',
+  'hero.bullet.block': 'Porn & social media blocked',
+  'hero.bullet.allowlist': 'Strict app allowlist',
+  'hero.bullet.bypass': 'No bypass, no off switch',
+  'hero.imageAlt': 'A phone sealed inside a steel shield vault',
 
-  'footer.copyright': '© 2026 KioskOS · Proprietary software and UI.',
+  'features.eyebrow': 'Why Ironclad OS',
+  'features.title': 'Six locks. No back doors.',
+  'features.lead': 'Set your rules once, lock them in, and get your attention back.',
+  'features.tag': 'Permanent',
+  'features.survives.title': 'Survives Factory Resets',
+  'features.survives.body':
+    'Enforced at the hardware/system level. Wiping or resetting the phone will not remove the lock—the only way around it is buying a new phone.',
+  'features.porn.title': 'Hardcore Porn & Adult Content Block',
+  'features.porn.body':
+    'System-wide blocking that eliminates adult websites and explicit content permanently with zero bypasses.',
+  'features.social.title': 'Total Social Media Lockdown',
+  'features.social.body':
+    "Blocks distracting social media platforms and short-form video feeds at the OS level so you can't reinstall or sneak around them.",
+  'features.allowlist.title': 'Strict App Allowlist (Kiosk Lockdown)',
+  'features.allowlist.body':
+    'Restricts the device strictly to the essential apps and tools you approve, turning your smartphone into a pure utility device.',
+  'features.tamper.title': 'Tamper & Bypass Proof',
+  'features.tamper.body':
+    'Prevents uninstalling the APK, disabling device admin/owner permissions, sideloading blocked apps, or escaping via Safe Mode.',
+  'features.willpower.title': 'No Willpower Needed',
+  'features.willpower.body':
+    'Set your rules once and lock them in. Once active, there is no “off” switch or moment-of-weakness override.',
+
+  'notice.title': 'Warning',
+  'notice.body':
+    'Ironclad OS is permanent by design. Make sure you are ready before installing—not even a factory reset will revert your device.',
+
+  'footer.copyright': '© 2026 Ironclad OS · Proprietary software and UI.',
   'footer.terms': 'Terms',
   'footer.licensing': 'Licensing',
 } as const;
@@ -64,6 +95,8 @@ const ar: Record<MessageKey, string> = {
   'lang.toEnglish': 'English',
 
   'nav.sectionsLabel': 'أقسام مساحة العمل',
+  'nav.features': 'المزايا',
+  'nav.featuresShort': 'المزايا',
   'nav.simulator': 'المحاكي',
   'nav.simulatorShort': 'محاكي',
   'nav.growth': 'النمو',
@@ -83,21 +116,51 @@ const ar: Record<MessageKey, string> = {
   'theme.lightMode': 'الوضع الفاتح',
   'theme.darkMode': 'الوضع الداكن',
 
-  'download.apk': 'تنزيل APK',
-  'download.apkAria': 'نزّل تطبيق KioskOS لأندرويد',
-  'download.apkTitle': 'نزّل ملف KioskOS APK المحدّث ({size} ميجابايت، الإصدار {version})',
-  'download.apkNotes':
-    'جديد في الإصدار {version}: عادات مع سلسلة إنجاز، أهداف بمراحل، دفاتر ملاحظات، توقف لتهدئة الرغبة، ومخططات 30 يومًا',
+  'download.apk': 'نزّل Ironclad OS',
+  'download.apkAria': 'نزّل تطبيق Ironclad OS لأندرويد',
+  'download.apkTitle': 'نزّل ملف Ironclad OS APK ({size} ميجابايت، الإصدار {version})',
+  'download.apkNotes': 'تنزيل مجاني · الإصدار {version} · يعمل دون إنترنت · بلا حساب',
 
-  'hero.eyebrow': 'مالك الجهاز · كوتلن أصلي',
-  'hero.title': 'مشغّل كشك أندرويد بصفة مالك الجهاز',
-  'hero.lead': 'اقفل الهاتف، وحدّد ما يبقى مسموحًا، واختبر كل سياسة في المحاكي قبل التهيئة.',
-  'hero.bullet.allowlist': 'قائمة مسموحة محمية برمز',
-  'hero.bullet.locktask': 'تثبيت LockTask',
-  'hero.bullet.blockers': 'حظر ومواعيد توقف',
-  'hero.bullet.sync': 'مزامنة بين الأجهزة',
+  'hero.eyebrow': 'قفل على مستوى نظام أندرويد',
+  'hero.title': 'اترك التصفح القهري والإباحية… أو اشترِ هاتفًا جديدًا',
+  'hero.lead':
+    'يقفل Ironclad OS جهاز أندرويد على مستوى النظام، فيحظر الإباحية ووسائل التواصل والتطبيقات غير المرغوبة حظرًا دائمًا. حتى إعادة ضبط المصنع لا تلغي القفل (قابل للإيقاف).',
+  'hero.cta': 'نزّل Ironclad OS APK',
+  'hero.meta': 'الإصدار {version} · {size} ميجابايت · أندرويد',
+  'hero.bullet.reset': 'يصمد بعد إعادة ضبط المصنع',
+  'hero.bullet.block': 'حظر الإباحية ووسائل التواصل',
+  'hero.bullet.allowlist': 'قائمة تطبيقات صارمة',
+  'hero.bullet.bypass': 'بلا تجاوز وبلا مفتاح إيقاف',
+  'hero.imageAlt': 'هاتف محكم داخل درع فولاذي',
 
-  'footer.copyright': '© 2026 KioskOS · برنامج وواجهة مملوكة.',
+  'features.eyebrow': 'لماذا Ironclad OS',
+  'features.title': 'ستة أقفال. بلا أبواب خلفية.',
+  'features.lead': 'اضبط قواعدك مرة واحدة، وأقفلها، واستعد انتباهك.',
+  'features.tag': 'دائم',
+  'features.survives.title': 'يصمد بعد إعادة ضبط المصنع',
+  'features.survives.body':
+    'مفروض على مستوى العتاد والنظام. مسح الهاتف أو إعادة ضبطه لن يزيل القفل — الطريق الوحيد للتحايل هو شراء هاتف جديد.',
+  'features.porn.title': 'حظر صارم للإباحية والمحتوى للبالغين',
+  'features.porn.body':
+    'حظر على مستوى النظام يزيل مواقع البالغين والمحتوى الصريح نهائيًا دون أي طرق للتجاوز.',
+  'features.social.title': 'إغلاق كامل لوسائل التواصل',
+  'features.social.body':
+    'يحظر منصات التواصل المشتتة وخلاصات الفيديو القصيرة على مستوى النظام، فلا يمكنك إعادة تثبيتها أو الالتفاف عليها.',
+  'features.allowlist.title': 'قائمة تطبيقات صارمة (قفل الكشك)',
+  'features.allowlist.body':
+    'يحصر الجهاز في التطبيقات والأدوات الأساسية التي توافق عليها فقط، فيصبح الهاتف أداة نافعة خالصة.',
+  'features.tamper.title': 'مقاوم للعبث والتجاوز',
+  'features.tamper.body':
+    'يمنع إزالة التطبيق، أو تعطيل صلاحيات مسؤول/مالك الجهاز، أو تثبيت تطبيقات محظورة، أو الهروب عبر الوضع الآمن.',
+  'features.willpower.title': 'لا حاجة لإرادة',
+  'features.willpower.body':
+    'اضبط قواعدك مرة واحدة وأقفلها. بعد التفعيل لا يوجد مفتاح إيقاف ولا لحظة ضعف تسمح بالتجاوز.',
+
+  'notice.title': 'تحذير',
+  'notice.body':
+    'Ironclad OS دائم بحكم التصميم. تأكد أنك مستعد قبل التثبيت — حتى إعادة ضبط المصنع لن تُرجع جهازك.',
+
+  'footer.copyright': '© 2026 Ironclad OS · برنامج وواجهة مملوكة.',
   'footer.terms': 'الشروط',
   'footer.licensing': 'الترخيص',
 };

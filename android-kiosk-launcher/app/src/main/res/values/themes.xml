@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
 
-    <style name="Theme.KioskOS" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.IroncladOS" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:colorBackground">@color/bg</item>
         <item name="colorSurface">@color/surface</item>
         <item name="colorSurfaceVariant">@color/surface_alt</item>
@@ -17,15 +17,15 @@
         <item name="android:navigationBarColor">@color/bg</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.KioskOS.Dialog</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.IroncladOS.Dialog</item>
     </style>
 
-    <style name="ThemeOverlay.KioskOS.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+    <style name="ThemeOverlay.IroncladOS.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
         <item name="colorSurface">@color/surface</item>
         <item name="colorOnSurface">@color/text_primary</item>
     </style>
 
-    <style name="Widget.KioskOS.Card" parent="Widget.Material3.CardView.Elevated">
+    <style name="Widget.IroncladOS.Card" parent="Widget.Material3.CardView.Elevated">
         <item name="cardBackgroundColor">@color/surface</item>
         <item name="cardCornerRadius">18dp</item>
         <item name="cardElevation">0dp</item>
@@ -33,7 +33,7 @@
         <item name="strokeWidth">1dp</item>
     </style>
 
-    <style name="Widget.KioskOS.Button" parent="Widget.Material3.Button">
+    <style name="Widget.IroncladOS.Button" parent="Widget.Material3.Button">
         <item name="cornerRadius">12dp</item>
         <item name="android:minHeight">48dp</item>
         <item name="android:textAllCaps">false</item>
@@ -42,7 +42,7 @@
         <item name="android:insetBottom">0dp</item>
     </style>
 
-    <style name="Widget.KioskOS.Button.Outlined" parent="Widget.Material3.Button.OutlinedButton">
+    <style name="Widget.IroncladOS.Button.Outlined" parent="Widget.Material3.Button.OutlinedButton">
         <item name="cornerRadius">12dp</item>
         <item name="android:minHeight">48dp</item>
         <item name="android:textAllCaps">false</item>
@@ -53,33 +53,33 @@
         <item name="android:insetBottom">0dp</item>
     </style>
 
-    <style name="Widget.KioskOS.Button.Text" parent="Widget.Material3.Button.TextButton">
+    <style name="Widget.IroncladOS.Button.Text" parent="Widget.Material3.Button.TextButton">
         <item name="android:textAllCaps">false</item>
         <item name="android:minHeight">40dp</item>
         <item name="android:textSize">12sp</item>
     </style>
 
-    <style name="TextAppearance.KioskOS.Eyebrow" parent="TextAppearance.Material3.LabelSmall">
+    <style name="TextAppearance.IroncladOS.Eyebrow" parent="TextAppearance.Material3.LabelSmall">
         <item name="android:textSize">10sp</item>
         <item name="android:letterSpacing">0.12</item>
         <item name="android:textColor">@color/text_secondary</item>
         <item name="android:textAllCaps">true</item>
     </style>
 
-    <style name="TextAppearance.KioskOS.Title" parent="TextAppearance.Material3.TitleMedium">
+    <style name="TextAppearance.IroncladOS.Title" parent="TextAppearance.Material3.TitleMedium">
         <item name="android:textSize">15sp</item>
         <item name="android:textStyle">bold</item>
         <item name="android:textColor">@color/text_primary</item>
     </style>
 
-    <style name="TextAppearance.KioskOS.Body" parent="TextAppearance.Material3.BodySmall">
+    <style name="TextAppearance.IroncladOS.Body" parent="TextAppearance.Material3.BodySmall">
         <item name="android:textSize">12sp</item>
         <item name="android:textColor">@color/text_secondary</item>
     </style>
 
-    <style name="Widget.KioskOS.Toolbar" parent="Widget.Material3.Toolbar">
+    <style name="Widget.IroncladOS.Toolbar" parent="Widget.Material3.Toolbar">
         <item name="android:background">@color/bg</item>
-        <item name="titleTextAppearance">@style/TextAppearance.KioskOS.Title</item>
+        <item name="titleTextAppearance">@style/TextAppearance.IroncladOS.Title</item>
         <item name="navigationIconTint">@color/text_primary</item>
         <item name="titleCentered">false</item>
     </style>

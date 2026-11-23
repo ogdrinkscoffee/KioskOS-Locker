@@ -1151,7 +1151,7 @@ export function attemptUninstallApp(
     const blocked: KioskState = {
       ...state,
       blockedNotice:
-        'KioskOS Launcher cannot be uninstalled while Device Owner is active (setUninstallBlocked = true).',
+        'Ironclad OS Launcher cannot be uninstalled while Device Owner is active (setUninstallBlocked = true).',
       events: appendEvent(
         state.events,
         'dpm.isUninstallBlocked("com.kiosk.launcher") -> true',

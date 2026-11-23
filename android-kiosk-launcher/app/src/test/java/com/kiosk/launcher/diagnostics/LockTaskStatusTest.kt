@@ -12,7 +12,7 @@ class LockTaskStatusTest {
         activeLabel = "Lock task active",
         allowedApps = { "$it app(s) allowed in lock task" },
         needsOwner = "Needs device owner; lock task cannot start without it",
-        notAllowed = "KioskOS is not allowed in lock task (re-apply the policy)",
+        notAllowed = "Ironclad OS is not allowed in lock task (re-apply the policy)",
         idle = "Configured; engages when the kiosk locks",
         unavailable = "Not available on this device yet",
         unreadable = "Could not be read on this build"

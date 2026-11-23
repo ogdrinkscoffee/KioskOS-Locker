@@ -117,7 +117,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/modeActionButton"
-            style="@style/Widget.KioskOS.Button.Text"
+            style="@style/Widget.IroncladOS.Button.Text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/open_kiosk_browser" />
@@ -125,7 +125,7 @@
 
     <!-- Streak -->
     <com.google.android.material.card.MaterialCardView
-        style="@style/Widget.KioskOS.Card"
+        style="@style/Widget.IroncladOS.Card"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="14dp">
@@ -140,7 +140,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/eyebrow_recovery_streak"
-                android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
+                android:textAppearance="@style/TextAppearance.IroncladOS.Eyebrow" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -172,7 +172,7 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/markCleanDay"
-                    style="@style/Widget.KioskOS.Button"
+                    style="@style/Widget.IroncladOS.Button"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
@@ -251,7 +251,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/focusButton"
-            style="@style/Widget.KioskOS.Button.Outlined"
+            style="@style/Widget.IroncladOS.Button.Outlined"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -259,7 +259,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/adminButton"
-            style="@style/Widget.KioskOS.Button.Outlined"
+            style="@style/Widget.IroncladOS.Button.Outlined"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
@@ -268,7 +268,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/panicButton"
-            style="@style/Widget.KioskOS.Button"
+            style="@style/Widget.IroncladOS.Button"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"

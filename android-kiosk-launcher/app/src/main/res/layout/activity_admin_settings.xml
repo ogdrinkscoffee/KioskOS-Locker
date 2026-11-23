@@ -8,7 +8,7 @@
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
-        style="@style/Widget.KioskOS.Toolbar"
+        style="@style/Widget.IroncladOS.Toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         app:title="@string/admin_title" />
@@ -30,7 +30,7 @@
 
             <!-- Provisioning -->
             <com.google.android.material.card.MaterialCardView
-                style="@style/Widget.KioskOS.Card"
+                style="@style/Widget.IroncladOS.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
 
@@ -44,7 +44,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/eyebrow_device_owner"
-                        android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
+                        android:textAppearance="@style/TextAppearance.IroncladOS.Eyebrow" />
 
                     <TextView
                         android:id="@+id/ownerStatus"
@@ -113,7 +113,7 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/copyCommandButton"
-                            style="@style/Widget.KioskOS.Button.Outlined"
+                            style="@style/Widget.IroncladOS.Button.Outlined"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
@@ -121,7 +121,7 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/activateAdminButton"
-                            style="@style/Widget.KioskOS.Button"
+                            style="@style/Widget.IroncladOS.Button"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
@@ -131,7 +131,7 @@
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/diagnosticsButton"
-                        style="@style/Widget.KioskOS.Button.Outlined"
+                        style="@style/Widget.IroncladOS.Button.Outlined"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
@@ -141,7 +141,7 @@
 
             <!-- Security & Recovery -->
             <com.google.android.material.card.MaterialCardView
-                style="@style/Widget.KioskOS.Card"
+                style="@style/Widget.IroncladOS.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp">
@@ -156,7 +156,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/eyebrow_security"
-                        android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
+                        android:textAppearance="@style/TextAppearance.IroncladOS.Eyebrow" />
 
                     <TextView
                         android:layout_width="match_parent"
@@ -184,7 +184,7 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/changePinButton"
-                            style="@style/Widget.KioskOS.Button.Outlined"
+                            style="@style/Widget.IroncladOS.Button.Outlined"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
@@ -192,7 +192,7 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/openSystemSettingsButton"
-                            style="@style/Widget.KioskOS.Button.Outlined"
+                            style="@style/Widget.IroncladOS.Button.Outlined"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
@@ -202,7 +202,7 @@
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/clearPanicButton"
-                        style="@style/Widget.KioskOS.Button.Outlined"
+                        style="@style/Widget.IroncladOS.Button.Outlined"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
@@ -213,7 +213,7 @@
 
             <!-- Mode -->
             <com.google.android.material.card.MaterialCardView
-                style="@style/Widget.KioskOS.Card"
+                style="@style/Widget.IroncladOS.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp">
@@ -228,7 +228,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/eyebrow_kiosk_mode"
-                        android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
+                        android:textAppearance="@style/TextAppearance.IroncladOS.Eyebrow" />
 
                     <com.google.android.material.button.MaterialButtonToggleGroup
                         android:id="@+id/modeGroup"
@@ -283,7 +283,7 @@
 
             <!-- Strong Admin Restrictions (UserManager) -->
             <com.google.android.material.card.MaterialCardView
-                style="@style/Widget.KioskOS.Card"
+                style="@style/Widget.IroncladOS.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp">
@@ -298,7 +298,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/eyebrow_strong_restrictions"
-                        android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
+                        android:textAppearance="@style/TextAppearance.IroncladOS.Eyebrow" />
 
                     <TextView
                         android:layout_width="match_parent"
@@ -320,7 +320,7 @@
 
             <!-- Locks -->
             <com.google.android.material.card.MaterialCardView
-                style="@style/Widget.KioskOS.Card"
+                style="@style/Widget.IroncladOS.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp">
@@ -335,7 +335,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/eyebrow_device_locks"
-                        android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
+                        android:textAppearance="@style/TextAppearance.IroncladOS.Eyebrow" />
 
                     <TextView
                         android:layout_width="match_parent"
@@ -357,7 +357,7 @@
 
             <!-- Allowlist -->
             <com.google.android.material.card.MaterialCardView
-                style="@style/Widget.KioskOS.Card"
+                style="@style/Widget.IroncladOS.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp">
@@ -372,7 +372,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/eyebrow_allowed_apps"
-                        android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
+                        android:textAppearance="@style/TextAppearance.IroncladOS.Eyebrow" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -407,7 +407,7 @@
 
             <!-- Browser -->
             <com.google.android.material.card.MaterialCardView
-                style="@style/Widget.KioskOS.Card"
+                style="@style/Widget.IroncladOS.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp">
@@ -422,7 +422,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/eyebrow_kiosk_browser"
-                        android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
+                        android:textAppearance="@style/TextAppearance.IroncladOS.Eyebrow" />
 
                     <TextView
                         android:layout_width="match_parent"
@@ -486,7 +486,7 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/openBrowserButton"
-                            style="@style/Widget.KioskOS.Button.Outlined"
+                            style="@style/Widget.IroncladOS.Button.Outlined"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
@@ -494,7 +494,7 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/domainsSave"
-                            style="@style/Widget.KioskOS.Button"
+                            style="@style/Widget.IroncladOS.Button"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
@@ -506,7 +506,7 @@
 
             <!-- Policy log -->
             <com.google.android.material.card.MaterialCardView
-                style="@style/Widget.KioskOS.Card"
+                style="@style/Widget.IroncladOS.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp">
@@ -521,7 +521,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/eyebrow_policy_activity"
-                        android:textAppearance="@style/TextAppearance.KioskOS.Eyebrow" />
+                        android:textAppearance="@style/TextAppearance.IroncladOS.Eyebrow" />
 
                     <TextView
                         android:id="@+id/policyLog"

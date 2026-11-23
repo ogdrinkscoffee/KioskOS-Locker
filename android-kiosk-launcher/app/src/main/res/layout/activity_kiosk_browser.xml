@@ -15,7 +15,7 @@
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
-            style="@style/Widget.KioskOS.Toolbar"
+            style="@style/Widget.IroncladOS.Toolbar"
             android:layout_width="0dp"
             android:layout_height="?attr/actionBarSize"
             android:layout_weight="1"
@@ -23,7 +23,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/browserPanicButton"
-            style="@style/Widget.KioskOS.Button"
+            style="@style/Widget.IroncladOS.Button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:backgroundTint="@color/danger"
@@ -62,7 +62,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/browserGoButton"
-            style="@style/Widget.KioskOS.Button"
+            style="@style/Widget.IroncladOS.Button"
             android:layout_width="wrap_content"
             android:layout_height="42dp"
             android:layout_marginStart="8dp"

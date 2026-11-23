@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">KioskOS</string>
-    <string name="accessibility_description">يُبقي مشغّل الكشك في المقدمة عند فتح تطبيق محظور. لا يقرأ KioskOS محتوى الشاشة أبدًا.</string>
+    <string name="app_name">Ironclad OS</string>
+    <string name="accessibility_description">يُبقي مشغّل الكشك في المقدمة عند فتح تطبيق محظور. لا يقرأ Ironclad OS محتوى الشاشة أبدًا.</string>
 
     <!-- Common actions -->
     <string name="cancel">إلغاء</string>
@@ -59,21 +59,21 @@
     <string name="owner_preview_title">وضع المعاينة</string>
     <string name="owner_preview_detail_fmt">المشغّل يعمل، لكن أندرويد يفرض أقفال الكشك بالكامل فقط عند تفعيل مالك الجهاز. على جهاز مُعاد ضبطه من المصنع، فعّل خيارات المطوّر ← تصحيح USB ونفّذ:\n\n%1$s</string>
     <string name="default_launcher_title">المشغّل الافتراضي</string>
-    <string name="default_launcher_on">مفعّل — زر Home وبدء التشغيل يفتحان KioskOS.</string>
+    <string name="default_launcher_on">مفعّل — زر Home وبدء التشغيل يفتحان Ironclad OS.</string>
     <string name="default_launcher_off">متوقف — مشغّل الجهاز الأصلي يتولّى زر Home.</string>
-    <string name="default_launcher_set">أصبح KioskOS هو المشغّل الافتراضي</string>
+    <string name="default_launcher_set">أصبح Ironclad OS هو المشغّل الافتراضي</string>
     <string name="default_launcher_cleared">تم إيقاف المشغّل الافتراضي</string>
-    <string name="default_launcher_confirm">اختر KioskOS في النافذة النظامية</string>
-    <string name="default_launcher_manual">اختر KioskOS من الإعدادات ← التطبيقات ← التطبيقات الافتراضية ← الشاشة الرئيسية.</string>
+    <string name="default_launcher_confirm">اختر Ironclad OS في النافذة النظامية</string>
+    <string name="default_launcher_manual">اختر Ironclad OS من الإعدادات ← التطبيقات ← التطبيقات الافتراضية ← الشاشة الرئيسية.</string>
     <string name="default_launcher_manual_off">اختر تطبيق شاشة رئيسية آخر من الإعدادات ← التطبيقات ← التطبيقات الافتراضية ← الشاشة الرئيسية.</string>
-    <string name="log_default_launcher_on">تم تعيين KioskOS مشغّلًا افتراضيًا</string>
+    <string name="log_default_launcher_on">تم تعيين Ironclad OS مشغّلًا افتراضيًا</string>
     <string name="log_default_launcher_off">تم إيقاف المشغّل الافتراضي</string>
     <string name="copy_command">نسخ الأمر</string>
     <string name="clipboard_label_provision">تهيئة الكشك</string>
     <string name="provision_copied">تم نسخ أمر التهيئة</string>
     <string name="activate_admin">تفعيل الإدارة</string>
     <string name="admin_already_active">مسؤول الجهاز مفعّل بالفعل</string>
-    <string name="admin_explanation">يسمح لـ KioskOS بإبقاء هذا الجهاز في وضع الكشك.</string>
+    <string name="admin_explanation">يسمح لـ Ironclad OS بإبقاء هذا الجهاز في وضع الكشك.</string>
 
     <string name="eyebrow_security">الأمان والاستعادة</string>
     <string name="admin_passcode_title">رمز مرور الإدارة (4–50 حرفًا)</string>
@@ -129,7 +129,7 @@
     <string name="lock_short_feeds_desc">حظر /shorts و/reels وTikTok داخل متصفح الكشك</string>
     <string name="lock_window_guard">حارس النوافذ</string>
     <string name="lock_window_guard_desc">الرجوع للكشك فور فتح تطبيق محظور (يحتاج إمكانية الوصول)</string>
-    <string name="accessibility_prompt_toast">فعّل KioskOS من إعدادات إمكانية الوصول</string>
+    <string name="accessibility_prompt_toast">فعّل Ironclad OS من إعدادات إمكانية الوصول</string>
 
     <string name="eyebrow_allowed_apps">التطبيقات المسموحة</string>
     <string name="allow_every_app">السماح بكل التطبيقات</string>
@@ -297,9 +297,9 @@
     <string name="diagnostics_copied">تم نسخ تقرير التشخيص</string>
     <string name="diagnostics_saved">تم حفظ تقرير التشخيص</string>
     <string name="diagnostics_save_failed">تعذّر كتابة الملف</string>
-    <string name="diagnostics_copy_label">تشخيص KioskOS</string>
-    <string name="diagnostics_file_name_fmt">kioskos-diagnostics-%1$s.txt</string>
-    <string name="diag_report_title">تقرير تشخيص KioskOS</string>
+    <string name="diagnostics_copy_label">تشخيص Ironclad OS</string>
+    <string name="diagnostics_file_name_fmt">ironclad-diagnostics-%1$s.txt</string>
+    <string name="diag_report_title">تقرير تشخيص Ironclad OS</string>
     <string name="diag_generated">أُنشئ في</string>
     <string name="diag_section_guards">طبقات الحماية</string>
     <string name="diag_section_restrictions">القيود المفعّلة</string>
@@ -314,13 +314,13 @@
     <string name="diag_guard_boot_receiver">مستقبل استعادة التشغيل</string>
     <string name="diag_guard_window_setting">حارس النوافذ مُشغَّل في الإعدادات</string>
     <string name="diag_detail_accessibility_off">غير مفعّلة في إعدادات إمكانية الوصول في أندرويد</string>
-    <string name="diag_detail_accessibility_master_off">مفعّلة لـ KioskOS لكن إمكانية الوصول متوقفة على مستوى النظام</string>
+    <string name="diag_detail_accessibility_master_off">مفعّلة لـ Ironclad OS لكن إمكانية الوصول متوقفة على مستوى النظام</string>
     <string name="diag_detail_boot_component_disabled">مكوّن المستقبل معطّل</string>
     <string name="diag_detail_boot_permission">إذن RECEIVE_BOOT_COMPLETED غير ممنوح</string>
     <string name="diag_detail_guard_setting_off">متوقف في الإدارة، لذا لا تعيد الخدمة إلى الشاشة الرئيسية أبدًا</string>
     <string name="diag_detail_lock_task_packages_fmt">%1$d تطبيق مسموح في وضع التثبيت</string>
     <string name="diag_detail_lock_task_needs_owner">يتطلب مالك الجهاز؛ لا يمكن بدء وضع التثبيت بدونه</string>
-    <string name="diag_detail_lock_task_not_allowed">KioskOS غير مسموح في وضع تثبيت المهمة (أعد تطبيق السياسة)</string>
+    <string name="diag_detail_lock_task_not_allowed">Ironclad OS غير مسموح في وضع تثبيت المهمة (أعد تطبيق السياسة)</string>
     <string name="diag_detail_lock_task_idle">مهيّأ؛ يبدأ عند قفل الكشك</string>
     <string name="diag_detail_lock_task_unavailable">غير متاح على هذا الجهاز بعد</string>
     <string name="diag_restrictions_unreadable">القيود</string>
