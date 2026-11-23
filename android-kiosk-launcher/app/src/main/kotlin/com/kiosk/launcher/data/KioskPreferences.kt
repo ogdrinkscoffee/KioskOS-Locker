@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.SharedPreferences
 import org.json.JSONArray
 import org.json.JSONObject
-import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Calendar
 
@@ -30,7 +29,7 @@ class KioskPreferences(context: Context) {
     fun setPin(pin: String) {
         val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
         prefs.edit()
-            .putString(KEY_PIN_SALT, salt.toHex())
+            .putString(KEY_PIN_SALT, PinHash.toHex(salt))
             .putString(KEY_PIN_HASH, digest(pin, salt))
             .putInt(KEY_FAILED_PIN, 0)
             .putLong(KEY_PIN_LOCKED_UNTIL, 0L)
@@ -40,7 +39,7 @@ class KioskPreferences(context: Context) {
     fun checkPin(pin: String): Boolean {
         if (pin.length < MIN_PIN_LENGTH || pin.length > MAX_PIN_LENGTH || pin.isBlank()) return false
         val stored = prefs.getString(KEY_PIN_HASH, null) ?: return pin == DEFAULT_PIN
-        val salt = (prefs.getString(KEY_PIN_SALT, "") ?: "").hexToBytes()
+        val salt = PinHash.hexToBytes(prefs.getString(KEY_PIN_SALT, "") ?: "")
         return digest(pin, salt) == stored
     }
 
@@ -77,12 +76,7 @@ class KioskPreferences(context: Context) {
             .apply()
     }
 
-    private fun digest(pin: String, salt: ByteArray): String {
-        val md = MessageDigest.getInstance("SHA-256")
-        md.update(salt)
-        md.update(pin.toByteArray(Charsets.UTF_8))
-        return md.digest().toHex()
-    }
+    private fun digest(pin: String, salt: ByteArray): String = PinHash.digest(pin, salt)
 
     // ---------------------------------------------------------------------- mode
     var kioskMode: String
@@ -292,10 +286,6 @@ class KioskPreferences(context: Context) {
         prefs.edit().putBoolean(key, value).apply()
     }
 
-    private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
-
-    private fun String.hexToBytes(): ByteArray =
-        chunked(2).mapNotNull { it.toIntOrNull(16)?.toByte() }.toByteArray()
 
     companion object {
         const val DEFAULT_PIN = "1234"

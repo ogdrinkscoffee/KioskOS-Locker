@@ -96,17 +96,37 @@ export function generatePinSalt(byteLength = 16): string {
 }
 
 /**
- * Matches Android KioskPreferences.hashPin("$salt:$pin") SHA-256 hex digest.
+ * Android's stored salt is hex text; hashing uses the raw 16 bytes it encodes.
+ * Mirrors KioskPreferences.hexToBytes(): invalid chunks are skipped, not thrown.
+ */
+function saltHexToBytes(salt: string): Uint8Array {
+  const chunks = salt.trim().match(/.{1,2}/g) ?? [];
+  const bytes: number[] = [];
+  for (const chunk of chunks) {
+    if (!/^[0-9a-fA-F]{1,2}$/.test(chunk)) continue;
+    bytes.push(Number.parseInt(chunk, 16) & 0xff);
+  }
+  return new Uint8Array(bytes);
+}
+
+/**
+ * Matches Android KioskPreferences: SHA-256 over the raw salt bytes followed by
+ * the UTF-8 PIN bytes (no separator). A PIN set on one side therefore verifies
+ * on the other.
  */
 export async function hashPinWithSalt(pin: string, salt: string): Promise<string> {
-  const input = `${salt}:${pin}`;
+  const saltBytes = saltHexToBytes(salt);
+  const pinBytes = new TextEncoder().encode(pin);
+  const input = new Uint8Array(saltBytes.length + pinBytes.length);
+  input.set(saltBytes, 0);
+  input.set(pinBytes, saltBytes.length);
+
   if (typeof globalThis.crypto?.subtle?.digest === 'function') {
-    const encoded = new TextEncoder().encode(input);
-    const digest = await globalThis.crypto.subtle.digest('SHA-256', encoded);
+    const digest = await globalThis.crypto.subtle.digest('SHA-256', input);
     return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
   }
   const { createHash } = await import('node:crypto');
-  return createHash('sha256').update(input, 'utf8').digest('hex');
+  return createHash('sha256').update(input).digest('hex');
 }
 
 export async function verifyAdminPasscodeHash(
@@ -115,7 +135,7 @@ export async function verifyAdminPasscodeHash(
   expectedHashHex: string
 ): Promise<boolean> {
   if (!candidatePin || candidatePin.trim().length === 0) return false;
-  if (!salt || !VALID_HEX64_REGEX.test(expectedHashHex)) return false;
+  if (!salt || !/^[0-9a-fA-F]+$/.test(salt) || !VALID_HEX64_REGEX.test(expectedHashHex)) return false;
   const computed = await hashPinWithSalt(candidatePin, salt);
   if (computed.length !== expectedHashHex.length) return false;
   let diff = 0;
