@@ -3,24 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>KioskOS — Android Device Owner Kiosk Launcher</title>
+    <title>Ironclad OS — Permanent Android Lockdown</title>
     <link rel="icon" type="image/svg+xml" href="/app-icon.svg" />
     <link rel="apple-touch-icon" href="/app-icon.svg" />
     <meta
       name="description"
-      content="Native Kotlin Android Kiosk Launcher with DeviceAdminReceiver, Device Owner UserManager restrictions, PIN-protected app allowlisting, LockTask launching, and an interactive web simulator."
+      content="Ironclad OS locks down your Android device at the system level—permanently blocking porn, social media, and unwanted apps. Not even a factory reset can undo it."
     />
-    <meta property="og:title" content="KioskOS — Android Device Owner Kiosk Launcher" />
+    <meta property="og:title" content="Ironclad OS — Permanent Android Lockdown" />
     <meta
       property="og:description"
-      content="Native Kotlin Android Kiosk Launcher with DeviceAdminReceiver, Device Owner restrictions, PIN-protected admin settings, and interactive simulator."
+      content="System-level Android lockdown that survives factory resets. Block porn, social media and unwanted apps, and keep only the apps you approve."
     />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Noto+Kufi+Arabic:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <script>
@@ -31,6 +31,13 @@
           if (saved === 'dark' || (saved !== 'light' && prefersDark)) {
             document.documentElement.classList.add('dark');
           }
+          var locale = localStorage.getItem('kioskos_locale_v1');
+          if (locale !== 'ar' && locale !== 'en') {
+            var nav = (navigator.language || 'en').toLowerCase();
+            locale = nav.indexOf('ar') === 0 ? 'ar' : 'en';
+          }
+          document.documentElement.lang = locale;
+          document.documentElement.dir = locale === 'ar' ? 'rtl' : 'ltr';
         } catch (e) {}
       })();
     </script>
@@ -40,4 +47,3 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

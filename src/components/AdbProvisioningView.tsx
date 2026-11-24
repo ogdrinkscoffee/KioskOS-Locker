@@ -1,95 +1,80 @@
 import React, { useState } from 'react';
-import { Check, Copy, Terminal } from 'lucide-react';
+import { Check, ChevronDown, Copy, Terminal } from 'lucide-react';
+import { useI18n } from '../i18n/LocaleProvider';
 
 interface CommandStep {
   id: string;
   title: string;
-  description: string;
+  hint: string;
   command: string;
 }
 
-const PROVISIONING_STEPS: CommandStep[] = [
+const STEPS: CommandStep[] = [
   {
-    id: 'cloud-apk',
-    title: '00. Build Downloadable APK via GitHub Actions (No Android Studio Needed)',
-    description:
-      'Click "Download Android Project", push the extracted folder to GitHub, and run Actions -> Build KioskOS Android APK to download app-debug.apk directly.',
-    command: 'gh workflow run build-apk.yml && gh run download -n KioskOS-debug-apk',
+    id: 'install',
+    title: 'Install IroncladOS.apk on a factory-reset device',
+    hint: 'Use the Download APK button first. The device must have no Google or user accounts before it can become Device Owner.',
+    command: 'adb install -r IroncladOS.apk',
   },
   {
-    id: 'build-apk',
-    title: '01. Or Build APK Locally in Android Studio / CLI',
-    description:
-      'Open the extracted android-kiosk-launcher folder in Android Studio (Build -> Build APK(s)) or run the included helper script with JDK 17 + Android SDK installed.',
-    command: 'bash build-apk.sh',
+    id: 'device-owner',
+    title: 'Set Device Owner',
+    hint: 'Enforces DISALLOW_SAFE_BOOT, DISALLOW_FACTORY_RESET, DISALLOW_ADD_USER and DISALLOW_APPS_CONTROL immediately.',
+    command: 'adb shell dpm set-device-owner com.kiosk.launcher/.admin.KioskDeviceAdminReceiver',
   },
   {
-    id: 'install-apk',
-    title: '02. Install APK onto a Factory-Reset Android Device',
-    description:
-      'Ensure no Google or user accounts exist on the target device (Settings -> Accounts) before setting Device Owner.',
-    command: 'adb install -r app/build/outputs/apk/debug/app-debug.apk',
-  },
-  {
-    id: 'set-device-owner',
-    title: '03. Provision KioskDeviceAdminReceiver as Device Owner',
-    description:
-      'Grants Device Owner privileges, triggering onEnabled() and automatically enforcing DISALLOW_SAFE_BOOT, DISALLOW_FACTORY_RESET, DISALLOW_ADD_USER, and DISALLOW_APPS_CONTROL.',
-    command:
-      'adb shell dpm set-device-owner com.kiosk.launcher/.admin.KioskDeviceAdminReceiver',
-  },
-  {
-    id: 'enable-guard',
-    title: '04. Enable Accessibility Window Guard (Recommended)',
-    description:
-      'Adds an instant foreground window guard that intercepts Settings or Package Installer dialogs whenever Admin PIN unlock is inactive.',
+    id: 'guard',
+    title: 'Enable the window guard',
+    hint: 'Optional. Blocks Settings and package-installer dialogs while the admin passcode is locked.',
     command:
       'adb shell settings put secure enabled_accessibility_services com.kiosk.launcher/.service.KioskGuardAccessibilityService',
   },
   {
-    id: 'verify-boot',
-    title: '05. Verify Reboot & Persistent Home Behavior',
-    description:
-      'Reboot the device and confirm BootCompletedReceiver restores KioskLauncherActivity as HOME with all UserManager restrictions intact.',
+    id: 'reboot',
+    title: 'Reboot and verify',
+    hint: 'BootCompletedReceiver restores the kiosk home screen with all restrictions intact.',
     command: 'adb reboot',
   },
 ];
 
-const REQUIREMENT_MATRIX = [
+const MATRIX: { requirement: string; implementation: string }[] = [
   {
     requirement: 'DeviceAdminReceiver & BIND_DEVICE_ADMIN',
-    implementation: 'KioskDeviceAdminReceiver declared in AndroidManifest.xml with @xml/device_admin metadata',
+    implementation: 'Declared in AndroidManifest.xml with @xml/device_admin metadata',
   },
   {
-    requirement: 'HOME + DEFAULT Launcher Persistence',
-    implementation:
-      'KioskLauncherActivity home intent-filter + dpm.addPersistentPreferredActivity() + LOCK_TASK_FEATURE_HOME',
+    requirement: 'HOME + DEFAULT launcher categories',
+    implementation: 'KioskLauncherActivity intent-filter and addPersistentPreferredActivity()',
   },
   {
-    requirement: 'Safe Mode, Factory Reset & Multi-User Block',
-    implementation: 'UserManager.DISALLOW_SAFE_BOOT, DISALLOW_FACTORY_RESET, DISALLOW_ADD_USER',
+    requirement: 'Device Owner UserManager restrictions',
+    implementation: 'DISALLOW_SAFE_BOOT, FACTORY_RESET, ADD_USER, APPS_CONTROL',
   },
   {
-    requirement: 'Block Settings, Uninstall & In-App Updater',
-    implementation:
-      'DISALLOW_APPS_CONTROL, adjustable timed Admin unlock (-/+), Status Bar & Keyguard sync, and AppUpdater.kt',
+    requirement: 'PIN-protected admin settings',
+    implementation: 'Salted SHA-256 PIN in direct-boot protected storage',
   },
   {
-    requirement: 'PIN-Protected Admin & Custom App Allowlist',
-    implementation: 'DeviceProtectedStorage salted SHA-256 PIN + InstalledAppsRepository dynamic allowlist',
+    requirement: 'Allowlist and LockTask',
+    implementation: 'setLockTaskPackages() followed by setLockTaskEnabled(true)',
   },
   {
-    requirement: 'Reboot & Configuration Change Resilience',
-    implementation: 'LOCKED_BOOT_COMPLETED receiver + comprehensive android:configChanges + onConfigurationChanged()',
+    requirement: 'Block Settings and uninstall',
+    implementation: 'setPackagesSuspended(), setUninstallBlocked(), DISALLOW_APPS_CONTROL',
+  },
+  {
+    requirement: 'Reboot resilience',
+    implementation: 'LOCKED_BOOT_COMPLETED receiver and full configChanges handling',
   },
 ];
 
 export const AdbProvisioningView: React.FC = () => {
+  const { tr } = useI18n();
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const handleCopy = async (id: string, cmd: string) => {
+  const handleCopy = async (id: string, command: string) => {
     try {
-      await navigator.clipboard.writeText(cmd);
+      await navigator.clipboard.writeText(command);
       setCopiedId(id);
       setTimeout(() => setCopiedId((prev) => (prev === id ? null : prev)), 1800);
     } catch {
@@ -98,67 +83,72 @@ export const AdbProvisioningView: React.FC = () => {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6 items-start">
-      <section className="min-w-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 space-y-5">
-        <div className="pb-4 border-b border-slate-200 dark:border-slate-800">
-          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-            Mobile APK Build &amp; ADB Provisioning Guide
-          </h2>
-          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-            Compile the downloadable <code className="font-mono text-slate-900 dark:text-slate-200">app-debug.apk</code>{' '}
-            via the bundled GitHub Actions workflow or Android Studio, then bind{' '}
-            <code className="font-mono text-slate-900 dark:text-slate-200">KioskDeviceAdminReceiver</code> as Device
-            Owner.
-          </p>
-        </div>
+    <div className="mx-auto max-w-3xl space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{tr("Provision a device")}</h2>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{"\n          "}{tr("Four steps after downloading IroncladOS.apk to lock down a phone running")}{' '}
+          <span className="font-mono text-[13px] text-slate-800 dark:text-slate-200">
+            com.kiosk.launcher
+          </span>
+          .
+        </p>
+      </div>
 
-        <div className="space-y-4">
-          {PROVISIONING_STEPS.map((step) => (
-            <div key={step.id} className="pb-4 border-b border-slate-100 dark:border-slate-800 last:border-b-0 last:pb-0">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{step.title}</h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">{step.description}</p>
-              <div className="mt-2.5 flex items-center justify-between gap-3 bg-slate-950 border border-slate-800 text-slate-100 rounded-lg px-3.5 py-2.5 min-w-0">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Terminal className="w-3.5 h-3.5 text-sky-400 shrink-0" aria-hidden="true" />
-                  <code className="font-mono text-xs truncate">{step.command}</code>
+      <ol className="surface divide-y divide-slate-200/80 dark:divide-white/10">
+        {STEPS.map((step, index) => (
+          <li key={step.id} className="px-5 py-4">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold tabular-nums text-slate-600 dark:bg-white/10 dark:text-slate-300">
+                {index + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white">
+                  {tr(step.title)}
+                </h3>
+                <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+                  {tr(step.hint)}
+                </p>
+                <div className="mt-2.5 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 dark:border-white/10 dark:bg-black/40">
+                  <Terminal className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+                  <code className="min-w-0 flex-1 truncate text-[11px] text-slate-800 dark:text-slate-200">
+                    {step.command}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(step.id, step.command)}
+                    aria-label={`${tr('Copy command for')} ${tr(step.title)}`}
+                    className="shrink-0 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-200/70 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-white"
+                  >
+                    {copiedId === step.id ? (
+                      <Check className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                    )}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleCopy(step.id, step.command)}
-                  aria-label={`Copy command for ${step.title}`}
-                  className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-100 text-[11px] font-medium inline-flex items-center gap-1 shrink-0"
-                >
-                  {copiedId === step.id ? (
-                    <>
-                      <Check className="w-3 h-3 text-emerald-400" aria-hidden="true" />
-                      <span>Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3 h-3" aria-hidden="true" />
-                      <span>Copy</span>
-                    </>
-                  )}
-                </button>
               </div>
             </div>
-          ))}
-        </div>
-      </section>
+          </li>
+        ))}
+      </ol>
 
-      <section className="min-w-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6">
-        <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 pb-3 border-b border-slate-200 dark:border-slate-800">
-          Native Architecture Verification Matrix
-        </h2>
-        <div className="divide-y divide-slate-100 dark:divide-slate-800 mt-2">
-          {REQUIREMENT_MATRIX.map((row) => (
-            <div key={row.requirement} className="py-3">
-              <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">{row.requirement}</div>
-              <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{row.implementation}</div>
+      <details className="surface group px-5 py-4">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[13px] font-semibold text-slate-900 dark:text-white">{"\n          "}{tr("Verification matrix")}{"\n          "}<ChevronDown
+            className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180"
+            aria-hidden="true"
+          />
+        </summary>
+        <dl className="mt-4 space-y-3">
+          {MATRIX.map((row) => (
+            <div key={tr(row.requirement)}>
+              <dt className="text-xs font-medium text-slate-900 dark:text-slate-100">
+                {tr(row.requirement)}
+              </dt>
+              <dd className="text-xs text-slate-500 dark:text-slate-400">{tr(row.implementation)}</dd>
             </div>
           ))}
-        </div>
-      </section>
+        </dl>
+      </details>
     </div>
   );
 };

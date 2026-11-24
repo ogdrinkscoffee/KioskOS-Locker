@@ -98,6 +98,7 @@ export interface KioskState {
   kioskMode: KioskOperationMode;
   singleAppPackage: string | null;
   kioskTitle: string;
+  adminRestrictions: Record<RestrictionKey, boolean>;
   hardwareLocks: HardwareLockPolicies;
   blockerShields: BlockerShieldPolicies;
   appTimeLimits: Record<string, number>;
@@ -118,7 +119,6 @@ export interface KioskState {
   browserCurrentUrl: string;
   browserBlockedUrl: string | null;
   customApps: SimulatedAndroidApp[];
-  uninstalledPackages: string[];
   allowedPackages: string[];
   adminUnlocked: boolean;
   activeScreen: KioskScreen;
@@ -221,6 +221,13 @@ export const DEFAULT_IN_APP_BROWSER_WHITELIST = [
   'com.google.android.apps.docs',
   'com.Slack',
 ];
+
+export const DEFAULT_ADMIN_RESTRICTIONS: Record<RestrictionKey, boolean> = {
+  DISALLOW_SAFE_BOOT: true,
+  DISALLOW_FACTORY_RESET: true,
+  DISALLOW_ADD_USER: true,
+  DISALLOW_APPS_CONTROL: true,
+};
 
 export const DEFAULT_HARDWARE_LOCKS: HardwareLockPolicies = {
   statusBarDisabled: true,
@@ -338,12 +345,6 @@ export const RESTRICTED_SYSTEM_PACKAGES = new Set([
   'com.android.settings',
   'com.android.packageinstaller',
   'com.google.android.packageinstaller',
-  'com.samsung.android.packageinstaller',
-  'com.miui.packageinstaller',
-  'com.oplus.packageinstaller',
-  'com.coloros.packageinstaller',
-  'com.android.permissioncontroller',
-  'com.google.android.permissioncontroller',
   'com.android.vending',
 ]);
 
@@ -364,6 +365,7 @@ export function createInitialKioskState(): KioskState {
     kioskMode: 'multi_app',
     singleAppPackage: SELF_IMPROVEMENT_PACKAGE,
     kioskTitle: 'Kiosk Home',
+    adminRestrictions: { ...DEFAULT_ADMIN_RESTRICTIONS },
     hardwareLocks: { ...DEFAULT_HARDWARE_LOCKS },
     blockerShields: {
       ...DEFAULT_BLOCKER_SHIELDS,
@@ -388,7 +390,6 @@ export function createInitialKioskState(): KioskState {
     browserCurrentUrl: `https://${DEFAULT_ALLOWED_DOMAINS[0]}`,
     browserBlockedUrl: null,
     customApps: [],
-    uninstalledPackages: [],
     allowedPackages: [
       SELF_IMPROVEMENT_PACKAGE,
       KIOSK_BROWSER_PACKAGE,
@@ -426,10 +427,7 @@ export function createInitialKioskState(): KioskState {
 }
 
 export function getAllInstalledApps(state: KioskState): SimulatedAndroidApp[] {
-  const removed = new Set(state.uninstalledPackages ?? []);
-  return [...INSTALLED_APPS, ...(state.customApps ?? [])].filter(
-    (app) => !removed.has(app.packageName)
-  );
+  return [...INSTALLED_APPS, ...(state.customApps ?? [])];
 }
 
 export function getEnforcedRestrictions(state: KioskState): Record<RestrictionKey, boolean> {
@@ -441,11 +439,12 @@ export function getEnforcedRestrictions(state: KioskState): Record<RestrictionKe
       DISALLOW_APPS_CONTROL: false,
     };
   }
+  const configured = state.adminRestrictions ?? DEFAULT_ADMIN_RESTRICTIONS;
   return {
-    DISALLOW_SAFE_BOOT: true,
-    DISALLOW_FACTORY_RESET: true,
-    DISALLOW_ADD_USER: true,
-    DISALLOW_APPS_CONTROL: !state.adminUnlocked,
+    DISALLOW_SAFE_BOOT: configured.DISALLOW_SAFE_BOOT,
+    DISALLOW_FACTORY_RESET: configured.DISALLOW_FACTORY_RESET,
+    DISALLOW_ADD_USER: configured.DISALLOW_ADD_USER,
+    DISALLOW_APPS_CONTROL: configured.DISALLOW_APPS_CONTROL && !state.adminUnlocked,
   };
 }
 
@@ -456,9 +455,9 @@ export function getExtendedPolicies(state: KioskState): Record<ExtendedPolicyKey
     DISALLOW_USB_FILE_TRANSFER: doActive && hw.usbTransferBlocked,
     DISALLOW_MOUNT_PHYSICAL_MEDIA: doActive && hw.usbTransferBlocked,
     DISALLOW_CONFIG_DATE_TIME: doActive && hw.dateTimeLocked,
-    SET_STATUS_BAR_DISABLED: doActive && hw.statusBarDisabled && !state.adminUnlocked,
+    SET_STATUS_BAR_DISABLED: doActive && hw.statusBarDisabled,
     SET_CAMERA_DISABLED: doActive && hw.cameraDisabled,
-    SET_KEYGUARD_DISABLED: doActive && hw.keyguardDisabled && !state.adminUnlocked,
+    SET_KEYGUARD_DISABLED: doActive && hw.keyguardDisabled,
     SET_SCREEN_CAPTURE_DISABLED: doActive && hw.screenCaptureDisabled,
     KEEP_SCREEN_AWAKE: hw.keepScreenAwake,
   };
@@ -1093,8 +1092,8 @@ export function launchApp(
       blockedNotice: null,
       events: appendEvent(
         currentState.events,
-        'startActivity(SelfImprovementActivity, LOCK_TASK_MODE)',
-        'Launched integrated Focus & Growth self-improvement hub.',
+        'startActivity(SelfImprovementActivity, setLockTaskEnabled(true))',
+        'Launched integrated Focus & Growth self-improvement hub in LockTask mode.',
         'allowed',
         timestamp
       ),
@@ -1132,7 +1131,7 @@ export function launchApp(
       currentState.isDeviceOwner
         ? `startActivity("${packageName}", setLockTaskEnabled(true))`
         : `startLockTask(); startActivity("${packageName}")`,
-      `Launched ${app.label} in LockTask mode.`,
+      `Launched ${app.label} in pinned LockTask mode.`,
       'allowed',
       timestamp
     ),
@@ -1152,7 +1151,7 @@ export function attemptUninstallApp(
     const blocked: KioskState = {
       ...state,
       blockedNotice:
-        'KioskOS Launcher cannot be uninstalled while Device Owner is active (setUninstallBlocked = true).',
+        'Ironclad OS Launcher cannot be uninstalled while Device Owner is active (setUninstallBlocked = true).',
       events: appendEvent(
         state.events,
         'dpm.isUninstallBlocked("com.kiosk.launcher") -> true',
@@ -1179,31 +1178,13 @@ export function attemptUninstallApp(
     return recordBypassAttempt(blocked, `Unauthorized uninstall attempt: ${packageName}`, 6, timestamp, nowMs);
   }
 
-  if (!app) {
-    return {
-      ...state,
-      blockedNotice: `${packageName} is already uninstalled.`,
-    };
-  }
-
-  const nextUninstalled = Array.from(new Set([...(state.uninstalledPackages ?? []), packageName]));
-  const nextAllowed = state.allowedPackages.filter((pkg) => pkg !== packageName);
-  const nextCustom = (state.customApps ?? []).filter((item) => item.packageName !== packageName);
-  const nextSingle =
-    state.singleAppPackage === packageName ? SELF_IMPROVEMENT_PACKAGE : state.singleAppPackage;
-
   return {
     ...state,
-    uninstalledPackages: nextUninstalled,
-    allowedPackages: nextAllowed,
-    customApps: nextCustom,
-    singleAppPackage: nextSingle,
-    activeAppPackage: state.activeAppPackage === packageName ? null : state.activeAppPackage,
     blockedNotice: null,
     events: appendEvent(
       state.events,
-      `PackageInstaller.uninstall("${packageName}") -> UNINSTALLED`,
-      `Uninstalled ${label} (${packageName}) via Device Owner PackageInstaller and removed from Kiosk allowlist.`,
+      `PackageInstaller.uninstall("${packageName}")`,
+      `Uninstall prompt permitted for ${label} under temporary Admin PIN unlock.`,
       'allowed',
       timestamp
     ),
@@ -1323,8 +1304,8 @@ export function submitPin(
         blockedNotice: null,
         events: appendEvent(
           clearedState.events,
-          'dpm.clearUserRestriction(DISALLOW_APPS_CONTROL)',
-          'Admin passcode verified: temporarily unlocked Settings & package controls.',
+          'DevicePolicyHelper.setAdminUnlockState(true)',
+          'Admin passcode verified: Settings & Uninstall temporarily unlocked.',
           'allowed',
           timestamp
         ),
@@ -1515,6 +1496,35 @@ export function toggleHardwarePolicy(
     events: appendEvent(
       state.events,
       apiNameMap[key],
+      `${key} set to ${nextValue}.`,
+      nextValue ? 'enforced' : 'info',
+      timestamp
+    ),
+  };
+  return recordAdminSettingMutation(updated, `${key}=${nextValue}`, timestamp, nowMs);
+}
+
+export function toggleAdminRestriction(
+  state: KioskState,
+  key: RestrictionKey,
+  enabled?: boolean,
+  timestamp = '08:31:24',
+  nowMs = Date.now()
+): KioskState {
+  const current = state.adminRestrictions ?? DEFAULT_ADMIN_RESTRICTIONS;
+  const nextValue = enabled !== undefined ? enabled : !current[key];
+  const nextRestrictions: Record<RestrictionKey, boolean> = {
+    ...current,
+    [key]: nextValue,
+  };
+
+  const apiCall = `dpm.${nextValue ? 'addUserRestriction' : 'clearUserRestriction'}(admin, UserManager.${key})`;
+  const updated: KioskState = {
+    ...state,
+    adminRestrictions: nextRestrictions,
+    events: appendEvent(
+      state.events,
+      apiCall,
       `${key} set to ${nextValue}.`,
       nextValue ? 'enforced' : 'info',
       timestamp
@@ -1864,11 +1874,9 @@ export function setAdminSystemUnlock(
     adminUnlocked: unlocked,
     events: appendEvent(
       state.events,
+      `DevicePolicyHelper.setAdminUnlockState(${unlocked})`,
       unlocked
-        ? 'dpm.clearUserRestriction(DISALLOW_APPS_CONTROL)'
-        : 'dpm.addUserRestriction(DISALLOW_APPS_CONTROL)',
-      unlocked
-        ? 'Temporarily unlocked Android Settings and package uninstall.'
+        ? 'Temporarily lifted DISALLOW_APPS_CONTROL & unsuspended Settings/PackageInstaller.'
         : 'Re-enforced DISALLOW_APPS_CONTROL & suspended Settings/PackageInstaller.',
       unlocked ? 'info' : 'enforced',
       timestamp
@@ -1892,7 +1900,7 @@ export function returnToKioskHome(
     events: appendEvent(
       state.events,
       'KioskLauncherActivity.onResume()',
-      'Returned to Kiosk Home and automatically re-locked DISALLOW_APPS_CONTROL.',
+      'Returned to Kiosk Home; temporary Settings/Uninstall unlock automatically revoked.',
       'enforced',
       timestamp
     ),

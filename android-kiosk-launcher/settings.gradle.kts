@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "KioskOSLauncher"
+rootProject.name = "IroncladOSLauncher"
 include(":app")

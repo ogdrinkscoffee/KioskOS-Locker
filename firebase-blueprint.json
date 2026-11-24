@@ -105,6 +105,9 @@
         "allowedDomains": {
           "type": "array"
         },
+        "adminRestrictions": {
+          "type": "object"
+        },
         "hardwareLocks": {
           "type": "object"
         },
@@ -170,6 +173,7 @@
         "adminPinHash",
         "allowedPackages",
         "allowedDomains",
+        "adminRestrictions",
         "hardwareLocks",
         "blockerShields",
         "appTimeLimits",
@@ -189,7 +193,7 @@
     },
     "GrowthProgress": {
       "title": "GrowthProgress",
-      "description": "Synced self-improvement state including clean streak, habits, tasks, goals, focus sessions, affirmations, and notes.",
+      "description": "Synced self-improvement state including clean streak, habits, tasks, goals, focus sessions, and notes.",
       "type": "object",
       "properties": {
         "ownerId": {
@@ -223,16 +227,6 @@
         "whyIStarted": {
           "type": "string",
           "maxLength": 2000
-        },
-        "affirmations": {
-          "type": "array"
-        },
-        "activeAffirmationIndex": {
-          "type": "number"
-        },
-        "lastAffirmationCommittedDate": {
-          "type": "string",
-          "maxLength": 20
         },
         "focusSessions": {
           "type": "array"
@@ -271,9 +265,6 @@
         "cleanCheckInDates",
         "urgeVictories",
         "whyIStarted",
-        "affirmations",
-        "activeAffirmationIndex",
-        "lastAffirmationCommittedDate",
         "focusSessions",
         "habits",
         "tasks",

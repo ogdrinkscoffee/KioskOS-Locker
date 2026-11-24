@@ -1,71 +1,93 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/kiosk_bg"
+    android:background="@color/bg"
     android:orientation="vertical">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/kiosk_surface"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:padding="10dp">
+        android:paddingEnd="12dp">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            style="@style/Widget.IroncladOS.Toolbar"
+            android:layout_width="0dp"
+            android:layout_height="?attr/actionBarSize"
+            android:layout_weight="1"
+            app:title="@string/browser_title" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/browserBackButton"
-            style="@style/Widget.Material3.Button.TextButton"
+            android:id="@+id/browserPanicButton"
+            style="@style/Widget.IroncladOS.Button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/action_browser_back" />
+            android:backgroundTint="@color/danger"
+            android:minHeight="40dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:text="@string/action_panic"
+            android:textColor="@color/white" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="8dp">
 
         <EditText
             android:id="@+id/browserUrlInput"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="6dp"
+            android:layout_height="42dp"
             android:layout_weight="1"
-            android:hint="@string/hint_browser_url"
+            android:background="@drawable/bg_pill"
+            android:hint="@string/browser_url_hint"
+            android:imeOptions="actionGo"
             android:inputType="textUri"
             android:maxLines="1"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_secondary"
+            android:textDirection="ltr"
             android:textSize="13sp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/browserGoButton"
+            style="@style/Widget.IroncladOS.Button"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="4dp"
-            android:text="@string/action_browser_go" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/browserReloadButton"
-            style="@style/Widget.Material3.Button.TextButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/action_browser_reload" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/browserExitButton"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="4dp"
-            android:text="@string/action_back_to_kiosk" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/browserPanicButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:backgroundTint="#DC2626"
-            android:text="@string/action_panic_button"
-            android:textColor="@android:color/white" />
+            android:layout_height="42dp"
+            android:layout_marginStart="8dp"
+            android:minHeight="42dp"
+            android:text="@string/go" />
     </LinearLayout>
 
+    <TextView
+        android:id="@+id/blockedBanner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="4dp"
+        android:background="@drawable/bg_pill"
+        android:padding="10dp"
+        android:text=""
+        android:textAlignment="viewStart"
+        android:textColor="@color/danger"
+        android:textSize="11sp"
+        android:visibility="gone" />
+
     <WebView
-        android:id="@+id/kioskWebView"
+        android:id="@+id/webView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1" />
-
 </LinearLayout>

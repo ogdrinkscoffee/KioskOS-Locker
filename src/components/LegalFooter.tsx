@@ -1,33 +1,53 @@
 import React, { useState } from 'react';
+import { X } from 'lucide-react';
+import { useI18n } from '../i18n/LocaleProvider';
+
+const TERMS: { heading: string; body: string }[] = [
+  {
+    heading: 'Intellectual property',
+    body: 'All software, simulators, APK packages, source code, graphics and branding associated with Ironclad OS are the exclusive property of the creator and are protected by copyright law. All rights reserved.',
+  },
+  {
+    heading: 'Permitted licence',
+    body: 'You are granted a limited, personal, non-exclusive, non-transferable licence to use this web application and install the official Ironclad OS APK on Android devices that you own or are explicitly authorised to manage.',
+  },
+  {
+    heading: 'Usage restrictions',
+    body: 'You may not copy, clone, scrape, modify, rebrand, decompile, reverse-engineer, mirror, sublicense or commercially distribute Ironclad OS, its UI design or its APK, in whole or in part, without prior written consent.',
+  },
+  {
+    heading: 'Device Owner responsibility',
+    body: 'Ironclad OS uses Android Device Owner and DevicePolicyManager lockdown APIs. You are solely responsible for securing your administrator passcode, backing up your device before provisioning, and complying with applicable law.',
+  },
+  {
+    heading: 'Disclaimer',
+    body: 'Ironclad OS is provided “as is”, without warranties of any kind. The copyright holder assumes no liability for device lockouts, data loss or system issues resulting from installation or use.',
+  },
+];
 
 export function LegalFooter() {
   const [showTerms, setShowTerms] = useState(false);
+  const { t, tr } = useI18n();
 
   return (
     <>
-      <footer className="mt-12 border-t border-slate-800 bg-slate-950/90 px-6 py-6 text-xs text-slate-400">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 sm:flex-row">
-          <div className="flex flex-col items-center gap-1 sm:items-start">
-            <p className="font-medium text-slate-300">
-              © 2026 KioskOS. All Rights Reserved.
-            </p>
-            <p className="text-[11px] text-slate-500">
-              Proprietary Software &amp; UI. Unauthorized copying, reverse-engineering, or redistribution is strictly prohibited.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-5">
+      <footer className="mt-auto border-t border-slate-200/80 dark:border-white/10">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 py-5 text-xs text-slate-500 dark:text-slate-400 sm:flex-row sm:px-6">
+          <p>{t('footer.copyright')}</p>
+          <div className="flex items-center gap-4">
             <button
+              type="button"
               onClick={() => setShowTerms(true)}
-              className="font-medium text-blue-400 underline-offset-4 hover:text-blue-300 hover:underline"
+              className="font-medium text-slate-600 underline-offset-4 transition-colors hover:text-slate-900 hover:underline dark:text-slate-300 dark:hover:text-white"
             >
-              Terms &amp; Conditions
+              {t('footer.terms')}
             </button>
             <button
+              type="button"
               onClick={() => setShowTerms(true)}
-              className="text-slate-300 underline-offset-4 hover:text-white hover:underline"
+              className="font-medium text-slate-600 underline-offset-4 transition-colors hover:text-slate-900 hover:underline dark:text-slate-300 dark:hover:text-white"
             >
-              Copyright &amp; Licensing
+              {t('footer.licensing')}
             </button>
           </div>
         </div>
@@ -35,76 +55,43 @@ export function LegalFooter() {
 
       {showTerms && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
           onClick={() => setShowTerms(false)}
+          role="presentation"
         >
           <div
-            className="max-h-[82vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 p-6 text-slate-200 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label={tr("Terms and conditions")}
+            className="max-h-[82vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#0d131b]"
+            onClick={(event) => event.stopPropagation()}
           >
-            <div className="mb-4 flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-white">
-                  KioskOS — Terms &amp; Conditions
-                </h2>
-                <p className="text-xs text-slate-400">
-                  Effective Date: 2026 • © 2026 KioskOS. All Rights Reserved.
-                </p>
+                <h2 className="text-base font-semibold text-slate-900 dark:text-white">{"\n                  "}{tr("Terms & conditions")}{"\n                "}</h2>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{"\n                  "}{tr("© 2026 Ironclad OS. All rights reserved.")}{"\n                "}</p>
               </div>
               <button
+                type="button"
                 onClick={() => setShowTerms(false)}
-                className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-white"
+                aria-label={tr("Close")}
+                className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-white"
               >
-                Close
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
 
-            <div className="space-y-4 text-sm leading-relaxed text-slate-300">
-              <section>
-                <h3 className="font-semibold text-white">1. Intellectual Property &amp; Copyright</h3>
-                <p>
-                  All software, web simulator interfaces, native Android APK packages, source code,
-                  architecture, graphics, and branding associated with KioskOS are the exclusive
-                  property of the creator and are protected by copyright and intellectual property
-                  laws. All rights are strictly reserved.
-                </p>
-              </section>
-
-              <section>
-                <h3 className="font-semibold text-white">2. Permitted End-User License</h3>
-                <p>
-                  You are granted a limited, personal, non-exclusive, non-transferable license to
-                  use this web application and install the official KioskOS APK on Android devices
-                  that you own or have explicit administrative authorization to manage.
-                </p>
-              </section>
-
-              <section>
-                <h3 className="font-semibold text-white">3. Anti-Piracy &amp; Usage Restrictions</h3>
-                <p>
-                  You may not copy, clone, scrape, modify, rebrand, decompile, reverse-engineer,
-                  mirror, sublicense, or commercially distribute KioskOS, its UI design, or its APK
-                  in whole or in part without prior written consent from the copyright holder.
-                </p>
-              </section>
-
-              <section>
-                <h3 className="font-semibold text-white">4. Device Owner &amp; Administrator Responsibility</h3>
-                <p>
-                  KioskOS utilizes Android Device Owner and DevicePolicyManager lockdown APIs.
-                  You are solely responsible for securing your administrator passcode, backing up
-                  your device prior to provisioning, and complying with all applicable laws.
-                </p>
-              </section>
-
-              <section>
-                <h3 className="font-semibold text-white">5. Disclaimer &amp; Limitation of Liability</h3>
-                <p>
-                  KioskOS is provided &ldquo;as is&rdquo; without warranties of any kind. The
-                  copyright holder assumes no liability for device lockouts, data loss, or system
-                  issues resulting from the installation or use of this software.
-                </p>
-              </section>
+            <div className="space-y-4">
+              {TERMS.map((section) => (
+                <section key={section.heading}>
+                  <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white">
+                    {tr(section.heading)}
+                  </h3>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+                    {tr(section.body)}
+                  </p>
+                </section>
+              ))}
             </div>
           </div>
         </div>

@@ -1,16 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  addCustomAffirmation,
   addGoal,
   addHabit,
   addTask,
   buildLast30DaysProgress,
-  commitTodaysAffirmation,
   createInitialSelfImprovementState,
   createNote,
-  cycleAffirmation,
-  deleteAffirmation,
   deleteTask,
   filterNotes,
   filterTasks,
@@ -19,7 +15,6 @@ import {
   getGoalProgressPercent,
   getHabitStreak,
   getTodayFocusSummary,
-  getTodaysAffirmation,
   logCleanDay,
   logUrgeVictory,
   recordFocusSession,
@@ -128,26 +123,6 @@ test('buildLast30DaysProgress generates 30 days of clean streak and habit comple
   const updatedSeries = buildLast30DaysProgress(state, anchor);
   assert.equal(updatedSeries[29].cleanStreakDay, 8);
   assert.ok(updatedSeries[29].habitCompletionRate > 0);
-});
-
-test('Daily affirmations support cycling, daily commit, custom creation, and deletion', () => {
-  let state = createInitialSelfImprovementState('2026-11-19');
-  const first = getTodaysAffirmation(state);
-  state = cycleAffirmation(state, 1);
-  const second = getTodaysAffirmation(state);
-  assert.notEqual(first.id, second.id);
-
-  state = commitTodaysAffirmation(state, '2026-11-19');
-  assert.equal(state.lastAffirmationCommittedDate, '2026-11-19');
-
-  const initialLen = state.affirmations.length;
-  state = addCustomAffirmation(state, 'I build discipline one focused hour at a time.', 'Focus');
-  assert.equal(state.affirmations.length, initialLen + 1);
-  assert.equal(getTodaysAffirmation(state).text, 'I build discipline one focused hour at a time.');
-
-  const customId = state.affirmations[0].id;
-  state = deleteAffirmation(state, customId);
-  assert.equal(state.affirmations.length, initialLen);
 });
 
 test('Focus mode timer formats countdown and aggregates daily focus sessions', () => {

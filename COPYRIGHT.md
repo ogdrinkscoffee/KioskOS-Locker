@@ -3,7 +3,7 @@ Copyright (c) 2026 ogdrinkscoffee. All Rights Reserved.
 PROPRIETARY SOFTWARE AND INTELLECTUAL PROPERTY NOTICE
 
 1. Exclusive Ownership
-All rights, title, and interest in and to KioskOS—including, without limitation,
+All rights, title, and interest in and to Ironclad OS—including, without limitation,
 all React/TypeScript web simulator code, native Kotlin/Java Android source code,
 DevicePolicyManager configurations, user interface layouts, visual assets, icons,
 documentation, and compiled Android Application Packages (APK)—are the exclusive
@@ -12,7 +12,7 @@ trade secret, and international intellectual property laws.
 
 2. Limited End-User Grant
 Subject to your compliance with these terms, you are granted a limited, revocable,
-non-exclusive, non-transferable license solely to access the official KioskOS web
+non-exclusive, non-transferable license solely to access the official Ironclad OS web
 interface and install/run the unmodified official APK on Android devices you own
 or are legally authorized to administer. No other rights are granted, whether by
 implication, estoppel, or otherwise.
@@ -20,15 +20,15 @@ implication, estoppel, or otherwise.
 3. Strict Prohibitions
 Without prior express written permission from ogdrinkscoffee, you may NOT:
 - Copy, clone, mirror, scrape, or reproduce the website, UI design, or source code;
-- Modify, adapt, translate, or create derivative works based on KioskOS;
+- Modify, adapt, translate, or create derivative works based on Ironclad OS;
 - Reverse-engineer, decompile, disassemble, or attempt to extract source code or
   assets from the compiled APK or minified web bundles;
-- Rebrand, white-label, redistribute, sublicense, rent, lease, or sell KioskOS or
+- Rebrand, white-label, redistribute, sublicense, rent, lease, or sell Ironclad OS or
   its APK in whole or in part;
 - Remove, obscure, or alter any copyright, trademark, or proprietary notices.
 
 4. Brand & Trademark Reservation
-"KioskOS" and all associated logos, icons, and branding elements are proprietary to
+"Ironclad OS" and all associated logos, icons, and branding elements are proprietary to
 ogdrinkscoffee. Use of the name or branding without written consent is
 strictly prohibited.
 

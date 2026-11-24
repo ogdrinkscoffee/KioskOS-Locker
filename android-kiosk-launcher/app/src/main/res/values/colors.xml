@@ -1,9 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="kiosk_bg">#F8FAFC</color>
-    <color name="kiosk_surface">#FFFFFF</color>
-    <color name="kiosk_ink">#0F172A</color>
-    <color name="kiosk_muted">#475569</color>
-    <color name="kiosk_accent">#0284C7</color>
-    <color name="kiosk_border">#E2E8F0</color>
+    <color name="bg">#F6F7F9</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="surface_alt">#F0F2F5</color>
+    <color name="text_primary">#0B1220</color>
+    <color name="text_secondary">#5B6577</color>
+    <color name="brand">#0F172A</color>
+    <color name="on_brand">#FFFFFF</color>
+    <color name="brand_soft">#E2E8F0</color>
+    <color name="accent">#0D9488</color>
+    <color name="accent_soft">#CCFBF1</color>
+    <color name="success">#15803D</color>
+    <color name="divider">#E2E8F0</color>
+    <color name="danger">#B42318</color>
+    <color name="pill_bg">#EEF2F6</color>
+    <color name="chip_bg">#EEF2F6</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
 </resources>

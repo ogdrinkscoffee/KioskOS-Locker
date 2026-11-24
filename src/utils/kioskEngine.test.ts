@@ -12,7 +12,6 @@ import {
   clearPanicLockdown,
   createInitialKioskState,
   DEFAULT_KIOSK_PIN,
-  getAllInstalledApps,
   getAppRemainingSeconds,
   getAppScheduleOrLimitBlockReason,
   getEnforcedRestrictions,
@@ -41,6 +40,7 @@ import {
   simulateDeviceReboot,
   submitPin,
   testInAppBrowserAccess,
+  toggleAdminRestriction,
   toggleAllowedApp,
   toggleBlockerShield,
   toggleDeviceOwnerMode,
@@ -70,6 +70,17 @@ test('Device Owner automatically enforces all 4 UserManager restrictions', () =>
     DISALLOW_ADD_USER: false,
     DISALLOW_APPS_CONTROL: false,
   });
+
+  // Strong UserManager admin features are individually toggleable
+  const noSafeToggle = toggleAdminRestriction(state, 'DISALLOW_SAFE_BOOT', false);
+  assert.equal(getEnforcedRestrictions(noSafeToggle).DISALLOW_SAFE_BOOT, false);
+  assert.equal(getEnforcedRestrictions(noSafeToggle).DISALLOW_FACTORY_RESET, true);
+
+  const noResetToggle = toggleAdminRestriction(noSafeToggle, 'DISALLOW_FACTORY_RESET', false);
+  assert.equal(getEnforcedRestrictions(noResetToggle).DISALLOW_FACTORY_RESET, false);
+
+  const reEnabled = toggleAdminRestriction(noResetToggle, 'DISALLOW_SAFE_BOOT', true);
+  assert.equal(getEnforcedRestrictions(reEnabled).DISALLOW_SAFE_BOOT, true);
 });
 
 test('Settings and uninstallation are blocked unless unlocked with Admin PIN', () => {
@@ -129,13 +140,11 @@ test('Admin can add any custom app, change PIN from 1234, launch via startLockTa
   assert.equal(updatedPin.ok, true);
   state = updatedPin.nextState;
 
-  // Launch custom app via startLockTask in kiosk mode, then unlock for admin and reboot
+  // Launch custom app via startLockTask
+  state = setAdminSystemUnlock(state, true);
   state = launchApp(state, 'com.amazon.kindle');
   assert.equal(state.activeScreen, 'app_lock_task');
   assert.equal(state.lockTaskActive, true);
-
-  state = setAdminSystemUnlock(state, true);
-  assert.equal(state.adminUnlocked, true);
 
   const afterReboot = simulateDeviceReboot(state);
   assert.equal(afterReboot.activeScreen, 'home');
@@ -253,7 +262,7 @@ test('Single-App and Browser-Only boot modes auto-launch pinned target on reboot
 test('BlockP & BlockerX shields block porn keywords, /shorts feeds, unsupported browsers, and non-whitelisted in-app browsers', () => {
   let state = createInitialKioskState();
 
-  // In-app browser check: blocks non-whitelisted packages (Instagram/Reddit), permits Slack & KioskOS
+  // In-app browser check: blocks non-whitelisted packages (Instagram/Reddit), permits Slack & Ironclad OS
   const igCheck = testInAppBrowserAccess(state, 'com.instagram.android');
   assert.equal(igCheck.allowed, false);
   assert.ok(igCheck.reason.includes('Blocked embedded In-App Browser'));
@@ -523,26 +532,3 @@ test('Emergency Panic Button kills active apps, scrubs browser & clipboard, lock
   assert.equal(browserAfterClear.activeScreen, 'kiosk_browser');
 });
 
-test('Uninstalling third-party/custom apps succeeds when Admin-unlocked while Device Owner launcher stays protected', () => {
-  const baseTime = 1_700_000_000_000;
-  let state = createInitialKioskState();
-
-  // Launcher uninstall always blocked
-  const launcherBlocked = attemptUninstallApp(state, 'com.kiosk.launcher', '09:00:00', baseTime);
-  assert.ok(launcherBlocked.blockedNotice?.includes('cannot be uninstalled'));
-
-  // Unlock Admin and uninstall Retail POS
-  state = setAdminSystemUnlock(state, true, '09:00:05', baseTime + 5000);
-  assert.ok(getAllInstalledApps(state).some((a) => a.packageName === 'com.enterprise.pos'));
-
-  const afterUninstall = attemptUninstallApp(state, 'com.enterprise.pos', '09:00:10', baseTime + 10_000);
-  assert.equal(afterUninstall.blockedNotice, null);
-  assert.equal(
-    getAllInstalledApps(afterUninstall).some((a) => a.packageName === 'com.enterprise.pos'),
-    false
-  );
-  assert.equal(
-    getVisibleHomeApps(afterUninstall).some((a) => a.packageName === 'com.enterprise.pos'),
-    false
-  );
-});

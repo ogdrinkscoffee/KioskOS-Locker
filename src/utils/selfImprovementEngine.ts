@@ -46,15 +46,6 @@ export interface RichNote {
   updatedAt: string;
 }
 
-export type AffirmationFocus = 'Recovery' | 'Focus' | 'Self-Respect' | 'Resilience';
-
-export interface AffirmationItem {
-  id: string;
-  text: string;
-  focusArea: AffirmationFocus;
-  isCustom: boolean;
-}
-
 export interface DailyProgressPoint {
   date: string;
   label: string;
@@ -86,48 +77,12 @@ export interface SelfImprovementState {
   cleanCheckInDates: string[];
   urgeVictories: number;
   whyIStarted: string;
-  affirmations: AffirmationItem[];
-  activeAffirmationIndex: number;
-  lastAffirmationCommittedDate: string | null;
   focusSessions: FocusSessionLog[];
   habits: HabitItem[];
   tasks: TaskItem[];
   goals: GoalItem[];
   notes: RichNote[];
 }
-
-export const DEFAULT_AFFIRMATIONS: AffirmationItem[] = [
-  {
-    id: 'aff-1',
-    text: 'My attention belongs to my real-world goals, not to an algorithm or cheap dopamine.',
-    focusArea: 'Focus',
-    isCustom: false,
-  },
-  {
-    id: 'aff-2',
-    text: 'An urge is only a temporary wave. I pause for 60 seconds and choose who I want to become.',
-    focusArea: 'Resilience',
-    isCustom: false,
-  },
-  {
-    id: 'aff-3',
-    text: 'Every clean night builds deep self-respect that I will feel the moment I wake up.',
-    focusArea: 'Recovery',
-    isCustom: false,
-  },
-  {
-    id: 'aff-4',
-    text: 'Boredom is not an emergency. I turn quiet moments into reading, training, or building.',
-    focusArea: 'Self-Respect',
-    isCustom: false,
-  },
-  {
-    id: 'aff-5',
-    text: 'I locked distractions out of this device because my clarity and peace of mind come first.',
-    focusArea: 'Recovery',
-    isCustom: false,
-  },
-];
 
 export function formatIsoDate(date: Date = new Date()): string {
   const year = date.getFullYear();
@@ -178,9 +133,6 @@ export function createInitialSelfImprovementState(todayStr = formatIsoDate()): S
     urgeVictories: 5,
     whyIStarted:
       'I am reclaiming my attention, mental clarity, and self-respect by removing porn and endless social media feeds from my daily environment.',
-    affirmations: DEFAULT_AFFIRMATIONS,
-    activeAffirmationIndex: 0,
-    lastAffirmationCommittedDate: null,
     focusSessions: [
       {
         id: 'focus-seed-1',
@@ -667,68 +619,6 @@ export function buildLast30DaysProgress(
       totalHabits: dailyHabit.total,
     };
   });
-}
-
-export function getTodaysAffirmation(state: SelfImprovementState): AffirmationItem {
-  const list = state.affirmations.length > 0 ? state.affirmations : DEFAULT_AFFIRMATIONS;
-  const idx = ((state.activeAffirmationIndex % list.length) + list.length) % list.length;
-  return list[idx];
-}
-
-export function cycleAffirmation(
-  state: SelfImprovementState,
-  delta: number
-): SelfImprovementState {
-  const list = state.affirmations.length > 0 ? state.affirmations : DEFAULT_AFFIRMATIONS;
-  const nextIndex = (((state.activeAffirmationIndex + delta) % list.length) + list.length) % list.length;
-  return {
-    ...state,
-    activeAffirmationIndex: nextIndex,
-  };
-}
-
-export function commitTodaysAffirmation(
-  state: SelfImprovementState,
-  dateStr = formatIsoDate()
-): SelfImprovementState {
-  return {
-    ...state,
-    lastAffirmationCommittedDate: dateStr,
-  };
-}
-
-export function addCustomAffirmation(
-  state: SelfImprovementState,
-  text: string,
-  focusArea: AffirmationFocus = 'Recovery'
-): SelfImprovementState {
-  const trimmed = text.trim();
-  if (!trimmed) return state;
-  const newItem: AffirmationItem = {
-    id: `aff-${Date.now()}-${state.affirmations.length}`,
-    text: trimmed,
-    focusArea,
-    isCustom: true,
-  };
-  const nextList = [newItem, ...state.affirmations];
-  return {
-    ...state,
-    affirmations: nextList,
-    activeAffirmationIndex: 0,
-  };
-}
-
-export function deleteAffirmation(
-  state: SelfImprovementState,
-  affirmationId: string
-): SelfImprovementState {
-  const nextList = state.affirmations.filter((a) => a.id !== affirmationId);
-  const safeList = nextList.length > 0 ? nextList : DEFAULT_AFFIRMATIONS;
-  return {
-    ...state,
-    affirmations: safeList,
-    activeAffirmationIndex: Math.min(state.activeAffirmationIndex, safeList.length - 1),
-  };
 }
 
 export function formatCountdown(totalSeconds: number): string {

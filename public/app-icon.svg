@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
   <defs>
-    <linearGradient id="kioskBg" x1="64" y1="32" x2="448" y2="480" gradientUnits="userSpaceOnUse">
+    <linearGradient id="ironcladBg" x1="64" y1="32" x2="448" y2="480" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#0F172A" />
       <stop offset="100%" stop-color="#020617" />
     </linearGradient>
@@ -9,7 +9,7 @@
       <stop offset="100%" stop-color="#0284C7" />
     </linearGradient>
   </defs>
-  <rect x="24" y="24" width="464" height="464" rx="112" fill="url(#kioskBg)" />
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="url(#ironcladBg)" />
   <rect x="28" y="28" width="456" height="456" rx="108" stroke="#1E293B" stroke-width="8" />
   <path
     d="M256 96L128 148V246C128 331.5 182.6 406.9 256 432C329.4 406.9 384 331.5 384 246V148L256 96Z"

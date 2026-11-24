@@ -1,9 +1,22 @@
-node_modules/
-build/
-dist/
-coverage/
+node_modules
+dist
+dist-ssr
+*.local
 .DS_Store
-*.log
-.env*
-!.env.example
-.apk-releases/
+
+# Android build output (the shipped APK lives in public/downloads)
+android-kiosk-launcher/.gradle/
+android-kiosk-launcher/build/
+android-kiosk-launcher/app/build/
+android-kiosk-launcher/local.properties
+android-kiosk-launcher/.kotlin/
+
+# Release signing lives in android-kiosk-launcher/kiosk-release.jks and
+# android-kiosk-launcher/keystore.properties, both committed on purpose:
+# the sideloaded APK must keep one identity so updates install in place.
+# Keep any other local keystore out of git.
+android-kiosk-launcher/*.keystore
+
+# Exported deliverables are regenerable, keep them out of history
+artifacts/*.zip
+artifacts/*.bundle

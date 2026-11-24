@@ -1,36 +1,68 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:paddingHorizontal="24dp"
-    android:paddingTop="12dp">
+    android:paddingStart="24dp"
+    android:paddingTop="4dp"
+    android:paddingEnd="24dp">
 
     <TextView
-        android:id="@+id/pinSubtitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="@color/kiosk_muted"
-        android:textSize="13sp" />
+        android:text="@string/pin_label_passcode"
+        android:textAlignment="viewStart"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp" />
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/pinInputLayout"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="14dp"
-        android:hint="@string/admin_pin_prompt_title"
-        app:counterEnabled="true"
-        app:counterMaxLength="50"
-        app:endIconMode="password_toggle">
+        android:layout_marginTop="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
-        <com.google.android.material.textfield.TextInputEditText
+        <EditText
             android:id="@+id/pinInput"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:imeOptions="actionDone"
+            android:layout_weight="1"
+            android:backgroundTint="@color/divider"
+            android:gravity="center"
+            android:hint="@string/pin_hint"
             android:inputType="textPassword"
-            android:maxLength="50" />
-    </com.google.android.material.textfield.TextInputLayout>
+            android:maxLength="50"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_secondary"
+            android:textDirection="ltr"
+            android:textSize="18sp" />
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/pinShowToggle"
+            style="@style/Widget.IroncladOS.Button.Text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:text="@string/show" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/pinError"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="@string/pin_error_incorrect"
+        android:textAlignment="viewStart"
+        android:textColor="@color/danger"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="@string/pin_helper_default"
+        android:textAlignment="viewStart"
+        android:textColor="@color/text_secondary"
+        android:textSize="11sp" />
 </LinearLayout>
