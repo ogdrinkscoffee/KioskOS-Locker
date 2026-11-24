@@ -5,70 +5,58 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
-import java.util.concurrent.Executors
 
-data class AppEntry(
+data class InstalledAppInfo(
     val packageName: String,
     val label: String,
-    val icon: Drawable
+    val icon: Drawable?,
+    val isSystemRestricted: Boolean
 )
 
-class InstalledAppsRepository(private val context: Context) {
+object InstalledAppsRepository {
 
-    private val packageManager: PackageManager = context.packageManager
-    private val mainHandler = Handler(Looper.getMainLooper())
+    private val RESTRICTED_SYSTEM_PACKAGES = setOf(
+        "com.android.settings",
+        "com.android.packageinstaller",
+        "com.google.android.packageinstaller"
+    )
 
-    /** Every app that would appear in the system launcher, sorted by label. */
-    @Suppress("DEPRECATION")
-    fun launchable(): List<AppEntry> {
-        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        val resolved = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            packageManager.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0))
-        } else {
-            packageManager.queryIntentActivities(intent, 0)
+    fun loadLaunchableApps(context: Context): List<InstalledAppInfo> {
+        val pm = context.packageManager
+        val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
         }
 
-        return resolved.asSequence()
-            .mapNotNull { it.activityInfo?.applicationInfo }
-            .filter { it.packageName != context.packageName }
-            .distinctBy { it.packageName }
-            .map { info ->
-                AppEntry(
-                    packageName = info.packageName,
-                    label = packageManager.getApplicationLabel(info).toString(),
-                    icon = packageManager.getApplicationIcon(info)
+        val resolved = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            pm.queryIntentActivities(
+                mainIntent,
+                PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_ALL.toLong())
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            pm.queryIntentActivities(mainIntent, PackageManager.MATCH_ALL)
+        }
+
+        return resolved
+            .asSequence()
+            .mapNotNull { info ->
+                val pkg = info.activityInfo?.packageName ?: return@mapNotNull null
+                if (pkg == context.packageName) return@mapNotNull null
+                val label = info.loadLabel(pm)?.toString().orEmpty().ifBlank { pkg }
+                val icon = try {
+                    info.loadIcon(pm)
+                } catch (_: Exception) {
+                    null
+                }
+                InstalledAppInfo(
+                    packageName = pkg,
+                    label = label,
+                    icon = icon,
+                    isSystemRestricted = pkg in RESTRICTED_SYSTEM_PACKAGES
                 )
             }
+            .distinctBy { it.packageName }
             .sortedBy { it.label.lowercase() }
             .toList()
-    }
-
-    /**
-     * Scans on a worker thread and delivers the result on the main thread, so neither
-     * the package-manager lookups nor icon loading block the UI.
-     */
-    fun launchableAsync(onLoaded: (List<AppEntry>) -> Unit) {
-        scanner.execute {
-            val entries = runCatching { launchable() }.getOrDefault(emptyList())
-            mainHandler.post { onLoaded(entries) }
-        }
-    }
-
-    fun launch(packageName: String): Boolean {
-        val intent = packageManager.getLaunchIntentForPackage(packageName) ?: return false
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        return runCatching {
-            context.startActivity(intent)
-            true
-        }.getOrDefault(false)
-    }
-
-    private companion object {
-        /** One shared worker per process, so repeated scans queue instead of stacking up. */
-        val scanner = Executors.newSingleThreadExecutor { runnable ->
-            Thread(runnable, "kiosk-app-scan").apply { isDaemon = true }
-        }
     }
 }

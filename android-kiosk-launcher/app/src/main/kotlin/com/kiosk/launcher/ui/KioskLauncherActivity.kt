@@ -1,21 +1,22 @@
+/**
+ * Copyright (c) 2026 [Your Name / Studio Name]. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying, reverse-engineering,
+ * modification, or redistribution of this file is strictly prohibited.
+ */
 package com.kiosk.launcher.ui
 
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
-import android.graphics.Rect
-import android.os.BatteryManager
+import android.content.res.Configuration
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
+import android.view.LayoutInflater
 import android.view.View
-import android.widget.Button
+import android.view.ViewGroup
+import android.view.WindowManager
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -23,321 +24,352 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.kiosk.launcher.R
 import com.kiosk.launcher.admin.DevicePolicyHelper
-import com.kiosk.launcher.data.AppEntry
+import com.kiosk.launcher.data.InstalledAppInfo
 import com.kiosk.launcher.data.InstalledAppsRepository
 import com.kiosk.launcher.data.KioskPreferences
-import com.kiosk.launcher.selfimprovement.SelfImprovementRepository
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.kiosk.launcher.databinding.ActivityKioskLauncherBinding
+import com.kiosk.launcher.databinding.ItemKioskAppBinding
+import com.kiosk.launcher.sync.CloudSyncManager
 
+/**
+ * Main Kiosk Home Launcher Activity.
+ * Declared with HOME + DEFAULT categories in AndroidManifest.xml.
+ * Supports Multi-App Grid, Single-App Auto-Launch, and Locked Kiosk Browser modes,
+ * plus runtime orientation/font-scale recovery without resetting kiosk lockdown.
+ */
 class KioskLauncherActivity : AppCompatActivity() {
 
+    private lateinit var binding: ActivityKioskLauncherBinding
     private lateinit var prefs: KioskPreferences
-    private lateinit var policy: DevicePolicyHelper
-    private lateinit var apps: InstalledAppsRepository
-    private lateinit var focus: SelfImprovementRepository
-    private val adapter = KioskAppAdapter { open(it) }
-
-    private lateinit var clock: TextView
-    private lateinit var dateLabel: TextView
-    private lateinit var batteryLabel: TextView
-    private lateinit var ownerPill: TextView
-    private lateinit var panicBanner: TextView
-    private lateinit var modeBannerRow: View
-    private lateinit var modeBannerText: TextView
-    private lateinit var modeActionButton: Button
-    private lateinit var streakValue: TextView
-    private lateinit var streakMeta: TextView
-    private lateinit var appCount: TextView
-    private lateinit var emptyApps: TextView
-    private lateinit var grid: RecyclerView
-
-    /** Bumped per scan so a slow, stale result can't overwrite a newer one. */
-    private var appsRequest = 0
-    private var lastLoadedApps: List<AppEntry> = emptyList()
-    private var hasAutoLaunchedMode = false
-
-    private val handler = Handler(Looper.getMainLooper())
-    private val clockTick = object : Runnable {
-        override fun run() {
-            renderClock()
-            renderPanicBanner()
-            handler.postDelayed(this, 20_000L)
-        }
-    }
-    private var batteryReceiver: BroadcastReceiver? = null
-
-    private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-    private val dateFormat = SimpleDateFormat("EEE, d MMM", Locale.getDefault())
+    private lateinit var adapter: KioskAppsAdapter
+    private var pinDialog: androidx.appcompat.app.AlertDialog? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        binding = ActivityKioskLauncherBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
         prefs = KioskPreferences(this)
-        policy = DevicePolicyHelper(this)
-        apps = InstalledAppsRepository(this)
-        focus = SelfImprovementRepository(this)
+        applyKeepScreenAwakeFlag()
 
-        setContentView(R.layout.activity_kiosk_launcher)
-        hideSystemBars()
-
-        clock = findViewById(R.id.clock)
-        dateLabel = findViewById(R.id.dateLabel)
-        batteryLabel = findViewById(R.id.batteryLabel)
-        ownerPill = findViewById(R.id.ownerPill)
-        panicBanner = findViewById(R.id.panicBanner)
-        modeBannerRow = findViewById(R.id.modeBannerRow)
-        modeBannerText = findViewById(R.id.modeBannerText)
-        modeActionButton = findViewById(R.id.modeActionButton)
-        streakValue = findViewById(R.id.streakValue)
-        streakMeta = findViewById(R.id.streakMeta)
-        appCount = findViewById(R.id.appCount)
-        emptyApps = findViewById(R.id.emptyApps)
-
-        grid = findViewById(R.id.appGrid)
-        grid.layoutManager = GridLayoutManager(this, gridColumns())
-        grid.adapter = adapter
-        grid.addItemDecoration(GridSpacing(this))
-
-        findViewById<View>(R.id.markCleanDay).setOnClickListener {
-            val logged = prefs.markTodayClean()
-            toast(getString(if (logged) R.string.streak_logged_today else R.string.streak_already_logged))
-            renderStreak()
-        }
-        findViewById<View>(R.id.focusButton).setOnClickListener {
-            startActivity(Intent(this, SelfImprovementActivity::class.java))
-        }
-        findViewById<View>(R.id.adminButton).setOnClickListener {
-            PinGate.prompt(this, getString(R.string.pin_title_admin)) {
-                startActivity(Intent(this, AdminSettingsActivity::class.java))
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                // Kiosk Home cannot be exited via system Back button
             }
-        }
-        // True 1-tap Emergency Panic Button: wipes clipboard, closes/locks apps, pins dashboard
-        findViewById<View>(R.id.panicButton).setOnClickListener {
-            panic()
-        }
+        })
 
-        if (!prefs.homeLauncherDeclined) policy.setAsHomeLauncher()
+        setupGrid()
+        setupAdminTrigger()
+        enterImmersiveKioskUi()
+        handleBlockedPackageIntent(intent)
+    }
+
+    override fun onDestroy() {
+        pinDialog?.dismiss()
+        pinDialog = null
+        super.onDestroy()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleBlockedPackageIntent(intent)
     }
 
     override fun onResume() {
         super.onResume()
-        // Returning to Kiosk Home always ends any temporary System Settings admin unlock window.
-        if (prefs.isAdminTemporarilyUnlocked()) {
-            prefs.adminUnlockedUntilMs = 0L
-            policy.applyPolicy()
-        }
-        renderAll()
-        // Idempotent: only enters when this is a device owner kiosk with no admin
-        // unlock window open, and does nothing while lock task is already held.
-        policy.enterLockTask(this)
-    }
-
-    override fun onStart() {
-        super.onStart()
-        registerBattery()
-        handler.post(clockTick)
-    }
-
-    override fun onStop() {
-        super.onStop()
-        handler.removeCallbacks(clockTick)
-        batteryReceiver?.let { receiver -> runCatching { unregisterReceiver(receiver) } }
-        batteryReceiver = null
-    }
-
-    // -------------------------------------------------------------------- render
-    private fun renderAll() {
-        renderClock()
-        renderOwnerPill()
-        renderPanicBanner()
-        renderStreak()
-        renderApps()
-    }
-
-    private fun renderClock() {
-        clock.text = timeFormat.format(Date())
-        dateLabel.text = dateFormat.format(Date())
-    }
-
-    private fun renderOwnerPill() {
-        val isOwner = policy.isDeviceOwner
-        ownerPill.setText(if (isOwner) R.string.pill_device_owner else R.string.pill_preview)
-    }
-
-    private fun renderPanicBanner() {
-        val mins = prefs.panicRemainingMinutes()
-        if (mins > 0) {
-            panicBanner.visibility = View.VISIBLE
-            panicBanner.text = getString(R.string.panic_banner_fmt, mins)
-        } else {
-            panicBanner.visibility = View.GONE
-        }
-    }
-
-    private fun renderModeBanner(visibleApps: List<AppEntry>) {
-        if (prefs.isPanicLocked()) {
-            modeBannerRow.visibility = View.GONE
-            return
-        }
-        when (prefs.kioskMode) {
-            KioskPreferences.MODE_BROWSER -> {
-                modeBannerRow.visibility = View.VISIBLE
-                modeBannerText.setText(R.string.mode_browser_banner)
-                modeActionButton.setText(R.string.open_kiosk_browser)
-                modeActionButton.setOnClickListener {
-                    startActivity(Intent(this, KioskBrowserActivity::class.java))
-                }
-                if (!hasAutoLaunchedMode) {
-                    hasAutoLaunchedMode = true
-                    startActivity(Intent(this, KioskBrowserActivity::class.java))
-                }
-            }
-            KioskPreferences.MODE_SINGLE -> {
-                val pinned = visibleApps.firstOrNull()
-                if (pinned != null) {
-                    modeBannerRow.visibility = View.VISIBLE
-                    modeBannerText.text = getString(R.string.mode_single_banner_fmt, pinned.label)
-                    modeActionButton.setText(R.string.open_single_app)
-                    modeActionButton.setOnClickListener { open(pinned) }
-                    if (!hasAutoLaunchedMode) {
-                        hasAutoLaunchedMode = true
-                        open(pinned)
+        DevicePolicyHelper.setAdminUnlockState(this, unlocked = false)
+        applyKeepScreenAwakeFlag()
+        ensureLauncherLockTask()
+        binding.kioskHeaderTitle.text = prefs.getKioskTitle(getString(R.string.kiosk_home_title))
+        refreshAllowedApps()
+        updatePolicyStatusBanner()
+        autoLaunchDedicatedModeIfConfigured()
+        CloudSyncManager.triggerSyncIfEnabled(this) { outcome ->
+            if (outcome is CloudSyncManager.SyncOutcome.Success && outcome.pulledRemoteDeviceSettings) {
+                runOnUiThread {
+                    if (!isFinishing && !isDestroyed) {
+                        binding.kioskHeaderTitle.text = prefs.getKioskTitle(getString(R.string.kiosk_home_title))
+                        refreshAllowedApps()
+                        updatePolicyStatusBanner()
                     }
-                } else {
-                    modeBannerRow.visibility = View.GONE
                 }
             }
-            else -> {
-                modeBannerRow.visibility = View.GONE
-                hasAutoLaunchedMode = false
-            }
         }
     }
 
-    private fun renderStreak() {
-        streakValue.text = prefs.streak.toString()
-        val progress = focus.todayHabitProgress()
-        streakMeta.text = getString(
-            R.string.streak_meta_fmt,
-            prefs.bestStreak,
-            progress.completed,
-            progress.total
-        )
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        val spanCount = calculateGridSpanCount(newConfig)
+        (binding.appsRecyclerView.layoutManager as? GridLayoutManager)?.spanCount = spanCount
+        enterImmersiveKioskUi()
     }
 
-    private fun renderApps() {
-        val request = ++appsRequest
-        apps.launchableAsync { all ->
-            if (request != appsRequest || isFinishing || isDestroyed) return@launchableAsync
-            lastLoadedApps = all
-            renderAppGrid(all)
-        }
-    }
-
-    private fun renderAppGrid(all: List<AppEntry>) {
-        val visible = all.filter { prefs.isAllowed(it.packageName) }
-        adapter.submit(visible)
-        appCount.text = if (prefs.allowAllApps) {
-            getString(R.string.apps_count_all_fmt, visible.size)
+    private fun applyKeepScreenAwakeFlag() {
+        if (prefs.isKeepScreenAwake()) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
-            getString(R.string.apps_count_allowed_fmt, visible.size, all.size)
-        }
-
-        renderModeBanner(visible)
-
-        val empty = visible.isEmpty()
-        grid.visibility = if (empty) View.GONE else View.VISIBLE
-        emptyApps.visibility = if (empty) View.VISIBLE else View.GONE
-        if (empty) {
-            emptyApps.setText(
-                if (all.isEmpty()) R.string.no_launchable_apps else R.string.no_allowlisted_apps
-            )
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
 
-    // ------------------------------------------------------------------- actions
-    private fun open(entry: AppEntry) {
-        if (prefs.isPanicLocked()) {
-            toast(getString(R.string.panic_app_blocked))
-            return
-        }
-        if (!prefs.isAllowed(entry.packageName)) {
-            toast(getString(R.string.app_not_allowed_fmt, entry.label))
-            return
-        }
-        if (!apps.launch(entry.packageName)) {
-            toast(getString(R.string.cannot_open_app_fmt, entry.label))
-        }
-    }
-
-    private fun panic() {
-        policy.wipeClipboard()
-        prefs.triggerPanicLockdown()
-        policy.applyPolicy()
-        renderPanicBanner()
-        renderModeBanner(lastLoadedApps.filter { prefs.isAllowed(it.packageName) })
-        toast(getString(R.string.panic_toast))
-    }
-
-    // -------------------------------------------------------------------- chrome
-    private fun hideSystemBars() {
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        controller.hide(WindowInsetsCompat.Type.systemBars())
-        controller.systemBarsBehavior =
-            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-
-        val root = findViewById<View>(R.id.root)
-        val base = dp(20)
-        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
-            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
-            view.setPadding(
-                cutout.left + base,
-                cutout.top + base,
-                cutout.right + base,
-                cutout.bottom + base
-            )
-            insets
-        }
-    }
-
-    private fun registerBattery() {
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
-                val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
-                if (level >= 0 && scale > 0) batteryLabel.text = "${level * 100 / scale}%"
+    private fun autoLaunchDedicatedModeIfConfigured() {
+        if (prefs.isPanicLockActive()) return
+        when (prefs.getKioskMode()) {
+            KioskPreferences.MODE_SINGLE_APP -> {
+                val targetPkg = prefs.getSingleAppPackage()
+                if (!targetPkg.isNullOrBlank() &&
+                    targetPkg != packageName &&
+                    prefs.getTimeOrScheduleBlockReason(targetPkg) == null
+                ) {
+                    DevicePolicyHelper.launchPackageInKioskMode(this, targetPkg)
+                }
+            }
+            KioskPreferences.MODE_KIOSK_BROWSER -> {
+                if (prefs.getTimeOrScheduleBlockReason(KioskPreferences.KIOSK_BROWSER_PACKAGE) == null) {
+                    startActivity(Intent(this, KioskBrowserActivity::class.java))
+                }
             }
         }
-        batteryReceiver = receiver
-        runCatching {
-            ContextCompat.registerReceiver(
+    }
+
+    private fun setupGrid() {
+        adapter = KioskAppsAdapter(
+            remainingStatusProvider = { pkg -> formatTileTimeStatus(pkg) },
+            onAppClick = { appInfo -> launchAllowedApp(appInfo) }
+        )
+        binding.appsRecyclerView.layoutManager =
+            GridLayoutManager(this, calculateGridSpanCount(resources.configuration))
+        binding.appsRecyclerView.adapter = adapter
+    }
+
+    private fun setupAdminTrigger() {
+        binding.openSelfImprovementButton.setOnClickListener {
+            startActivity(Intent(this, SelfImprovementActivity::class.java))
+        }
+        binding.openKioskBrowserButton.setOnClickListener {
+            val blockReason = prefs.getTimeOrScheduleBlockReason(KioskPreferences.KIOSK_BROWSER_PACKAGE)
+            if (blockReason != null) {
+                prefs.incrementBlockedAttemptsToday()
+                Toast.makeText(this, blockReason, Toast.LENGTH_LONG).show()
+                updatePolicyStatusBanner()
+            } else {
+                startActivity(Intent(this, KioskBrowserActivity::class.java))
+            }
+        }
+        binding.adminSettingsButton.setOnClickListener {
+            pinDialog?.dismiss()
+            pinDialog = PinPromptDialog.show(
+                context = this,
+                title = getString(R.string.admin_pin_prompt_title),
+                subtitle = getString(R.string.admin_pin_prompt_subtitle)
+            ) {
+                startActivity(Intent(this, AdminSettingsActivity::class.java))
+            }
+        }
+        binding.homePanicButton.setOnClickListener {
+            val mins = DevicePolicyHelper.triggerEmergencyPanic(this)
+            refreshAllowedApps()
+            updatePolicyStatusBanner()
+            Toast.makeText(
                 this,
-                receiver,
-                IntentFilter(Intent.ACTION_BATTERY_CHANGED),
-                ContextCompat.RECEIVER_NOT_EXPORTED
+                getString(R.string.toast_panic_activated, mins),
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    private fun launchAllowedApp(appInfo: InstalledAppInfo) {
+        val blockReason = DevicePolicyHelper.getLaunchBlockReason(this, appInfo.packageName)
+        if (blockReason != null) {
+            prefs.incrementBlockedAttemptsToday()
+            prefs.recordBypassAttempt("Blocked app launch: ${appInfo.packageName}", points = 5)
+            Toast.makeText(this, "${appInfo.label}: $blockReason", Toast.LENGTH_LONG).show()
+            updatePolicyStatusBanner()
+            refreshAllowedApps()
+            return
+        }
+        val launched = DevicePolicyHelper.launchPackageInKioskMode(this, appInfo.packageName)
+        if (!launched) {
+            Toast.makeText(
+                this,
+                getString(R.string.toast_blocked_by_kiosk_policy, appInfo.label),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    private fun formatTileTimeStatus(packageName: String): String? {
+        val blockReason = prefs.getTimeOrScheduleBlockReason(packageName)
+        val remainingSec = prefs.getAppRemainingSeconds(packageName)
+        if (blockReason != null) {
+            return if (remainingSec != null && remainingSec <= 0) {
+                getString(R.string.label_limit_reached)
+            } else {
+                getString(R.string.label_schedule_blocked)
+            }
+        }
+        if (remainingSec != null) {
+            val minsLeft = (remainingSec + 59) / 60
+            return getString(R.string.label_minutes_left_today, minsLeft)
+        }
+        return null
+    }
+
+    private fun ensureLauncherLockTask() {
+        if (DevicePolicyHelper.isDeviceOwner(this)) {
+            DevicePolicyHelper.syncLockTaskPackages(this)
+            try {
+                startLockTask()
+            } catch (_: IllegalStateException) {
+            }
+        }
+    }
+
+    private fun refreshAllowedApps() {
+        prefs.ensureUsageDateCurrent()
+        val allowedPackages = prefs.getAllowedPackages()
+        val allLaunchable = InstalledAppsRepository.loadLaunchableApps(this)
+        val filtered = allLaunchable.filter { app ->
+            app.packageName in allowedPackages && !app.isSystemRestricted
+        }
+        adapter.submitList(filtered)
+        binding.emptyKioskState.visibility = if (filtered.isEmpty()) View.VISIBLE else View.GONE
+    }
+
+    private fun updatePolicyStatusBanner() {
+        val isDeviceOwner = DevicePolicyHelper.isDeviceOwner(this)
+        val modeLabel = when (prefs.getKioskMode()) {
+            KioskPreferences.MODE_SINGLE_APP -> "Single-App"
+            KioskPreferences.MODE_KIOSK_BROWSER -> "Kiosk Browser"
+            else -> "Multi-App"
+        }
+        val statusExtras = buildList {
+            if (prefs.isPanicLockActive()) {
+                add("Panic ${prefs.getPanicLockRemainingMinutes()}m")
+            }
+            if (prefs.isFocusBlockActive()) {
+                add("Focus ${prefs.getFocusBlockRemainingMinutes()}m")
+            }
+            if (prefs.isDowntimeActiveNow()) {
+                add("Quiet Hours")
+            }
+            val blocked = prefs.getBlockedAttemptsToday()
+            if (blocked > 0) {
+                add("$blocked blocked")
+            }
+        }
+        val suffix = if (statusExtras.isEmpty()) modeLabel else "$modeLabel · ${statusExtras.joinToString(" · ")}"
+        binding.deviceOwnerStatusText.text = if (isDeviceOwner) {
+            getString(R.string.status_device_owner_active, suffix)
+        } else {
+            getString(R.string.status_device_owner_inactive, suffix)
+        }
+    }
+
+    private fun handleBlockedPackageIntent(intent: Intent?) {
+        val panicMins = intent?.getIntExtra(EXTRA_PANIC_TRIGGERED, 0) ?: 0
+        if (panicMins > 0) {
+            intent?.removeExtra(EXTRA_PANIC_TRIGGERED)
+            Toast.makeText(
+                this,
+                getString(R.string.toast_panic_activated, panicMins),
+                Toast.LENGTH_LONG
+            ).show()
+        }
+        val blockedPkg = intent?.getStringExtra(EXTRA_BLOCKED_PACKAGE) ?: return
+        val blockedReason = intent.getStringExtra(EXTRA_BLOCKED_REASON)
+        intent.removeExtra(EXTRA_BLOCKED_PACKAGE)
+        intent.removeExtra(EXTRA_BLOCKED_REASON)
+        Toast.makeText(
+            this,
+            blockedReason ?: getString(R.string.toast_settings_blocked, blockedPkg),
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
+    private fun enterImmersiveKioskUi() {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowInsetsControllerCompat(window, binding.root).apply {
+            hide(WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+    }
+
+    private fun calculateGridSpanCount(config: Configuration): Int {
+        return when {
+            config.screenWidthDp >= 900 -> 5
+            config.screenWidthDp >= 600 -> 4
+            config.orientation == Configuration.ORIENTATION_LANDSCAPE -> 4
+            else -> 2
+        }
+    }
+
+    private class KioskAppsAdapter(
+        private val remainingStatusProvider: (String) -> String?,
+        private val onAppClick: (InstalledAppInfo) -> Unit
+    ) : RecyclerView.Adapter<KioskAppsAdapter.AppViewHolder>() {
+
+        private var items: List<InstalledAppInfo> = emptyList()
+
+        fun submitList(newItems: List<InstalledAppInfo>) {
+            items = newItems
+            notifyDataSetChanged()
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppViewHolder {
+            val itemBinding = ItemKioskAppBinding.inflate(
+                LayoutInflater.from(parent.context),
+                parent,
+                false
             )
+            return AppViewHolder(itemBinding)
+        }
+
+        override fun onBindViewHolder(holder: AppViewHolder, position: Int) {
+            holder.bind(items[position], remainingStatusProvider, onAppClick)
+        }
+
+        override fun getItemCount(): Int = items.size
+
+        class AppViewHolder(
+            private val itemBinding: ItemKioskAppBinding
+        ) : RecyclerView.ViewHolder(itemBinding.root) {
+
+            fun bind(
+                app: InstalledAppInfo,
+                remainingStatusProvider: (String) -> String?,
+                onClick: (InstalledAppInfo) -> Unit
+            ) {
+                val iconView: ImageView = itemBinding.appIcon
+                val labelView: TextView = itemBinding.appLabel
+                val packageView: TextView = itemBinding.appPackage
+
+                labelView.text = app.label
+                packageView.text = app.packageName
+                if (app.icon != null) {
+                    iconView.setImageDrawable(app.icon)
+                } else {
+                    iconView.setImageResource(android.R.drawable.sym_def_app_icon)
+                }
+
+                val limitStatus = remainingStatusProvider(app.packageName)
+                if (limitStatus != null) {
+                    itemBinding.appTimeLimitStatus.visibility = View.VISIBLE
+                    itemBinding.appTimeLimitStatus.text = limitStatus
+                } else {
+                    itemBinding.appTimeLimitStatus.visibility = View.GONE
+                }
+
+                itemBinding.root.setOnClickListener { onClick(app) }
+            }
         }
     }
 
-    private fun gridColumns(): Int =
-        (resources.configuration.screenWidthDp / 104).coerceIn(3, 6)
-
-    private fun toast(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-    }
-
-    private class GridSpacing(context: Context) : RecyclerView.ItemDecoration() {
-        private val gap = (6 * context.resources.displayMetrics.density).toInt()
-
-        override fun getItemOffsets(
-            outRect: Rect,
-            view: View,
-            parent: RecyclerView,
-            state: RecyclerView.State
-        ) {
-            outRect.set(gap, gap, gap, gap)
-        }
+    companion object {
+        const val EXTRA_BLOCKED_PACKAGE = "com.kiosk.launcher.EXTRA_BLOCKED_PACKAGE"
+        const val EXTRA_BLOCKED_REASON = "com.kiosk.launcher.EXTRA_BLOCKED_REASON"
+        const val EXTRA_PANIC_TRIGGERED = "com.kiosk.launcher.EXTRA_PANIC_TRIGGERED"
     }
 }

@@ -40,7 +40,6 @@ import {
   simulateDeviceReboot,
   submitPin,
   testInAppBrowserAccess,
-  toggleAdminRestriction,
   toggleAllowedApp,
   toggleBlockerShield,
   toggleDeviceOwnerMode,
@@ -70,17 +69,6 @@ test('Device Owner automatically enforces all 4 UserManager restrictions', () =>
     DISALLOW_ADD_USER: false,
     DISALLOW_APPS_CONTROL: false,
   });
-
-  // Strong UserManager admin features are individually toggleable
-  const noSafeToggle = toggleAdminRestriction(state, 'DISALLOW_SAFE_BOOT', false);
-  assert.equal(getEnforcedRestrictions(noSafeToggle).DISALLOW_SAFE_BOOT, false);
-  assert.equal(getEnforcedRestrictions(noSafeToggle).DISALLOW_FACTORY_RESET, true);
-
-  const noResetToggle = toggleAdminRestriction(noSafeToggle, 'DISALLOW_FACTORY_RESET', false);
-  assert.equal(getEnforcedRestrictions(noResetToggle).DISALLOW_FACTORY_RESET, false);
-
-  const reEnabled = toggleAdminRestriction(noResetToggle, 'DISALLOW_SAFE_BOOT', true);
-  assert.equal(getEnforcedRestrictions(reEnabled).DISALLOW_SAFE_BOOT, true);
 });
 
 test('Settings and uninstallation are blocked unless unlocked with Admin PIN', () => {
@@ -262,7 +250,7 @@ test('Single-App and Browser-Only boot modes auto-launch pinned target on reboot
 test('BlockP & BlockerX shields block porn keywords, /shorts feeds, unsupported browsers, and non-whitelisted in-app browsers', () => {
   let state = createInitialKioskState();
 
-  // In-app browser check: blocks non-whitelisted packages (Instagram/Reddit), permits Slack & Ironclad OS
+  // In-app browser check: blocks non-whitelisted packages (Instagram/Reddit), permits Slack & KioskOS
   const igCheck = testInAppBrowserAccess(state, 'com.instagram.android');
   assert.equal(igCheck.allowed, false);
   assert.ok(igCheck.reason.includes('Blocked embedded In-App Browser'));

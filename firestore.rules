@@ -54,22 +54,6 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
-    function isValidAdminRestrictions(ar) {
-      return ar is map
-        && ar.keys().hasAll([
-          'DISALLOW_SAFE_BOOT', 'DISALLOW_FACTORY_RESET',
-          'DISALLOW_ADD_USER', 'DISALLOW_APPS_CONTROL'
-        ])
-        && ar.keys().hasOnly([
-          'DISALLOW_SAFE_BOOT', 'DISALLOW_FACTORY_RESET',
-          'DISALLOW_ADD_USER', 'DISALLOW_APPS_CONTROL'
-        ])
-        && ar.DISALLOW_SAFE_BOOT is bool
-        && ar.DISALLOW_FACTORY_RESET is bool
-        && ar.DISALLOW_ADD_USER is bool
-        && ar.DISALLOW_APPS_CONTROL is bool;
-    }
-
     function isValidHardwareLocks(hw) {
       return hw is map
         && hw.keys().hasAll([
@@ -126,8 +110,8 @@ service cloud.firestore {
           'ownerId', 'deviceId', 'deviceLabel', 'platform', 'isOnline',
           'isDeviceOwner', 'kioskMode', 'singleAppPackage', 'kioskTitle',
           'activeScreen', 'lockTaskActive', 'adminPinSalt', 'adminPinHash',
-          'allowedPackages', 'allowedDomains', 'adminRestrictions', 'hardwareLocks',
-          'blockerShields', 'appTimeLimits', 'appUsageSeconds', 'downtimeSchedule',
+          'allowedPackages', 'allowedDomains', 'hardwareLocks', 'blockerShields',
+          'appTimeLimits', 'appUsageSeconds', 'downtimeSchedule',
           'focusBlockUntilMs', 'panicLockUntilMs', 'panicCount',
           'blockedAttemptsToday', 'tamperWarningsCount', 'tamperEscalationTier',
           'pinLockedUntilMs', 'lastModifiedBy', 'createdAt', 'updatedAt'
@@ -136,8 +120,8 @@ service cloud.firestore {
           'ownerId', 'deviceId', 'deviceLabel', 'platform', 'isOnline',
           'isDeviceOwner', 'kioskMode', 'singleAppPackage', 'kioskTitle',
           'activeScreen', 'lockTaskActive', 'adminPinSalt', 'adminPinHash',
-          'allowedPackages', 'allowedDomains', 'adminRestrictions', 'hardwareLocks',
-          'blockerShields', 'appTimeLimits', 'appUsageSeconds', 'downtimeSchedule',
+          'allowedPackages', 'allowedDomains', 'hardwareLocks', 'blockerShields',
+          'appTimeLimits', 'appUsageSeconds', 'downtimeSchedule',
           'focusBlockUntilMs', 'panicLockUntilMs', 'panicCount',
           'blockedAttemptsToday', 'tamperWarningsCount', 'tamperEscalationTier',
           'pinLockedUntilMs', 'lastModifiedBy', 'createdAt', 'updatedAt'
@@ -160,7 +144,6 @@ service cloud.firestore {
         && data.adminPinHash is string && data.adminPinHash.size() == 64 && data.adminPinHash.matches('^[a-f0-9]{64}$')
         && isStringListBounded(data.allowedPackages, 120)
         && isStringListBounded(data.allowedDomains, 120)
-        && isValidAdminRestrictions(data.adminRestrictions)
         && isValidHardwareLocks(data.hardwareLocks)
         && isValidBlockerShields(data.blockerShields)
         && data.appTimeLimits is map && data.appTimeLimits.size() <= 100
@@ -182,13 +165,15 @@ service cloud.firestore {
       return data.keys().hasAll([
           'ownerId', 'profileId', 'cleanStreakDays', 'longestCleanStreakDays',
           'lastCleanCheckInDate', 'cleanCheckInDates', 'urgeVictories',
-          'whyIStarted', 'focusSessions', 'habits',
+          'whyIStarted', 'affirmations', 'activeAffirmationIndex',
+          'lastAffirmationCommittedDate', 'focusSessions', 'habits',
           'tasks', 'goals', 'notes', 'lastUpdatedSource', 'createdAt', 'updatedAt'
         ])
         && data.keys().hasOnly([
           'ownerId', 'profileId', 'cleanStreakDays', 'longestCleanStreakDays',
           'lastCleanCheckInDate', 'cleanCheckInDates', 'urgeVictories',
-          'whyIStarted', 'focusSessions', 'habits',
+          'whyIStarted', 'affirmations', 'activeAffirmationIndex',
+          'lastAffirmationCommittedDate', 'focusSessions', 'habits',
           'tasks', 'goals', 'notes', 'lastUpdatedSource', 'createdAt', 'updatedAt'
         ])
         && isValidId(data.ownerId)
@@ -202,6 +187,9 @@ service cloud.firestore {
         && isStringListBounded(data.cleanCheckInDates, 400)
         && data.urgeVictories is number && data.urgeVictories >= 0 && data.urgeVictories <= 1000000
         && data.whyIStarted is string && data.whyIStarted.size() <= 2000
+        && data.affirmations is list && data.affirmations.size() <= 80 && (data.affirmations.size() == 0 || data.affirmations[0] is map)
+        && data.activeAffirmationIndex is number && data.activeAffirmationIndex >= 0 && data.activeAffirmationIndex <= 1000
+        && data.lastAffirmationCommittedDate is string && data.lastAffirmationCommittedDate.size() <= 20
         && data.focusSessions is list && data.focusSessions.size() <= 200 && (data.focusSessions.size() == 0 || data.focusSessions[0] is map)
         && data.habits is list && data.habits.size() <= 80 && (data.habits.size() == 0 || data.habits[0] is map)
         && data.tasks is list && data.tasks.size() <= 150 && (data.tasks.size() == 0 || data.tasks[0] is map)
@@ -257,10 +245,10 @@ service cloud.firestore {
                 'deviceLabel', 'platform', 'isOnline', 'isDeviceOwner', 'kioskMode',
                 'singleAppPackage', 'kioskTitle', 'activeScreen', 'lockTaskActive',
                 'adminPinSalt', 'adminPinHash', 'allowedPackages', 'allowedDomains',
-                'adminRestrictions', 'hardwareLocks', 'blockerShields', 'appTimeLimits',
-                'appUsageSeconds', 'downtimeSchedule', 'focusBlockUntilMs', 'panicLockUntilMs',
-                'panicCount', 'blockedAttemptsToday', 'tamperWarningsCount',
-                'tamperEscalationTier', 'pinLockedUntilMs', 'lastModifiedBy', 'updatedAt'
+                'hardwareLocks', 'blockerShields', 'appTimeLimits', 'appUsageSeconds',
+                'downtimeSchedule', 'focusBlockUntilMs', 'panicLockUntilMs', 'panicCount',
+                'blockedAttemptsToday', 'tamperWarningsCount', 'tamperEscalationTier',
+                'pinLockedUntilMs', 'lastModifiedBy', 'updatedAt'
               ])
             )
             ||
@@ -268,11 +256,10 @@ service cloud.firestore {
               incoming().lastModifiedBy == 'pc_web'
               && incoming().diff(existing()).affectedKeys().hasOnly([
                 'kioskMode', 'singleAppPackage', 'kioskTitle', 'allowedPackages',
-                'allowedDomains', 'adminRestrictions', 'hardwareLocks', 'blockerShields',
-                'appTimeLimits', 'appUsageSeconds', 'downtimeSchedule', 'focusBlockUntilMs',
-                'panicLockUntilMs', 'blockedAttemptsToday', 'tamperWarningsCount',
-                'tamperEscalationTier', 'pinLockedUntilMs', 'adminPinSalt', 'adminPinHash',
-                'lastModifiedBy', 'updatedAt'
+                'allowedDomains', 'hardwareLocks', 'blockerShields', 'appTimeLimits',
+                'appUsageSeconds', 'downtimeSchedule', 'focusBlockUntilMs', 'panicLockUntilMs',
+                'blockedAttemptsToday', 'tamperWarningsCount', 'tamperEscalationTier',
+                'pinLockedUntilMs', 'adminPinSalt', 'adminPinHash', 'lastModifiedBy', 'updatedAt'
               ])
             )
           );
@@ -300,7 +287,8 @@ service cloud.firestore {
           && incoming().updatedAt == request.time
           && incoming().diff(existing()).affectedKeys().hasOnly([
             'cleanStreakDays', 'longestCleanStreakDays', 'lastCleanCheckInDate',
-            'cleanCheckInDates', 'urgeVictories', 'whyIStarted', 'focusSessions',
+            'cleanCheckInDates', 'urgeVictories', 'whyIStarted', 'affirmations',
+            'activeAffirmationIndex', 'lastAffirmationCommittedDate', 'focusSessions',
             'habits', 'tasks', 'goals', 'notes', 'lastUpdatedSource', 'updatedAt'
           ]);
         allow delete: if false;

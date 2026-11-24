@@ -1,4 +1,4 @@
-# Security Specification: Ironclad OS Cross-Device Sync
+# Security Specification: KioskOS Cross-Device Sync
 
 ## Phase 0: Data Invariants
 1. **Strict Ownership Isolation (PII Protection)**: Documents under `/users/{userId}`, `/users/{userId}/devices/{deviceId}`, and `/users/{userId}/growth/{profileId}` contain personal progress, email, and device control policies. Only the authenticated owner with `request.auth.uid == userId` and `request.auth.token.email_verified == true` may read or write them. No blanket `isSignedIn()` reads are permitted.

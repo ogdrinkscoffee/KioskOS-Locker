@@ -5,5 +5,8 @@
   "authDomain": "gen-lang-client-0895914115.firebaseapp.com",
   "firestoreDatabaseId": "ai-studio-kioskosandroidde-3cc55565-6960-4022-8bbe-add7ccccf9a3",
   "storageBucket": "gen-lang-client-0895914115.firebasestorage.app",
-  "messagingSenderId": "1040168572062"
+  "messagingSenderId": "1040168572062",
+  "measurementId": "",
+  "oAuthClientId": "1040168572062-6ia3v6rc094ncdcniqi3jtotkf2m0o8m.apps.googleusercontent.com",
+  "recaptchaSiteKey": ""
 }

@@ -1,94 +1,71 @@
 package com.kiosk.launcher.ui
 
-import android.app.Activity
-import android.app.AlertDialog
-import android.text.InputType
+import android.content.Context
 import android.view.LayoutInflater
-import android.view.View
-import android.widget.Button
-import android.widget.EditText
-import android.widget.TextView
+import android.view.inputmethod.EditorInfo
+import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.kiosk.launcher.R
 import com.kiosk.launcher.data.KioskPreferences
+import com.kiosk.launcher.databinding.DialogPinEntryBinding
 
-object PinGate {
+object PinPromptDialog {
 
-    fun prompt(
-        activity: Activity,
-        title: String = activity.getString(R.string.pin_title_admin),
-        onSuccess: () -> Unit
-    ) {
-        val view = LayoutInflater.from(activity).inflate(R.layout.dialog_pin_entry, null)
-        val input = view.findViewById<EditText>(R.id.pinInput)
-        val toggle = view.findViewById<Button>(R.id.pinShowToggle)
-        val error = view.findViewById<TextView>(R.id.pinError)
-        val prefs = KioskPreferences(activity)
+    fun show(
+        context: Context,
+        title: String,
+        subtitle: String,
+        onVerified: () -> Unit
+    ): AlertDialog {
+        val prefs = KioskPreferences(context)
+        val binding = DialogPinEntryBinding.inflate(LayoutInflater.from(context))
+        binding.pinSubtitle.text = subtitle
 
-        var revealed = false
-        toggle.setOnClickListener {
-            revealed = !revealed
-            input.inputType = if (revealed) {
-                InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
-            } else {
-                InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-            }
-            input.setSelection(input.text?.length ?: 0)
-            toggle.setText(if (revealed) R.string.hide else R.string.show)
-        }
-
-        val initialLockSecs = prefs.pinLockoutRemainingSeconds()
-        if (initialLockSecs > 0) {
-            error.text = activity.getString(R.string.pin_error_locked_fmt, initialLockSecs)
-            error.visibility = View.VISIBLE
-        }
-
-        val dialog = MaterialAlertDialogBuilder(activity)
+        val dialog = MaterialAlertDialogBuilder(context)
             .setTitle(title)
-            .setView(view)
-            .setNegativeButton(R.string.cancel, null)
-            .setPositiveButton(R.string.unlock, null)
+            .setView(binding.root)
+            .setCancelable(true)
+            .setPositiveButton(R.string.action_unlock, null)
+            .setNegativeButton(android.R.string.cancel, null)
             .create()
 
-        dialog.setOnShowListener {
-            val confirm = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-            confirm.setOnClickListener {
-                val lockSecs = prefs.pinLockoutRemainingSeconds()
-                if (lockSecs > 0) {
-                    error.text = activity.getString(R.string.pin_error_locked_fmt, lockSecs)
-                    error.visibility = View.VISIBLE
-                    return@setOnClickListener
-                }
-
-                val pin = input.text?.toString().orEmpty()
-                if (pin.length < KioskPreferences.MIN_PIN_LENGTH ||
-                    pin.length > KioskPreferences.MAX_PIN_LENGTH ||
-                    pin.isBlank()
-                ) {
-                    error.setText(R.string.pin_error_length)
-                    error.visibility = View.VISIBLE
-                    return@setOnClickListener
-                }
-
-                if (prefs.checkPin(pin)) {
-                    prefs.resetPinFailures()
+        val attemptVerification = {
+            val remaining = prefs.getPinLockoutRemainingSeconds()
+            if (remaining > 0) {
+                binding.pinInputLayout.error =
+                    context.getString(R.string.error_pin_lockout, remaining)
+            } else {
+                val enteredPin = binding.pinInput.text?.toString().orEmpty()
+                if (prefs.verifyPin(enteredPin)) {
                     dialog.dismiss()
-                    onSuccess()
+                    onVerified()
                 } else {
-                    val lockedFor = prefs.recordFailedPinAttempt()
-                    error.text = if (lockedFor > 0) {
-                        activity.getString(R.string.pin_error_locked_fmt, lockedFor)
+                    val newLockout = prefs.getPinLockoutRemainingSeconds()
+                    binding.pinInputLayout.error = if (newLockout > 0) {
+                        context.getString(R.string.error_pin_lockout, newLockout)
                     } else {
-                        activity.getString(R.string.pin_error_incorrect)
+                        context.getString(R.string.error_invalid_pin)
                     }
-                    error.visibility = View.VISIBLE
-                    input.text?.clear()
-                    input.requestFocus()
+                    binding.pinInput.text?.clear()
                 }
             }
         }
 
-        input.requestFocus()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                attemptVerification()
+            }
+            binding.pinInput.setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == EditorInfo.IME_ACTION_DONE) {
+                    attemptVerification()
+                    true
+                } else {
+                    false
+                }
+            }
+        }
+
         dialog.show()
+        return dialog
     }
 }

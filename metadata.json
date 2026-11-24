@@ -1,6 +1,6 @@
 {
-  "name": "Ironclad OS — Permanent Android Lockdown",
-  "description": "Ironclad OS locks down an Android device at the system level, permanently blocking porn, social media and unwanted apps, with a strict app allowlist and no bypass.",
+  "name": "KioskOS — Android Device Owner Kiosk Launcher",
+  "description": "Native Kotlin Android Kiosk Launcher with DeviceAdminReceiver, Device Owner UserManager restrictions, PIN-protected app allowlisting, LockTask launching, and an interactive web simulator.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

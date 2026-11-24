@@ -88,8 +88,4 @@ test('device and growth sync payloads satisfy every required key in firebase-blu
       `Missing required GrowthProgress field: ${reqKey}`
     );
   }
-  assert.equal('affirmations' in growthDocWithTimestamps, false);
-  assert.equal(rulesContent.includes('affirmations'), false);
-  assert.match(rulesContent, /isValidAdminRestrictions/);
-  assert.match(rulesContent, /'adminRestrictions'/);
 });

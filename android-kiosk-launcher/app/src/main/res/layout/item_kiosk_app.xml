@@ -1,28 +1,60 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="?attr/selectableItemBackground"
-    android:clickable="true"
-    android:focusable="true"
-    android:gravity="center_horizontal"
-    android:orientation="vertical"
-    android:padding="6dp">
+    android:layout_margin="6dp"
+    app:cardBackgroundColor="@color/kiosk_surface"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="0dp"
+    app:strokeColor="@color/kiosk_border"
+    app:strokeWidth="1dp">
 
-    <ImageView
-        android:id="@+id/appIcon"
-        android:layout_width="46dp"
-        android:layout_height="46dp"
-        android:importantForAccessibility="no" />
-
-    <TextView
-        android:id="@+id/appLabel"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:ellipsize="end"
         android:gravity="center"
-        android:maxLines="2"
-        android:textColor="@color/text_primary"
-        android:textSize="11sp" />
-</LinearLayout>
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <ImageView
+            android:id="@+id/appIcon"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:contentDescription="@null" />
+
+        <TextView
+            android:id="@+id/appLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/kiosk_ink"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/appPackage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/kiosk_muted"
+            android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/appTimeLimitStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/kiosk_accent"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

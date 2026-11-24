@@ -1,181 +1,221 @@
+/**
+ * Copyright (c) 2026 [Your Name / Studio Name]. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying, reverse-engineering,
+ * modification, or redistribution of this file is strictly prohibited.
+ */
 package com.kiosk.launcher.ui
 
 import android.annotation.SuppressLint
-import android.content.Intent
-import android.net.Uri
+import android.content.res.Configuration
 import android.os.Bundle
-import android.view.View
-import android.view.inputmethod.EditorInfo
-import android.webkit.CookieManager
+import android.view.WindowManager
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.EditText
-import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.material.appbar.MaterialToolbar
 import com.kiosk.launcher.R
 import com.kiosk.launcher.admin.DevicePolicyHelper
 import com.kiosk.launcher.data.KioskPreferences
+import com.kiosk.launcher.databinding.ActivityKioskBrowserBinding
 
+/**
+ * Locked Kiosk Web Browser (similar to Fully Kiosk Browser).
+ * Enforces strict domain allowlisting + hard blocking of adult and social media hosts.
+ */
 class KioskBrowserActivity : AppCompatActivity() {
 
+    private lateinit var binding: ActivityKioskBrowserBinding
     private lateinit var prefs: KioskPreferences
-    private lateinit var policy: DevicePolicyHelper
-    private lateinit var webView: WebView
-    private lateinit var banner: TextView
-    private lateinit var urlInput: EditText
+    private var pinDialog: androidx.appcompat.app.AlertDialog? = null
+    private val usageHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var lastTickElapsedMs: Long = 0L
+    private val usageRunnable = object : Runnable {
+        override fun run() {
+            val nowElapsed = android.os.SystemClock.elapsedRealtime()
+            val deltaSec = ((nowElapsed - lastTickElapsedMs) / 1000L).toInt().coerceIn(0, 60)
+            lastTickElapsedMs = nowElapsed
+            if (deltaSec > 0 && prefs.getAppDailyLimitMinutes(KioskPreferences.KIOSK_BROWSER_PACKAGE) > 0) {
+                prefs.addAppUsageSeconds(KioskPreferences.KIOSK_BROWSER_PACKAGE, deltaSec)
+            }
+            val blockReason = prefs.getTimeOrScheduleBlockReason(KioskPreferences.KIOSK_BROWSER_PACKAGE)
+            if (blockReason != null) {
+                prefs.incrementBlockedAttemptsToday()
+                Toast.makeText(this@KioskBrowserActivity, blockReason, Toast.LENGTH_LONG).show()
+                finish()
+                return
+            }
+            usageHandler.postDelayed(this, 5_000L)
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_kiosk_browser)
+        binding = ActivityKioskBrowserBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
         prefs = KioskPreferences(this)
-        policy = DevicePolicyHelper(this)
+        val initialBlock = prefs.getTimeOrScheduleBlockReason(KioskPreferences.KIOSK_BROWSER_PACKAGE)
+        if (initialBlock != null) {
+            prefs.incrementBlockedAttemptsToday()
+            Toast.makeText(this, initialBlock, Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
 
-        val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
-        toolbar.setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material)
-        toolbar.setNavigationOnClickListener { finish() }
+        if (prefs.isKeepScreenAwake()) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        if (DevicePolicyHelper.isDeviceOwner(this)) {
+            try {
+                startLockTask()
+            } catch (_: IllegalStateException) {
+            }
+        }
 
-        banner = findViewById(R.id.blockedBanner)
-        urlInput = findViewById(R.id.browserUrlInput)
-        webView = findViewById(R.id.webView)
+        setupWebView()
+        setupControls()
+    }
 
-        webView.settings.apply {
+    override fun onResume() {
+        super.onResume()
+        lastTickElapsedMs = android.os.SystemClock.elapsedRealtime()
+        usageHandler.removeCallbacks(usageRunnable)
+        usageHandler.postDelayed(usageRunnable, 5_000L)
+    }
+
+    override fun onPause() {
+        usageHandler.removeCallbacks(usageRunnable)
+        val deltaSec = ((android.os.SystemClock.elapsedRealtime() - lastTickElapsedMs) / 1000L).toInt().coerceIn(0, 60)
+        if (deltaSec > 0 && ::prefs.isInitialized && prefs.getAppDailyLimitMinutes(KioskPreferences.KIOSK_BROWSER_PACKAGE) > 0) {
+            prefs.addAppUsageSeconds(KioskPreferences.KIOSK_BROWSER_PACKAGE, deltaSec)
+        }
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        usageHandler.removeCallbacks(usageRunnable)
+        pinDialog?.dismiss()
+        if (::binding.isInitialized) {
+            binding.kioskWebView.destroy()
+        }
+        super.onDestroy()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun setupWebView() {
+        val allowedDomains = prefs.getAllowedDomains()
+        binding.kioskWebView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
             allowFileAccess = false
             allowContentAccess = false
+            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
         }
 
-        webView.webViewClient = object : WebViewClient() {
+        binding.kioskWebView.setDownloadListener { _, _, _, _, _ ->
+            Toast.makeText(this, R.string.toast_browser_download_blocked, Toast.LENGTH_SHORT).show()
+        }
+
+        binding.kioskWebView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(
-                view: WebView,
-                request: WebResourceRequest
-            ): Boolean = decide(request.url)
+                view: WebView?,
+                request: WebResourceRequest?
+            ): Boolean {
+                val url = request?.url?.toString() ?: return true
+                val allowed = KioskPreferences.isUrlAllowedInKioskBrowser(
+                    rawUrl = url,
+                    allowedDomains = prefs.getAllowedDomains(),
+                    blockedKeywords = if (prefs.isDisablePornOnBrowsers()) prefs.getBlockedKeywords() else emptySet(),
+                    blockShortFormFeeds = prefs.isBlockShortFormFeeds()
+                )
+                if (!allowed) {
+                    Toast.makeText(
+                        this@KioskBrowserActivity,
+                        getString(R.string.toast_browser_domain_blocked, KioskPreferences.extractHost(url)),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    return true
+                }
+                binding.browserUrlInput.setText(url)
+                return false
+            }
+        }
 
-            @Suppress("DEPRECATION")
-            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean =
-                decide(Uri.parse(url))
+        val initialHost = allowedDomains.firstOrNull() ?: "wikipedia.org"
+        val startUrl = "https://$initialHost"
+        binding.browserUrlInput.setText(startUrl)
+        binding.kioskWebView.loadUrl(startUrl)
+    }
 
-            override fun onPageFinished(view: WebView?, url: String?) {
-                super.onPageFinished(view, url)
-                if (!url.isNullOrBlank() && url != "about:blank") {
-                    urlInput.setText(url)
+    private fun setupControls() {
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (binding.kioskWebView.canGoBack()) {
+                    binding.kioskWebView.goBack()
                 }
             }
-        }
+        })
 
-        findViewById<View>(R.id.browserGoButton).setOnClickListener { navigateFromBar() }
-        urlInput.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_DONE) {
-                navigateFromBar()
-                true
+        binding.browserGoButton.setOnClickListener {
+            val raw = binding.browserUrlInput.text?.toString()?.trim().orEmpty()
+            val normalized = if (raw.contains("://")) raw else "https://$raw"
+            val allowed = KioskPreferences.isUrlAllowedInKioskBrowser(
+                rawUrl = normalized,
+                allowedDomains = prefs.getAllowedDomains(),
+                blockedKeywords = if (prefs.isDisablePornOnBrowsers()) prefs.getBlockedKeywords() else emptySet(),
+                blockShortFormFeeds = prefs.isBlockShortFormFeeds()
+            )
+            if (allowed) {
+                binding.kioskWebView.loadUrl(normalized)
             } else {
-                false
+                Toast.makeText(
+                    this,
+                    getString(R.string.toast_browser_domain_blocked, KioskPreferences.extractHost(normalized)),
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
 
-        findViewById<View>(R.id.browserPanicButton).setOnClickListener { triggerBrowserPanic() }
-
-        val start = prefs.domains().firstOrNull()
-        if (start != null) {
-            val initialUrl = "https://$start"
-            urlInput.setText(initialUrl)
-            webView.loadUrl(initialUrl)
-        } else {
-            webView.loadUrl("about:blank")
-        }
-    }
-
-    private fun navigateFromBar() {
-        val raw = urlInput.text?.toString()?.trim().orEmpty()
-        if (raw.isEmpty()) return
-        val normalized = if (raw.startsWith("http://") || raw.startsWith("https://")) raw else "https://$raw"
-        val uri = Uri.parse(normalized)
-        if (!decide(uri)) {
-            banner.visibility = View.GONE
-            webView.loadUrl(normalized)
-        }
-    }
-
-    private fun decide(uri: Uri): Boolean {
-        val full = uri.toString().lowercase()
-        val host = uri.host?.lowercase() ?: return true
-
-        val matchedKeyword = prefs.blockedKeywords().firstOrNull { kw ->
-            kw.isNotBlank() && full.contains(kw)
-        }
-        if (matchedKeyword != null) {
-            showBlocked(
-                getString(R.string.browser_blocked_keyword_fmt, matchedKeyword),
-                getString(R.string.browser_blocked_keyword_fmt, matchedKeyword)
-            )
-            return true
+        binding.browserBackButton.setOnClickListener {
+            if (binding.kioskWebView.canGoBack()) binding.kioskWebView.goBack()
         }
 
-        if (prefs.blockShortFormFeeds && isShortFormFeed(full, host)) {
-            showBlocked(
-                getString(R.string.browser_blocked_shortform),
-                getString(R.string.browser_blocked_shortform)
-            )
-            return true
+        binding.browserReloadButton.setOnClickListener {
+            binding.kioskWebView.reload()
         }
 
-        if (isAllowed(host)) {
-            banner.visibility = View.GONE
-            return false
+        binding.browserExitButton.setOnClickListener {
+            if (prefs.getKioskMode() == KioskPreferences.MODE_KIOSK_BROWSER) {
+                pinDialog?.dismiss()
+                pinDialog = PinPromptDialog.show(
+                    context = this,
+                    title = getString(R.string.admin_pin_prompt_title),
+                    subtitle = getString(R.string.admin_pin_exit_browser_subtitle)
+                ) {
+                    finish()
+                }
+            } else {
+                finish()
+            }
         }
 
-        showBlocked(
-            getString(R.string.browser_blocked_banner_fmt, host),
-            getString(R.string.browser_blocked_toast_fmt, host)
-        )
-        return true
-    }
-
-    private fun showBlocked(bannerText: String, toastText: String) {
-        banner.visibility = View.VISIBLE
-        banner.text = bannerText
-        Toast.makeText(this, toastText, Toast.LENGTH_SHORT).show()
-    }
-
-    private fun isShortFormFeed(fullUrl: String, host: String): Boolean {
-        if (host.contains("tiktok.com")) return true
-        return fullUrl.contains("/shorts") || fullUrl.contains("/reels") || fullUrl.contains("/reel/")
-    }
-
-    private fun isAllowed(host: String): Boolean {
-        val domain = host.removePrefix("www.")
-        return prefs.domains().any { allowed ->
-            domain == allowed || domain.endsWith(".$allowed")
+        binding.browserPanicButton.setOnClickListener {
+            binding.kioskWebView.stopLoading()
+            binding.kioskWebView.loadUrl("about:blank")
+            binding.kioskWebView.clearHistory()
+            binding.kioskWebView.clearFormData()
+            binding.kioskWebView.clearCache(true)
+            binding.browserUrlInput.setText("")
+            DevicePolicyHelper.triggerEmergencyPanic(this)
+            finish()
         }
-    }
-
-    private fun triggerBrowserPanic() {
-        runCatching {
-            webView.stopLoading()
-            webView.loadUrl("about:blank")
-            webView.clearHistory()
-            webView.clearCache(true)
-            webView.clearFormData()
-            CookieManager.getInstance().removeAllCookies(null)
-        }
-        policy.wipeClipboard()
-        prefs.triggerPanicLockdown()
-        policy.applyPolicy()
-        Toast.makeText(this, getString(R.string.panic_toast), Toast.LENGTH_SHORT).show()
-        startActivity(
-            Intent(this, KioskLauncherActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        )
-        finish()
-    }
-
-    @Suppress("DEPRECATION")
-    override fun onBackPressed() {
-        if (::webView.isInitialized && webView.canGoBack()) webView.goBack()
-        else super.onBackPressed()
     }
 }
