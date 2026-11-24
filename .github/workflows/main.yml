@@ -83,10 +83,22 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: node scripts/apk-meta.mjs --check
 
+      # Uploaded before the publish commit so a token/permission problem can never cost
+      # you the built APK: the artifact is always retrievable from the run summary.
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ironclad OS-release-apk
+          path: android-kiosk-launcher/app/build/outputs/apk/release/app-release.apk
+
       # Commits the freshly published APK so the deployed site and the in-app feed
       # both point at this build. Skipped for forks and pull requests.
+      #
+      # continue-on-error: the download page is the only thing affected if this fails,
+      # and a red build would hide the successful APK build above it.
       - name: Commit the published APK
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        continue-on-error: true
         working-directory: ${{ github.workspace }}
         run: |
           git config user.name "github-actions[bot]"
@@ -94,16 +106,17 @@ jobs:
           git add public/downloads/IroncladOS.apk public/downloads/latest.json src/generated/apkMeta.ts
           if git diff --staged --quiet; then
             echo "Published APK already current."
-          else
-            # [skip ci] is belt-and-braces next to paths-ignore, so neither the actor
-            # nor a future workflow edit can turn this into a build loop.
-            git commit -m "Publish Ironclad OS APK $(node -p "require('./public/downloads/latest.json').version") [skip ci]"
-            git push origin HEAD:main
+            exit 0
           fi
-
-      - name: Upload Release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Ironclad OS-release-apk
-          path: android-kiosk-launcher/app/build/outputs/apk/release/app-release.apk
+          # [skip ci] is belt-and-braces next to paths-ignore, so neither the actor
+          # nor a future workflow edit can turn this into a build loop.
+          git commit -m "Publish Ironclad OS APK $(node -p "require('./public/downloads/latest.json').version") [skip ci]"
+          if git push origin HEAD:main; then
+            echo "Published APK committed."
+          else
+            echo "::warning::Could not push the published APK. The build and its artifact" \
+              "succeeded, but public/downloads was not updated. Fix by setting" \
+              "Settings → Actions → General → Workflow permissions to" \
+              "'Read and write permissions'."
+          fi
 
