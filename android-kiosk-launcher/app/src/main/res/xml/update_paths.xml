@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the cached update APK is shared, and only read-only with a granted URI. -->
+<paths>
+    <cache-path
+        name="update_cache"
+        path="." />
+</paths>

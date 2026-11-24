@@ -27,6 +27,8 @@ import com.kiosk.launcher.data.AppEntry
 import com.kiosk.launcher.data.InstalledAppsRepository
 import com.kiosk.launcher.data.KioskPreferences
 import com.kiosk.launcher.selfimprovement.SelfImprovementRepository
+import com.kiosk.launcher.update.UpdateManager
+import com.kiosk.launcher.update.UpdateManifest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -58,6 +60,10 @@ class KioskLauncherActivity : AppCompatActivity() {
     private var lastLoadedApps: List<AppEntry> = emptyList()
     private var hasAutoLaunchedMode = false
 
+    private lateinit var updateManager: UpdateManager
+    private var pendingUpdate: UpdateManifest? = null
+    private var updateCheckInFlight = false
+
     private val handler = Handler(Looper.getMainLooper())
     private val clockTick = object : Runnable {
         override fun run() {
@@ -77,6 +83,7 @@ class KioskLauncherActivity : AppCompatActivity() {
         policy = DevicePolicyHelper(this)
         apps = InstalledAppsRepository(this)
         focus = SelfImprovementRepository(this)
+        updateManager = UpdateManager(this)
 
         setContentView(R.layout.activity_kiosk_launcher)
         hideSystemBars()
@@ -116,21 +123,72 @@ class KioskLauncherActivity : AppCompatActivity() {
         findViewById<View>(R.id.panicButton).setOnClickListener {
             panic()
         }
+        // A real Home affordance: from any kiosk app the system Home button now works,
+        // and this guarantees a one-tap route back to the grid even when it does not.
+        findViewById<View>(R.id.homeButton).setOnClickListener {
+            returnToHome()
+        }
+        // Dismissing a new-build prompt keeps the launcher quiet about that version.
+        findViewById<View>(R.id.updateButton).setOnClickListener {
+            pendingUpdate?.let { manifest ->
+                startActivity(
+                    Intent(this, AdminSettingsActivity::class.java)
+                        .putExtra(AdminSettingsActivity.EXTRA_UPDATE_VERSION, manifest.versionCode)
+                )
+            }
+        }
 
         if (!prefs.homeLauncherDeclined) policy.setAsHomeLauncher()
+    }
+
+    private fun returnToHome() {
+        // Bring the launcher (singleTask) back to the front instead of stacking copies.
+        startActivity(
+            Intent(this, KioskLauncherActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        )
+        // Re-assert kiosk before the app disappears, so a Home tap can't leave it unpinned.
+        policy.enterLockTask(this)
     }
 
     override fun onResume() {
         super.onResume()
         // Returning to Kiosk Home always ends any temporary System Settings admin unlock window.
         if (prefs.isAdminTemporarilyUnlocked()) {
-            prefs.adminUnlockedUntilMs = 0L
+            prefs.endTemporaryAdminWindow()
             policy.applyPolicy()
         }
         renderAll()
         // Idempotent: only enters when this is a device owner kiosk with no admin
         // unlock window open, and does nothing while lock task is already held.
         policy.enterLockTask(this)
+        // The window must close on its own even if the admin never returns to Home, so a
+        // "5 minute" unlock cannot silently stay open for the rest of the session.
+        scheduleUnlockExpiry()
+        checkForUpdate()
+    }
+
+    /** Re-applies policy when the admin unlock window runs out while the kiosk is open. */
+    private fun scheduleUnlockExpiry() {
+        handler.removeCallbacks(unlockExpiryTick)
+        if (prefs.isAdminTemporarilyUnlocked()) {
+            handler.post(unlockExpiryTick)
+        }
+    }
+
+    private val unlockExpiryTick = object : Runnable {
+        override fun run() {
+            if (!prefs.isAdminTemporarilyUnlocked()) {
+                prefs.endTemporaryAdminWindow()
+                policy.applyPolicy()
+                renderOwnerPill()
+                renderModeBanner(lastLoadedApps.filter { prefs.isAllowed(it.packageName) })
+                toast(getString(R.string.admin_window_closed))
+                return
+            }
+            // Coarse polling is enough for a policy re-apply and keeps the device idle.
+            handler.postDelayed(this, 5_000L)
+        }
     }
 
     override fun onStart() {
@@ -142,6 +200,7 @@ class KioskLauncherActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         handler.removeCallbacks(clockTick)
+        handler.removeCallbacks(unlockExpiryTick)
         batteryReceiver?.let { receiver -> runCatching { unregisterReceiver(receiver) } }
         batteryReceiver = null
     }
@@ -153,6 +212,41 @@ class KioskLauncherActivity : AppCompatActivity() {
         renderPanicBanner()
         renderStreak()
         renderApps()
+        renderUpdateBanner()
+    }
+
+    /**
+     * Checks at most once a day in the background. Failures are silent: an offline kiosk
+     * must look exactly like an up-to-date one, and Admin still has a manual check.
+     */
+    private fun checkForUpdate() {
+        if (updateCheckInFlight || pendingUpdate != null) return
+        if (!updateManager.hasFeed()) return
+        val sinceLast = System.currentTimeMillis() - prefs.lastUpdateCheckMs
+        if (prefs.lastUpdateCheckMs > 0L && sinceLast < UPDATE_CHECK_INTERVAL_MS) return
+
+        updateCheckInFlight = true
+        updateManager.check { manifest ->
+            updateCheckInFlight = false
+            if (isFinishing || isDestroyed) return@check
+            if (updateManager.isUpdateAvailable(manifest) && !updateManager.isSkipped(manifest)) {
+                pendingUpdate = manifest
+                renderUpdateBanner()
+            }
+        }
+    }
+
+    private fun renderUpdateBanner() {
+        val banner = findViewById<View>(R.id.updateBanner)
+        val label = findViewById<TextView>(R.id.updateBannerText)
+        val manifest = pendingUpdate
+        if (manifest == null) {
+            banner.visibility = View.GONE
+            return
+        }
+        banner.visibility = View.VISIBLE
+        label.text = getString(R.string.update_available_fmt, manifest.versionName)
+        findViewById<TextView>(R.id.updateButton).setText(R.string.update_action)
     }
 
     private fun renderClock() {
@@ -284,9 +378,15 @@ class KioskLauncherActivity : AppCompatActivity() {
     private fun hideSystemBars() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val controller = WindowInsetsControllerCompat(window, window.decorView)
-        controller.hide(WindowInsetsCompat.Type.systemBars())
+        // Only the navigation/gesture area is hidden. The status bar is left to the
+        // policy: hiding it here made the "Status bar" toggle look broken while unlocked,
+        // because the window itself refused to draw it.
+        controller.hide(WindowInsetsCompat.Type.navigationBars())
         controller.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        if (!prefs.statusBarLocked || prefs.isAdminTemporarilyUnlocked()) {
+            controller.show(WindowInsetsCompat.Type.statusBars())
+        }
 
         val root = findViewById<View>(R.id.root)
         val base = dp(20)
@@ -326,6 +426,11 @@ class KioskLauncherActivity : AppCompatActivity() {
 
     private fun toast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+
+    private companion object {
+        /** Launcher-side update check is quiet and rate-limited; Admin can force one. */
+        const val UPDATE_CHECK_INTERVAL_MS = 12L * 60L * 60L * 1000L
     }
 
     private class GridSpacing(context: Context) : RecyclerView.ItemDecoration() {

@@ -10,6 +10,10 @@
  *   version / versionCode -> android-kiosk-launcher/app/build.gradle.kts
  *   sizeBytes / sizeMb / sha256 -> public/downloads/IroncladOS.apk
  *
+ * It also writes public/downloads/latest.json, the in-app update feed. Installed copies
+ * fetch that file, compare versionCode, and install the APK only after the sha256 matches.
+ * Keeping this in one script means the site, the feed and the shipped APK cannot disagree.
+ *
  * Usage:
  *   node scripts/apk-meta.mjs          regenerate src/generated/apkMeta.ts
  *   node scripts/apk-meta.mjs --check   fail if anything disagrees (used by the site build and CI)
@@ -29,7 +33,16 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const gradleFile = path.join(root, 'android-kiosk-launcher/app/build.gradle.kts');
 const publishedApk = path.join(root, 'public/downloads/IroncladOS.apk');
+const updateFeed = path.join(root, 'public/downloads/latest.json');
 const generatedFile = path.join(root, 'src/generated/apkMeta.ts');
+
+/**
+ * Where installed copies fetch updates from. It must be the public origin the site is
+ * served on, because the kiosk build has no knowledge of the hosting provider.
+ * Override with UPDATE_FEED_BASE_URL when the site moves domain.
+ */
+const DEFAULT_FEED_BASE_URL = process.env.UPDATE_FEED_BASE_URL || 'https://ironclad-os.freecode.page';
+const APK_FILE_NAME = 'IroncladOS.apk';
 
 const args = process.argv.slice(2);
 const checkOnly = args.includes('--check');
@@ -135,6 +148,22 @@ export const APK_META_VARS = { version: APK_META.version, size: APK_META.sizeMb 
 `;
 }
 
+/** The in-app update feed served at /downloads/latest.json. */
+function renderFeed(declared, published) {
+  return `${JSON.stringify(
+    {
+      version: declared.versionName,
+      versionCode: declared.versionCode,
+      apkUrl: `${DEFAULT_FEED_BASE_URL.replace(/\/$/, '')}/downloads/${APK_FILE_NAME}`,
+      sha256: published.sha256,
+      sizeBytes: published.sizeBytes,
+      generatedAt: new Date().toISOString(),
+    },
+    null,
+    2,
+  )}\n`;
+}
+
 const declared = readGradleVersion();
 const embedded = readApkBadging(publishedApk, 'public/downloads/IroncladOS.apk');
 assertVersionsAgree(declared, embedded, 'the published APK');
@@ -145,6 +174,7 @@ if (extraApk) {
 
 const published = readPublishedApk();
 const next = render(declared, published);
+const nextFeed = renderFeed(declared, published);
 
 if (checkOnly) {
   const current = existsSync(generatedFile) ? readFileSync(generatedFile, 'utf8') : null;
@@ -157,15 +187,30 @@ if (checkOnly) {
         'Run `npm run apk:meta` and commit the result.'
     );
   }
+  // The feed drives in-app updates: a version mismatch here is worse than on the page.
+  if (!existsSync(updateFeed)) {
+    fail('public/downloads/latest.json is missing. Run `npm run apk:meta`.');
+  }
+  const currentFeed = JSON.parse(readFileSync(updateFeed, 'utf8'));
+  const expectedFeed = JSON.parse(nextFeed);
+  for (const key of ['version', 'versionCode', 'apkUrl', 'sha256', 'sizeBytes']) {
+    if (currentFeed[key] !== expectedFeed[key]) {
+      fail(
+        `public/downloads/latest.json has ${key}=${currentFeed[key]} but the shipped APK is ` +
+          `${expectedFeed[key]}. Run \`npm run apk:meta\` and commit the result.`
+      );
+    }
+  }
   console.log(
     `apk-meta: ok — IroncladOS.apk v${declared.versionName} (code ${declared.versionCode}), ` +
-      `${published.sizeMb} MB, sha256 ${published.sha256.slice(0, 12)}…`
+      `${published.sizeMb} MB, sha256 ${published.sha256.slice(0, 12)}…, update feed matches`
   );
 } else {
   mkdirSync(path.dirname(generatedFile), { recursive: true });
   writeFileSync(generatedFile, next);
+  writeFileSync(updateFeed, nextFeed);
   console.log(
-    `apk-meta: wrote src/generated/apkMeta.ts — v${declared.versionName} (code ${declared.versionCode}), ` +
-      `${published.sizeMb} MB`
+    `apk-meta: wrote src/generated/apkMeta.ts + public/downloads/latest.json — ` +
+      `v${declared.versionName} (code ${declared.versionCode}), ${published.sizeMb} MB`
   );
 }

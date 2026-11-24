@@ -18,7 +18,10 @@ $GRADLE assembleRelease
 APK=app/build/outputs/apk/release/app-release.apk
 cp "$APK" ../public/downloads/IroncladOS.apk
 
-# Refresh the version/size the website shows from the APK that was just copied.
+# Refresh the version/size the website shows from the APK that was just copied,
+# and regenerate public/downloads/latest.json — the feed installed kiosks read
+# to find and verify in-app updates.
 (cd .. && node scripts/apk-meta.mjs)
 
 echo "Signed APK built and copied to public/downloads/IroncladOS.apk"
+echo "In-app update feed written to public/downloads/latest.json"

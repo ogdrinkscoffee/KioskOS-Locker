@@ -31,6 +31,7 @@
     <string name="action_focus">Focus</string>
     <string name="action_admin">Admin</string>
     <string name="action_panic">Panic</string>
+    <string name="action_home">Home</string>
     <string name="app_not_allowed_fmt">%1$s is not allowed</string>
     <string name="cannot_open_app_fmt">Cannot open %1$s</string>
     <string name="panic_banner_fmt">Emergency Panic Lock active (%1$dm left) · Non-essential apps locked</string>
@@ -86,7 +87,15 @@
     <string name="clear_panic_lock">Clear Panic Lock</string>
     <string name="panic_cleared">Emergency Panic Lock cleared</string>
     <string name="open_system_settings">Open System Settings</string>
-    <string name="system_settings_unlocked_toast">System Settings unlocked for 5 minutes</string>
+    <string name="system_settings_unlocked_toast_fmt">System Settings unlocked for %1$d minute(s)</string>
+    <string name="admin_window_closed">Admin window ended — kiosk re-locked</string>
+
+    <string name="eyebrow_admin_window">Temporary system access</string>
+    <string name="admin_window_desc">How long System Settings stays reachable when you open it. It closes on its own when the time runs out.</string>
+    <string name="admin_window_value_fmt">%1$d min</string>
+    <string name="admin_window_remaining_fmt">Open now — %1$d min left. Closes on its own.</string>
+    <string name="admin_window_minus">Shorter window</string>
+    <string name="admin_window_plus">Longer window</string>
 
     <string name="eyebrow_kiosk_mode">Kiosk mode</string>
     <string name="mode_multi">Multi-app</string>
@@ -335,4 +344,35 @@
     <string name="diag_restriction_usb">USB file transfer blocked</string>
     <string name="diag_restriction_camera">Camera blocked</string>
     <string name="diag_restriction_screenshots">Screenshots blocked</string>
+
+    <!-- In-app update -->
+    <string name="eyebrow_update">App update</string>
+    <string name="update_action">Update</string>
+    <string name="update_available_fmt">Update available: v%1$s</string>
+    <string name="update_available_title">A newer build is available</string>
+    <string name="update_available_detail_fmt">v%1$s (build %2$d) · %3$d MB · downloaded over HTTPS and checksum-verified before installing.</string>
+    <string name="update_installed_fmt">Installed: Ironclad OS v%1$s (build %2$d)</string>
+    <string name="update_up_to_date">Up to date. Updates install over the existing app and keep all settings.</string>
+    <string name="update_no_feed">No update feed set</string>
+    <string name="update_feed_required">Add an HTTPS link to the published latest.json to enable in-app updates.</string>
+    <string name="update_checking">Checking for updates…</string>
+    <string name="update_check_failed">Could not reach the update feed</string>
+    <string name="update_check">Check for update</string>
+    <string name="update_now">Update now</string>
+    <string name="update_later">Later</string>
+    <string name="update_confirm_title">Install this update?</string>
+    <string name="update_confirm_body_fmt">Ironclad OS v%1$s (build %2$d) will download and install over the current app. Your settings and allowlist are kept.</string>
+    <string name="update_downloading">Downloading update…</string>
+    <string name="update_progress_fmt">%1$d%% downloaded</string>
+    <string name="update_installing">Installing…</string>
+    <string name="update_installed_again">Update installed. Reopening the app applies it.</string>
+    <string name="update_failed">Update failed</string>
+    <string name="update_needs_confirm">Confirm the install on screen</string>
+    <string name="update_needs_confirm_detail">Android is asking for one tap. Allow it to finish. If Android asks to allow installs from Ironclad OS, turn that on, then press Update again.</string>
+    <string name="update_install_permission">Allow "Install unknown apps" for Ironclad OS, then update again.</string>
+    <string name="update_feed_hint">The website publishes latest.json next to the APK. Point this at that folder (or the file itself).</string>
+    <string name="update_feed_hint_label">Update feed URL</string>
+    <string name="update_feed_save">Save feed</string>
+    <string name="update_feed_saved">Update feed saved</string>
+    <string name="update_default_feed" translatable="false">https://ironclad-os.freecode.page/downloads</string>
 </resources>

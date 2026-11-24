@@ -193,9 +193,75 @@ class KioskPreferences(context: Context) {
     fun isAdminTemporarilyUnlocked(nowMs: Long = System.currentTimeMillis()): Boolean =
         adminUnlockedUntilMs > nowMs
 
-    fun grantTemporaryAdminWindow(minutes: Int = 5) {
-        adminUnlockedUntilMs = System.currentTimeMillis() + minutes * 60_000L
+    fun adminUnlockRemainingSeconds(nowMs: Long = System.currentTimeMillis()): Int {
+        val diff = adminUnlockedUntilMs - nowMs
+        return if (diff > 0L) ((diff + 999L) / 1000L).toInt() else 0
     }
+
+    /** Duration the admin window opens for, adjustable in Admin. */
+    var adminUnlockMinutes: Int
+        get() = prefs.getInt(KEY_ADMIN_UNLOCK_MINUTES, DEFAULT_ADMIN_UNLOCK_MINUTES)
+            .coerceIn(MIN_ADMIN_UNLOCK_MINUTES, MAX_ADMIN_UNLOCK_MINUTES)
+        set(value) {
+            prefs.edit()
+                .putInt(
+                    KEY_ADMIN_UNLOCK_MINUTES,
+                    value.coerceIn(MIN_ADMIN_UNLOCK_MINUTES, MAX_ADMIN_UNLOCK_MINUTES)
+                )
+                .apply()
+        }
+
+    fun grantTemporaryAdminWindow(minutes: Int = adminUnlockMinutes) {
+        adminUnlockedUntilMs = System.currentTimeMillis() + minutes * 60_000L
+        logPolicy("Temporary admin window opened (${minutes}m)")
+    }
+
+    /** Ends the window early; callers re-apply policy afterwards. */
+    fun endTemporaryAdminWindow() {
+        if (adminUnlockedUntilMs == 0L) return
+        adminUnlockedUntilMs = 0L
+        logPolicy("Temporary admin window closed")
+    }
+
+    /** Event log for kiosk administration; also used by the in-app updater. */
+    var updateFeedUrl: String
+        get() = prefs.getString(KEY_UPDATE_FEED, "") ?: ""
+        set(value) { prefs.edit().putString(KEY_UPDATE_FEED, value.trim()).apply() }
+
+    // ----------------------------------------------------------- in-app update
+    /** True while the installer is open and its package must stay reachable. */
+    var installingUpdate: Boolean
+        get() = bool(KEY_INSTALLING_UPDATE, false)
+        set(value) = setBool(KEY_INSTALLING_UPDATE, value)
+
+    fun isInstallingUpdate(nowMs: Long = System.currentTimeMillis()): Boolean {
+        if (!installingUpdate) return false
+        // A crashed installer session must not leave the launcher permanently unpinned.
+        val started = prefs.getLong(KEY_UPDATE_STARTED_AT, 0L)
+        if (started > 0L && nowMs - started > UPDATE_INSTALL_TIMEOUT_MS) {
+            installingUpdate = false
+            return false
+        }
+        return true
+    }
+
+    fun beginUpdateInstall() {
+        installingUpdate = true
+        prefs.edit().putLong(KEY_UPDATE_STARTED_AT, System.currentTimeMillis()).apply()
+    }
+
+    fun finishUpdateInstall() {
+        installingUpdate = false
+    }
+
+    var lastUpdateCheckMs: Long
+        get() = prefs.getLong(KEY_LAST_UPDATE_CHECK, 0L)
+        set(value) { prefs.edit().putLong(KEY_LAST_UPDATE_CHECK, value).apply() }
+
+    /** Version code the admin skipped with "later", so the card can stay quiet. */
+    var skippedUpdateVersionCode: Int
+        get() = prefs.getInt(KEY_SKIPPED_UPDATE_CODE, 0)
+        set(value) { prefs.edit().putInt(KEY_SKIPPED_UPDATE_CODE, value).apply() }
 
     // ----------------------------------------------------------------- allowlist
     fun allowedPackages(): Set<String> =
@@ -295,6 +361,12 @@ class KioskPreferences(context: Context) {
         const val PIN_LOCKOUT_MS = 30_000L
         const val PANIC_DURATION_MINUTES = 15
 
+        const val DEFAULT_ADMIN_UNLOCK_MINUTES = 5
+        const val MIN_ADMIN_UNLOCK_MINUTES = 1
+        const val MAX_ADMIN_UNLOCK_MINUTES = 120
+        const val ADMIN_UNLOCK_STEP_MINUTES = 5
+        const val UPDATE_INSTALL_TIMEOUT_MS = 10 * 60_000L
+
         const val MODE_MULTI = "multi"
         const val MODE_SINGLE = "single"
         const val MODE_BROWSER = "browser"
@@ -333,6 +405,12 @@ class KioskPreferences(context: Context) {
         private const val KEY_PANIC_COUNT = "panic_count"
         private const val KEY_TAMPER_WARNINGS = "tamper_warnings_count"
         private const val KEY_ADMIN_UNLOCKED_UNTIL = "admin_unlocked_until_ms"
+        private const val KEY_ADMIN_UNLOCK_MINUTES = "admin_unlock_minutes"
+        private const val KEY_INSTALLING_UPDATE = "installing_update"
+        private const val KEY_UPDATE_STARTED_AT = "update_started_at_ms"
+        private const val KEY_LAST_UPDATE_CHECK = "last_update_check_ms"
+        private const val KEY_SKIPPED_UPDATE_CODE = "skipped_update_code"
+        private const val KEY_UPDATE_FEED = "update_feed_url"
         private const val KEY_STREAK = "streak"
         private const val KEY_BEST = "best_streak"
         private const val KEY_LAST_CLEAN = "last_clean_day"

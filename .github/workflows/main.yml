@@ -41,14 +41,39 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: node scripts/apk-meta.mjs --check --apk android-kiosk-launcher/app/build/outputs/apk/release/app-release.apk
 
-      # Fails if public/downloads/IroncladOS.apk or src/generated/apkMeta.ts (the
-      # version and size shown on the site) disagree with each other.
+      # Copies the built APK over the published download and regenerates both the
+      # version metadata and public/downloads/latest.json (the in-app update feed).
+      - name: Publish the built APK and update feed
+        working-directory: ${{ github.workspace }}
+        run: |
+          cp android-kiosk-launcher/app/build/outputs/apk/release/app-release.apk public/downloads/IroncladOS.apk
+          node scripts/apk-meta.mjs
+
+      # Fails if public/downloads/IroncladOS.apk, src/generated/apkMeta.ts and
+      # latest.json disagree with each other after publishing.
       - name: Verify the download page matches the published APK
         working-directory: ${{ github.workspace }}
         run: node scripts/apk-meta.mjs --check
+
+      # Commits the freshly published APK so the deployed site and the in-app feed
+      # both point at this build. Skipped for forks and pull requests.
+      - name: Commit the published APK
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        working-directory: ${{ github.workspace }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/downloads/IroncladOS.apk public/downloads/latest.json src/generated/apkMeta.ts
+          if git diff --staged --quiet; then
+            echo "Published APK already current."
+          else
+            git commit -m "Publish Ironclad OS APK $(node -p "require('./public/downloads/latest.json').version")"
+            git push origin HEAD:main
+          fi
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
           name: Ironclad OS-release-apk
           path: android-kiosk-launcher/app/build/outputs/apk/release/app-release.apk
+

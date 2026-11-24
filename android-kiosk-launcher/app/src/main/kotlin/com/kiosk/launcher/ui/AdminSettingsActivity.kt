@@ -21,6 +21,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.TextInputEditText
 import com.kiosk.launcher.R
@@ -29,6 +30,9 @@ import com.kiosk.launcher.admin.KioskDeviceAdminReceiver
 import com.kiosk.launcher.data.AppEntry
 import com.kiosk.launcher.data.InstalledAppsRepository
 import com.kiosk.launcher.data.KioskPreferences
+import com.kiosk.launcher.update.UpdateInstaller
+import com.kiosk.launcher.update.UpdateManager
+import com.kiosk.launcher.update.UpdateManifest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -38,6 +42,7 @@ class AdminSettingsActivity : AppCompatActivity() {
     private lateinit var prefs: KioskPreferences
     private lateinit var policy: DevicePolicyHelper
     private lateinit var appRepo: InstalledAppsRepository
+    private lateinit var updates: UpdateManager
 
     private lateinit var strongRestrictionsContainer: LinearLayout
     private lateinit var locksContainer: LinearLayout
@@ -51,6 +56,18 @@ class AdminSettingsActivity : AppCompatActivity() {
     private lateinit var policyLog: TextView
     private lateinit var defaultLauncherSwitch: SwitchMaterial
     private lateinit var defaultLauncherDetail: TextView
+
+    private lateinit var adminWindowValue: TextView
+    private lateinit var adminWindowHint: TextView
+    private lateinit var updateStatus: TextView
+    private lateinit var updateDetail: TextView
+    private lateinit var updateProgress: LinearProgressIndicator
+    private lateinit var updateCheckButton: View
+    private lateinit var updateInstallButton: View
+    private lateinit var updateFeedInput: TextInputEditText
+
+    private var availableUpdate: UpdateManifest? = null
+    private var updateInProgress = false
 
     /** Guards the switch listener while it is being synced to the observed state. */
     private var syncingLauncherSwitch = false
@@ -68,6 +85,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         prefs = KioskPreferences(this)
         policy = DevicePolicyHelper(this)
         appRepo = InstalledAppsRepository(this)
+        updates = UpdateManager(this)
 
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
         toolbar.setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material)
@@ -85,6 +103,21 @@ class AdminSettingsActivity : AppCompatActivity() {
         policyLog = findViewById(R.id.policyLog)
         defaultLauncherSwitch = findViewById(R.id.defaultLauncherSwitch)
         defaultLauncherDetail = findViewById(R.id.defaultLauncherDetail)
+
+        adminWindowValue = findViewById(R.id.adminWindowValue)
+        adminWindowHint = findViewById(R.id.adminWindowHint)
+        updateStatus = findViewById(R.id.updateStatus)
+        updateDetail = findViewById(R.id.updateDetail)
+        updateProgress = findViewById(R.id.updateProgress)
+        updateCheckButton = findViewById(R.id.updateCheckButton)
+        updateInstallButton = findViewById(R.id.updateInstallButton)
+        updateFeedInput = findViewById(R.id.updateFeedInput)
+
+        findViewById<View>(R.id.adminWindowMinus).setOnClickListener { stepAdminWindow(-1) }
+        findViewById<View>(R.id.adminWindowPlus).setOnClickListener { stepAdminWindow(1) }
+        updateCheckButton.setOnClickListener { checkForUpdates(manual = true) }
+        updateInstallButton.setOnClickListener { installAvailableUpdate() }
+        findViewById<View>(R.id.updateFeedSave).setOnClickListener { saveUpdateFeed() }
 
         defaultLauncherSwitch.setOnCheckedChangeListener { _, checked ->
             if (syncingLauncherSwitch) return@setOnCheckedChangeListener
@@ -116,6 +149,8 @@ class AdminSettingsActivity : AppCompatActivity() {
         renderOwner()
         renderDefaultLauncher()
         renderRecoveryState()
+        renderAdminWindow()
+        renderUpdate()
         renderMode()
         renderStrongRestrictions()
         renderLocks()
@@ -143,7 +178,13 @@ class AdminSettingsActivity : AppCompatActivity() {
         super.onResume()
         renderDefaultLauncher()
         renderRecoveryState()
+        renderAdminWindow()
         renderPolicyLog()
+        // Jumped here from the launcher's update banner: land on the right section.
+        if (intent?.getIntExtra(EXTRA_UPDATE_VERSION, 0)?.let { it > 0 } == true) {
+            intent?.removeExtra(EXTRA_UPDATE_VERSION)
+            if (availableUpdate == null) checkForUpdates(manual = true)
+        }
     }
 
     // ---------------------------------------------------------------- provisioning
@@ -215,13 +256,35 @@ class AdminSettingsActivity : AppCompatActivity() {
     }
 
     private fun openSystemSettings() {
-        prefs.grantTemporaryAdminWindow(5)
+        // The window length is whatever the admin set with +/−; it also closes on its own
+        // from the launcher, so it can no longer stay open indefinitely.
+        prefs.grantTemporaryAdminWindow(prefs.adminUnlockMinutes)
         policy.applyPolicy()
         runCatching {
             if (policy.isInLockTaskMode()) policy.stopKiosk(this)
             startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
-        toast(getString(R.string.system_settings_unlocked_toast))
+        toast(getString(R.string.system_settings_unlocked_toast_fmt, prefs.adminUnlockMinutes))
+        renderAdminWindow()
+        renderPolicyLog()
+    }
+
+    // ------------------------------------------------------- temporary admin window
+    private fun renderAdminWindow() {
+        val minutes = prefs.adminUnlockMinutes
+        adminWindowValue.text = getString(R.string.admin_window_value_fmt, minutes)
+        val remaining = prefs.adminUnlockRemainingSeconds()
+        adminWindowHint.text = if (remaining > 0) {
+            getString(R.string.admin_window_remaining_fmt, (remaining + 59) / 60)
+        } else {
+            getString(R.string.admin_window_desc)
+        }
+    }
+
+    private fun stepAdminWindow(direction: Int) {
+        prefs.adminUnlockMinutes =
+            prefs.adminUnlockMinutes + direction * KioskPreferences.ADMIN_UNLOCK_STEP_MINUTES
+        renderAdminWindow()
     }
 
     private fun copyProvisionCommand() {
@@ -250,6 +313,136 @@ class AdminSettingsActivity : AppCompatActivity() {
                 getString(R.string.admin_explanation)
             )
         runCatching { startActivity(intent) }
+    }
+
+    // ---------------------------------------------------------------- in-app update
+    private fun renderUpdate() {
+        val installed = getString(
+            R.string.update_installed_fmt,
+            updates.installedVersionName(),
+            updates.installedVersionCode()
+        )
+        updateFeedInput.setText(prefs.updateFeedUrl)
+
+        val available = availableUpdate
+        when {
+            updateInProgress -> Unit
+            available != null && updates.isUpdateAvailable(available) -> {
+                updateStatus.setText(R.string.update_available_title)
+                updateDetail.text = getString(
+                    R.string.update_available_detail_fmt,
+                    available.versionName,
+                    available.versionCode,
+                    available.sizeBytes / (1024 * 1024)
+                )
+                updateInstallButton.visibility = View.VISIBLE
+            }
+            else -> {
+                updateStatus.text = installed
+                updateDetail.setText(R.string.update_up_to_date)
+                updateInstallButton.visibility = View.GONE
+            }
+        }
+        updateProgress.visibility = View.GONE
+        updateCheckButton.isEnabled = !updateInProgress
+    }
+
+    private fun checkForUpdates(manual: Boolean) {
+        if (updateInProgress) return
+        if (!updates.hasFeed()) {
+            updateStatus.setText(R.string.update_no_feed)
+            updateDetail.setText(R.string.update_feed_required)
+            return
+        }
+        if (manual) {
+            updateStatus.setText(R.string.update_checking)
+            updateDetail.text = ""
+            updateCheckButton.isEnabled = false
+        }
+        updates.check { manifest ->
+            if (isFinishing || isDestroyed) return@check
+            availableUpdate = manifest
+            renderUpdate()
+            if (manual && manifest == null) {
+                updateStatus.setText(R.string.update_check_failed)
+                updateDetail.setText(R.string.update_feed_required)
+            }
+        }
+    }
+
+    private fun installAvailableUpdate() {
+        val manifest = availableUpdate ?: return
+        if (!updates.isUpdateAvailable(manifest)) return
+
+        val notes = getString(
+            R.string.update_confirm_body_fmt,
+            manifest.versionName,
+            manifest.versionCode
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.update_confirm_title)
+            .setMessage(notes)
+            .setNegativeButton(R.string.cancel, null)
+            .setNeutralButton(R.string.update_later) { _, _ ->
+                updates.skip(manifest)
+                availableUpdate = null
+                renderUpdate()
+            }
+            .setPositiveButton(R.string.update_now) { _, _ -> runInstall(manifest) }
+            .show()
+    }
+
+    private fun runInstall(manifest: UpdateManifest) {
+        updateInProgress = true
+        updateInstallButton.visibility = View.GONE
+        updateCheckButton.isEnabled = false
+        updateProgress.visibility = View.VISIBLE
+        updateProgress.isIndeterminate = true
+        updateStatus.setText(R.string.update_downloading)
+        updateDetail.text = ""
+
+        updates.downloadAndInstall(this, manifest) { event ->
+            if (isFinishing || isDestroyed) return@downloadAndInstall
+            when (event) {
+                is UpdateInstaller.Event.Progress -> {
+                    updateProgress.isIndeterminate = false
+                    updateProgress.progress = event.percent
+                    updateDetail.text = getString(R.string.update_progress_fmt, event.percent)
+                }
+                is UpdateInstaller.Event.Failed -> {
+                    updateInProgress = false
+                    updateProgress.visibility = View.GONE
+                    updateCheckButton.isEnabled = true
+                    updateStatus.setText(R.string.update_failed)
+                    updateDetail.text = event.reason
+                }
+                UpdateInstaller.Event.ReadyToInstall -> {
+                    updateProgress.isIndeterminate = true
+                    updateStatus.setText(R.string.update_installing)
+                }
+                UpdateInstaller.Event.NeedsUserAction -> {
+                    updateInProgress = false
+                    updateProgress.visibility = View.GONE
+                    updateStatus.setText(R.string.update_needs_confirm)
+                    updateDetail.setText(R.string.update_needs_confirm_detail)
+                    updateInstallButton.visibility = View.VISIBLE
+                    updateCheckButton.isEnabled = true
+                }
+                UpdateInstaller.Event.Installed -> {
+                    updateInProgress = false
+                    updateProgress.visibility = View.GONE
+                    updateStatus.setText(R.string.update_installed_again)
+                    updateCheckButton.isEnabled = true
+                }
+            }
+        }
+    }
+
+    private fun saveUpdateFeed() {
+        prefs.updateFeedUrl = updateFeedInput.text?.toString().orEmpty()
+        prefs.lastUpdateCheckMs = 0L
+        toast(getString(R.string.update_feed_saved))
+        renderUpdate()
     }
 
     // ----------------------------------------------------------------------- mode
@@ -568,5 +761,9 @@ class AdminSettingsActivity : AppCompatActivity() {
 
     private fun toast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+
+    companion object {
+        const val EXTRA_UPDATE_VERSION = "update_version_code"
     }
 }

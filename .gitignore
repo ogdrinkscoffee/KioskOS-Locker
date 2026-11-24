@@ -20,3 +20,7 @@ android-kiosk-launcher/*.keystore
 # Exported deliverables are regenerable, keep them out of history
 artifacts/*.zip
 artifacts/*.bundle
+
+# Freecode workspace bookkeeping
+.freecode/
+.freecode-source-ready

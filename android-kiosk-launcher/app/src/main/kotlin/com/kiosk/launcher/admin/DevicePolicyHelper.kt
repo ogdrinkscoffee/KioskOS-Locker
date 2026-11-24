@@ -16,10 +16,15 @@ import android.os.UserManager
 import android.provider.Settings
 import com.kiosk.launcher.data.KioskPreferences
 import com.kiosk.launcher.ui.KioskLauncherActivity
+import java.util.concurrent.Executors
 
 /**
  * Every DevicePolicyManager call is wrapped: the app runs as a normal launcher in
  * preview mode and only enforces policy when it is the device owner.
+ *
+ * Policy is idempotent and safe to call repeatedly; [applyPolicy] is the single place
+ * that turns preferences into device state, so leaving a screen, expiring the admin
+ * window and booting all converge on the same calls.
  */
 class DevicePolicyHelper(context: Context) {
 
@@ -38,14 +43,17 @@ class DevicePolicyHelper(context: Context) {
     fun applyPolicy() {
         if (!isDeviceOwner) return
 
+        // The status bar toggle must win over lock task. LOCK_TASK_FEATURE_NONE used to
+        // hide the shade no matter what was switched off here.
         runCatching { dpm.setStatusBarDisabled(admin, prefs.statusBarLocked) }
+
+        // Re-enabling needs no extra permission; disabling returns false when the device
+        // has a lock password, which the diagnostics surface as "not applied".
         runCatching { dpm.setKeyguardDisabled(admin, prefs.keyguardDisabled) }
         runCatching { dpm.setCameraDisabled(admin, prefs.cameraDisabled) }
         runCatching { dpm.setScreenCaptureDisabled(admin, prefs.screenCaptureDisabled) }
         runCatching { dpm.setLockTaskPackages(admin, lockTaskPackages()) }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            runCatching { dpm.setLockTaskFeatures(admin, DevicePolicyManager.LOCK_TASK_FEATURE_NONE) }
-        }
+        applyLockTaskFeatures()
 
         restrictions().forEach { (key, enabled) ->
             runCatching {
@@ -67,7 +75,42 @@ class DevicePolicyHelper(context: Context) {
             )
         }
 
+        // DISALLOW_APPS_CONTROL alone only hides the buttons in Settings on some builds;
+        // blocking every installed package explicitly is what actually refuses an uninstall.
+        applyUninstallPolicy()
+
         prefs.logPolicy("Policy applied")
+    }
+
+    /** Feature flags for lock task, derived from the same toggles as the rest of the policy. */
+    fun applyLockTaskFeatures() {
+        if (!isDeviceOwner || Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return
+        val features = LockTaskFeatures.compute(
+            statusBarLocked = prefs.statusBarLocked,
+            keyguardDisabled = prefs.keyguardDisabled,
+            blockActivityStartInTask = true
+        )
+        runCatching { dpm.setLockTaskFeatures(admin, features) }
+    }
+
+    /**
+     * Blocking runs per package, so it is pushed to a worker: both calls walk the whole
+     * package list. The result is read from preferences at execution time, never stale.
+     */
+    private fun applyUninstallPolicy() {
+        val block = prefs.disallowAppsControl && !prefs.isAdminTemporarilyUnlocked()
+        worker.execute {
+            val installed = runCatching {
+                appContext.packageManager.getInstalledPackages(0)
+            }.getOrDefault(emptyList())
+
+            installed.forEach { info ->
+                // Never block this app's own removal: it is a device owner and removing it
+                // would strand the device. Blocking it also has no effect on updates.
+                if (info.packageName == appContext.packageName) return@forEach
+                runCatching { dpm.setUninstallBlocked(admin, info.packageName, block) }
+            }
+        }
     }
 
     fun wipeClipboard() {
@@ -94,12 +137,19 @@ class DevicePolicyHelper(context: Context) {
         )
     }
 
+    /**
+     * Lock task packages. The installer is included while a kiosk update is in progress so
+     * the system install prompt is not bounced back to the launcher.
+     */
     private fun lockTaskPackages(): Array<String> {
         if (prefs.isPanicLocked()) {
             return arrayOf(appContext.packageName)
         }
         val packages = prefs.allowedPackages().toMutableSet()
         packages.add(appContext.packageName)
+        if (prefs.isInstallingUpdate()) {
+            packages.addAll(INSTALLER_PACKAGES)
+        }
         return packages.toTypedArray()
     }
 
@@ -167,19 +217,18 @@ class DevicePolicyHelper(context: Context) {
      */
     fun enterLockTask(activity: Activity): Boolean {
         val alreadyLocked = isInLockTaskMode()
-        val shouldStart = LockTaskPolicy.shouldStart(
+        val shouldStart = LockTaskPolicy.shouldStartDuringUpdate(
             isDeviceOwner = isDeviceOwner,
             temporaryAdminUnlockActive = prefs.isAdminTemporarilyUnlocked(),
-            inLockTaskMode = alreadyLocked
+            inLockTaskMode = alreadyLocked,
+            installingUpdate = prefs.isInstallingUpdate()
         )
         if (!shouldStart) return alreadyLocked
 
         // The package list is re-applied here so a freshly provisioned owner can lock
         // immediately, before the next applyPolicy() pass runs.
         runCatching { dpm.setLockTaskPackages(admin, lockTaskPackages()) }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            runCatching { dpm.setLockTaskFeatures(admin, DevicePolicyManager.LOCK_TASK_FEATURE_NONE) }
-        }
+        applyLockTaskFeatures()
 
         val started = runCatching { activity.startLockTask() }.isSuccess
         if (started) prefs.logPolicy("Lock task mode entered")
@@ -195,6 +244,12 @@ class DevicePolicyHelper(context: Context) {
         manager.lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE
     }.getOrDefault(false)
 
+    /** Applies the new package list before the installer UI opens. */
+    fun refreshLockTaskPackages() {
+        if (!isDeviceOwner) return
+        runCatching { dpm.setLockTaskPackages(admin, lockTaskPackages()) }
+    }
+
     companion object {
         const val PROVISION_COMMAND =
             "adb shell dpm set-device-owner com.kiosk.launcher/.admin.KioskDeviceAdminReceiver"
@@ -209,5 +264,16 @@ class DevicePolicyHelper(context: Context) {
             "org.torproject.torbrowser",
             "com.kiwibrowser.browser"
         )
+
+        /** Installers that must be reachable while an in-app update is being installed. */
+        val INSTALLER_PACKAGES = arrayOf(
+            "com.android.packageinstaller",
+            "com.google.android.packageinstaller",
+            "com.android.permissioncontroller"
+        )
+
+        private val worker = Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "kiosk-dpm").apply { isDaemon = true }
+        }
     }
 }

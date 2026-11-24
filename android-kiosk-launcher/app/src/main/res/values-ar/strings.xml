@@ -31,6 +31,7 @@
     <string name="action_focus">التركيز</string>
     <string name="action_admin">الإدارة</string>
     <string name="action_panic">طوارئ</string>
+    <string name="action_home">الرئيسية</string>
     <string name="app_not_allowed_fmt">تطبيق %1$s مش مسموح</string>
     <string name="cannot_open_app_fmt">معرفناش نفتح %1$s</string>
     <string name="panic_banner_fmt">قفل الطوارئ شغال (فاضل %1$d د) · التطبيقات اللي مش أساسية مقفولة</string>
@@ -86,7 +87,15 @@
     <string name="clear_panic_lock">شيل قفل الطوارئ</string>
     <string name="panic_cleared">قفل الطوارئ اتشال</string>
     <string name="open_system_settings">افتح إعدادات النظام</string>
-    <string name="system_settings_unlocked_toast">إعدادات النظام مفتوحة لمدة 5 دقايق</string>
+    <string name="system_settings_unlocked_toast_fmt">إعدادات النظام مفتوحة لمدة %1$d دقيقة</string>
+    <string name="admin_window_closed">انتهت مدة وصول الإدارة — الكشك اتقفل تاني</string>
+
+    <string name="eyebrow_admin_window">وصول مؤقت للنظام</string>
+    <string name="admin_window_desc">المدة اللي إعدادات النظام تفضل متاحة فيها لما تفتحها. بتتقفل لوحدها لما الوقت يخلص.</string>
+    <string name="admin_window_value_fmt">%1$d دقيقة</string>
+    <string name="admin_window_remaining_fmt">مفتوح دلوقتي — باقي %1$d دقيقة. هيقفل لوحده.</string>
+    <string name="admin_window_minus">مدة أقصر</string>
+    <string name="admin_window_plus">مدة أطول</string>
 
     <string name="eyebrow_kiosk_mode">وضع الكشك</string>
     <string name="mode_multi">تطبيقات كتير</string>
@@ -335,4 +344,34 @@
     <string name="diag_restriction_usb">نقل الملفات عبر USB مقفول</string>
     <string name="diag_restriction_camera">الكاميرا مقفولة</string>
     <string name="diag_restriction_screenshots">لقطات الشاشة مقفولة</string>
+
+    <!-- In-app update -->
+    <string name="eyebrow_update">تحديث التطبيق</string>
+    <string name="update_action">تحديث</string>
+    <string name="update_available_fmt">فيه تحديث: v%1$s</string>
+    <string name="update_available_title">فيه إصدار أحدث متاح</string>
+    <string name="update_available_detail_fmt">v%1$s (بناء %2$d) · %3$d ميجا · بيتنزّل عبر HTTPS وبيتأكد من البصمة قبل التسطيب.</string>
+    <string name="update_installed_fmt">المسطّب: Ironclad OS v%1$s (بناء %2$d)</string>
+    <string name="update_up_to_date">محدّث. التحديثات بتتسطّب فوق التطبيق الحالي وبتسيب كل الإعدادات.</string>
+    <string name="update_no_feed">مفيش رابط تحديثات متسجّل</string>
+    <string name="update_feed_required">حطّ رابط HTTPS لملف latest.json المنشور عشان تشغّل التحديث من جوه التطبيق.</string>
+    <string name="update_checking">بيدوّر على تحديثات…</string>
+    <string name="update_check_failed">مقدرناش نوصل لرابط التحديثات</string>
+    <string name="update_check">دوّر على تحديث</string>
+    <string name="update_now">حدّث دلوقتي</string>
+    <string name="update_later">بعدين</string>
+    <string name="update_confirm_title">تسطّب التحديث ده؟</string>
+    <string name="update_confirm_body_fmt">Ironclad OS v%1$s (بناء %2$d) هيتنزّل ويتسطّب فوق التطبيق الحالي. الإعدادات وقائمة المسموح هتفضل زي ما هي.</string>
+    <string name="update_downloading">بينزّل التحديث…</string>
+    <string name="update_progress_fmt">اتنزّل %1$d%%</string>
+    <string name="update_installing">بيسطّب…</string>
+    <string name="update_installed_again">التحديث اتسطّب. افتح التطبيق تاني عشان يتفعّل.</string>
+    <string name="update_failed">التحديث فشل</string>
+    <string name="update_needs_confirm">أكّد التسطيب على الشاشة</string>
+    <string name="update_needs_confirm_detail">أندرويد بيطلب ضغطة واحدة. اقبلها عشان يخلص. لو طلب منك تسمح بالتسطيب من Ironclad OS، شغّلها واضغط تحديث تاني.</string>
+    <string name="update_install_permission">اسمح بـ "تسطيب تطبيقات مش معروفة" لـ Ironclad OS وبعدين حدّث تاني.</string>
+    <string name="update_feed_hint">الموقع بينشر latest.json جنب ملف APK. وجّه الرابط للفولدر ده (أو الملف نفسه).</string>
+    <string name="update_feed_hint_label">رابط التحديثات</string>
+    <string name="update_feed_save">احفظ الرابط</string>
+    <string name="update_feed_saved">رابط التحديثات اتحفظ</string>
 </resources>
