@@ -76,6 +76,70 @@
             android:textColor="@android:color/white" />
     </LinearLayout>
 
+    <LinearLayout
+        android:id="@+id/unlockTimerBanner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        android:background="@color/kiosk_surface"
+        android:orientation="vertical"
+        android:padding="10dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/unlockTimerText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/kiosk_accent"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/unlockSubtract1mButton"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1"
+                android:minWidth="0dp"
+                android:text="@string/action_minus_1m" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/unlockAdd1mButton"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1"
+                android:minWidth="0dp"
+                android:text="@string/action_plus_1m" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/unlockReopenAdminButton"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1"
+                android:minWidth="0dp"
+                android:text="@string/admin_settings_button" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/unlockLockNowButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:minWidth="0dp"
+                android:text="@string/action_lock_now" />
+        </LinearLayout>
+    </LinearLayout>
+
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"

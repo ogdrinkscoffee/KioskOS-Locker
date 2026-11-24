@@ -35,13 +35,32 @@ class KioskGuardAccessibilityService : AccessibilityService() {
         }
     }
 
+    private val unlockWatchdog = object : Runnable {
+        override fun run() {
+            val prefs = KioskPreferences(this@KioskGuardAccessibilityService)
+            val expired = DevicePolicyHelper.reconcileAdminUnlockTimeout(this@KioskGuardAccessibilityService)
+            if (expired) {
+                val fgPkg = currentForegroundPkg
+                if (fgPkg != null && fgPkg in DevicePolicyHelper.BLOCKED_SETTINGS_AND_INSTALLER_PACKAGES) {
+                    currentForegroundPkg = null
+                    performGlobalAction(GLOBAL_ACTION_HOME)
+                    blockAndReturnToKiosk(fgPkg, "Temporary Admin unlock expired — Settings & Uninstall locked.")
+                }
+            } else if (prefs.getAdminUnlockUntilMs() > 0L) {
+                usageHandler.postDelayed(this, UNLOCK_CHECK_INTERVAL_MS)
+            }
+        }
+    }
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         usageHandler.removeCallbacks(usageTicker)
+        usageHandler.removeCallbacks(unlockWatchdog)
     }
 
     override fun onDestroy() {
         usageHandler.removeCallbacks(usageTicker)
+        usageHandler.removeCallbacks(unlockWatchdog)
         super.onDestroy()
     }
 
@@ -67,12 +86,18 @@ class KioskGuardAccessibilityService : AccessibilityService() {
             }
         }
 
-        if (pkgName == packageName) return
+        if (pkgName == packageName || isSystemUiNoise(pkgName)) return
 
-        val isAdminUnlocked = prefs.isSettingsAndUninstallUnlocked()
+        val expired = DevicePolicyHelper.reconcileAdminUnlockTimeout(this)
+        val isAdminUnlocked = !expired && prefs.isSettingsAndUninstallUnlocked()
+        if (isAdminUnlocked) {
+            usageHandler.removeCallbacks(unlockWatchdog)
+            usageHandler.postDelayed(unlockWatchdog, UNLOCK_CHECK_INTERVAL_MS)
+            return
+        }
 
         // 1. Settings & Package Installer Guard
-        if (!isAdminUnlocked && pkgName in DevicePolicyHelper.BLOCKED_SETTINGS_AND_INSTALLER_PACKAGES) {
+        if (pkgName in DevicePolicyHelper.BLOCKED_SETTINGS_AND_INSTALLER_PACKAGES) {
             prefs.incrementBlockedAttemptsToday()
             prefs.recordBypassAttempt("Restricted system package: $pkgName", points = 6)
             blockAndReturnToKiosk(pkgName, "Blocked $pkgName: unlock with Admin passcode.")
@@ -240,6 +265,7 @@ class KioskGuardAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val USAGE_TICK_INTERVAL_MS = 5_000L
+        private const val UNLOCK_CHECK_INTERVAL_MS = 3_000L
 
         private val IN_APP_BROWSER_ACTIVITY_HINTS = listOf(
             "CustomTab",

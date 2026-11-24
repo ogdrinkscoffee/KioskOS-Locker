@@ -6,6 +6,7 @@ import proguardRules from '../../android-kiosk-launcher/app/proguard-rules.pro?r
 import androidManifest from '../../android-kiosk-launcher/app/src/main/AndroidManifest.xml?raw';
 import deviceAdminXml from '../../android-kiosk-launcher/app/src/main/res/xml/device_admin.xml?raw';
 import accessibilityGuardXml from '../../android-kiosk-launcher/app/src/main/res/xml/accessibility_guard_config.xml?raw';
+import filePathsXml from '../../android-kiosk-launcher/app/src/main/res/xml/file_paths.xml?raw';
 import kioskApplicationKt from '../../android-kiosk-launcher/app/src/main/kotlin/com/kiosk/launcher/KioskApplication.kt?raw';
 import deviceAdminReceiverKt from '../../android-kiosk-launcher/app/src/main/kotlin/com/kiosk/launcher/admin/KioskDeviceAdminReceiver.kt?raw';
 import devicePolicyHelperKt from '../../android-kiosk-launcher/app/src/main/kotlin/com/kiosk/launcher/admin/DevicePolicyHelper.kt?raw';
@@ -17,6 +18,8 @@ import launcherActivityKt from '../../android-kiosk-launcher/app/src/main/kotlin
 import adminSettingsActivityKt from '../../android-kiosk-launcher/app/src/main/kotlin/com/kiosk/launcher/ui/AdminSettingsActivity.kt?raw';
 import pinPromptDialogKt from '../../android-kiosk-launcher/app/src/main/kotlin/com/kiosk/launcher/ui/PinPromptDialog.kt?raw';
 import cloudSyncManagerKt from '../../android-kiosk-launcher/app/src/main/kotlin/com/kiosk/launcher/sync/CloudSyncManager.kt?raw';
+import updateResultReceiverKt from '../../android-kiosk-launcher/app/src/main/kotlin/com/kiosk/launcher/update/UpdateResultReceiver.kt?raw';
+import appUpdaterKt from '../../android-kiosk-launcher/app/src/main/kotlin/com/kiosk/launcher/update/AppUpdater.kt?raw';
 import kioskPolicyTestKt from '../../android-kiosk-launcher/app/src/test/kotlin/com/kiosk/launcher/KioskPolicyTest.kt?raw';
 import stringsXml from '../../android-kiosk-launcher/app/src/main/res/values/strings.xml?raw';
 import colorsXml from '../../android-kiosk-launcher/app/src/main/res/values/colors.xml?raw';
@@ -74,6 +77,14 @@ export const ANDROID_PROJECT_FILES: AndroidProjectFile[] = [
     group: 'Manifest & Policy',
     summary: 'Window state listener config for blocking Android Settings and Package Installer.',
     content: accessibilityGuardXml,
+  },
+  {
+    id: 'file-paths-xml',
+    path: 'app/src/main/res/xml/file_paths.xml',
+    name: 'file_paths.xml',
+    group: 'Manifest & Policy',
+    summary: 'FileProvider cache-path declaration for fallback APK update installation prompts.',
+    content: filePathsXml,
   },
   {
     id: 'device-policy-helper',
@@ -138,6 +149,22 @@ export const ANDROID_PROJECT_FILES: AndroidProjectFile[] = [
     group: 'Kotlin Core',
     summary: 'Optional, offline-first REST sync client for PC Web status, growth, and password-verified remote settings.',
     content: cloudSyncManagerKt,
+  },
+  {
+    id: 'update-result-receiver',
+    path: 'app/src/main/kotlin/com/kiosk/launcher/update/UpdateResultReceiver.kt',
+    name: 'UpdateResultReceiver.kt',
+    group: 'Kotlin Core',
+    summary: 'BroadcastReceiver handling Device Owner PackageInstaller APK update & silent uninstall results.',
+    content: updateResultReceiverKt,
+  },
+  {
+    id: 'app-updater',
+    path: 'app/src/main/kotlin/com/kiosk/launcher/update/AppUpdater.kt',
+    name: 'AppUpdater.kt',
+    group: 'Kotlin Core',
+    summary: 'In-app APK updater supporting /api/apk/latest & GitHub Releases with SHA-256 verification and silent DO install.',
+    content: appUpdaterKt,
   },
   {
     id: 'launcher-activity',

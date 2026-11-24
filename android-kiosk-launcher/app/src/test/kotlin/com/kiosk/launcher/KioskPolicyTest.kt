@@ -95,4 +95,64 @@ class KioskPolicyTest {
         assertEquals("android-kiosk-1", KioskPreferences.sanitizeCloudId("   ", "android-kiosk-1"))
         assertEquals(128, KioskPreferences.sanitizeCloudId("a".repeat(200)).length)
     }
+
+    @Test
+    fun timedAdminUnlockDurationAndExpirationAdjustCleanly() {
+        assertEquals(6, KioskPreferences.adjustUnlockDurationMinutes(5, 1))
+        assertEquals(10, KioskPreferences.adjustUnlockDurationMinutes(5, 5))
+        assertEquals(1, KioskPreferences.adjustUnlockDurationMinutes(2, -5))
+        assertEquals(120, KioskPreferences.adjustUnlockDurationMinutes(118, 10))
+
+        val now = 1_700_000_000_000L
+        val untilFiveMin = now + 5 * 60_000L
+        val extended = KioskPreferences.computeAdjustedUnlockUntilMs(untilFiveMin, 5, now)
+        assertEquals(600, KioskPreferences.computeRemainingUnlockSeconds(extended, now))
+
+        val expired = KioskPreferences.computeAdjustedUnlockUntilMs(now + 60_000L, -2, now)
+        assertEquals(0L, expired)
+        assertEquals(0, KioskPreferences.computeRemainingUnlockSeconds(expired, now))
+    }
+
+    @Test
+    fun apkVersionComparisonAndManifestParsingWorkForServerAndGitHub() {
+        assertTrue(KioskPreferences.isNewerAppVersion(2, 1, "1.1.0", "1.0.0"))
+        assertTrue(KioskPreferences.isNewerAppVersion(0, 1, "1.2.0", "1.1.0"))
+        assertFalse(KioskPreferences.isNewerAppVersion(1, 2, "1.0.0", "1.1.0"))
+        assertFalse(KioskPreferences.isNewerAppVersion(0, 1, "1.0.0", "1.0.0"))
+
+        val serverJson = """
+            {
+              "versionCode": 3,
+              "versionName": "1.2.0",
+              "downloadUrl": "/api/apk/download",
+              "releaseNotes": "Fixed Home, Keyguard, and Status Bar",
+              "sha256": "ABCDEF"
+            }
+        """.trimIndent()
+        val parsedServer = KioskPreferences.parseUpdateManifestJson(
+            serverJson,
+            "https://kiosk.example.com/api/apk/latest"
+        )
+        assertNotNull(parsedServer)
+        assertEquals(3, parsedServer?.versionCode)
+        assertEquals("https://kiosk.example.com/api/apk/download", parsedServer?.downloadUrl)
+        assertEquals("abcdef", parsedServer?.sha256)
+
+        val ghJson = """
+            {
+              "tag_name": "v1.3.0",
+              "body": "Automated APK release",
+              "assets": [
+                {
+                  "name": "kiosk-release.apk",
+                  "browser_download_url": "https://github.com/org/repo/releases/download/v1.3.0/kiosk-release.apk"
+                }
+              ]
+            }
+        """.trimIndent()
+        val parsedGh = KioskPreferences.parseUpdateManifestJson(ghJson)
+        assertNotNull(parsedGh)
+        assertEquals("1.3.0", parsedGh?.versionName)
+        assertTrue(parsedGh?.downloadUrl?.endsWith(".apk") == true)
+    }
 }

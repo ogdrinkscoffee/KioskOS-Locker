@@ -90,6 +90,23 @@ export interface DowntimeSchedule {
   simulateActiveNow: boolean;
 }
 
+export interface LockTaskFeaturesState {
+  home: boolean;
+  notifications: boolean;
+  systemInfo: boolean;
+  keyguard: boolean;
+  globalActions: boolean;
+}
+
+export interface ApkReleaseManifest {
+  versionCode: number;
+  versionName: string;
+  downloadUrl: string;
+  releaseNotes?: string;
+  sha256?: string;
+  source?: string;
+}
+
 export interface KioskState {
   isDeviceOwner: boolean;
   adminPin: string;
@@ -118,8 +135,15 @@ export interface KioskState {
   browserCurrentUrl: string;
   browserBlockedUrl: string | null;
   customApps: SimulatedAndroidApp[];
+  uninstalledPackages: string[];
   allowedPackages: string[];
   adminUnlocked: boolean;
+  adminUnlockDurationMinutes: number;
+  adminUnlockUntilMs: number;
+  keyguardLocked: boolean;
+  installedApkVersionCode: number;
+  installedApkVersionName: string;
+  apkUpdateManifestUrl: string;
   activeScreen: KioskScreen;
   activeAppPackage: string | null;
   lockTaskActive: boolean;
@@ -136,6 +160,11 @@ export const MIN_ADMIN_PIN_LENGTH = 4;
 export const MAX_ADMIN_PIN_LENGTH = 50;
 export const MAX_FAILED_PIN_ATTEMPTS = 5;
 export const PIN_LOCKOUT_DURATION_MS = 30_000;
+export const DEFAULT_ADMIN_UNLOCK_MINUTES = 5;
+export const MIN_ADMIN_UNLOCK_MINUTES = 1;
+export const MAX_ADMIN_UNLOCK_MINUTES = 120;
+export const BUILTIN_APK_VERSION_CODE = 2;
+export const BUILTIN_APK_VERSION_NAME = '1.1.0';
 
 export const TAMPER_WINDOW_MS = 15_000;
 export const RAPID_ADMIN_TOGGLE_THRESHOLD = 4;
@@ -337,6 +366,12 @@ export const RESTRICTED_SYSTEM_PACKAGES = new Set([
   'com.android.settings',
   'com.android.packageinstaller',
   'com.google.android.packageinstaller',
+  'com.samsung.android.packageinstaller',
+  'com.miui.packageinstaller',
+  'com.oplus.packageinstaller',
+  'com.coloros.packageinstaller',
+  'com.android.permissioncontroller',
+  'com.google.android.permissioncontroller',
   'com.android.vending',
 ]);
 
@@ -381,6 +416,7 @@ export function createInitialKioskState(): KioskState {
     browserCurrentUrl: `https://${DEFAULT_ALLOWED_DOMAINS[0]}`,
     browserBlockedUrl: null,
     customApps: [],
+    uninstalledPackages: [],
     allowedPackages: [
       SELF_IMPROVEMENT_PACKAGE,
       KIOSK_BROWSER_PACKAGE,
@@ -389,6 +425,12 @@ export function createInitialKioskState(): KioskState {
       'com.enterprise.scanner',
     ],
     adminUnlocked: false,
+    adminUnlockDurationMinutes: DEFAULT_ADMIN_UNLOCK_MINUTES,
+    adminUnlockUntilMs: 0,
+    keyguardLocked: false,
+    installedApkVersionCode: BUILTIN_APK_VERSION_CODE,
+    installedApkVersionName: BUILTIN_APK_VERSION_NAME,
+    apkUpdateManifestUrl: '',
     activeScreen: 'home',
     activeAppPackage: null,
     lockTaskActive: true,
@@ -418,7 +460,10 @@ export function createInitialKioskState(): KioskState {
 }
 
 export function getAllInstalledApps(state: KioskState): SimulatedAndroidApp[] {
-  return [...INSTALLED_APPS, ...(state.customApps ?? [])];
+  const removed = new Set(state.uninstalledPackages ?? []);
+  return [...INSTALLED_APPS, ...(state.customApps ?? [])].filter(
+    (app) => !removed.has(app.packageName)
+  );
 }
 
 export function getEnforcedRestrictions(state: KioskState): Record<RestrictionKey, boolean> {
@@ -445,12 +490,43 @@ export function getExtendedPolicies(state: KioskState): Record<ExtendedPolicyKey
     DISALLOW_USB_FILE_TRANSFER: doActive && hw.usbTransferBlocked,
     DISALLOW_MOUNT_PHYSICAL_MEDIA: doActive && hw.usbTransferBlocked,
     DISALLOW_CONFIG_DATE_TIME: doActive && hw.dateTimeLocked,
-    SET_STATUS_BAR_DISABLED: doActive && hw.statusBarDisabled,
+    SET_STATUS_BAR_DISABLED: doActive && hw.statusBarDisabled && !state.adminUnlocked,
     SET_CAMERA_DISABLED: doActive && hw.cameraDisabled,
-    SET_KEYGUARD_DISABLED: doActive && hw.keyguardDisabled,
+    SET_KEYGUARD_DISABLED: doActive && hw.keyguardDisabled && !state.adminUnlocked,
     SET_SCREEN_CAPTURE_DISABLED: doActive && hw.screenCaptureDisabled,
     KEEP_SCREEN_AWAKE: hw.keepScreenAwake,
   };
+}
+
+export function getLockTaskFeatures(state: KioskState): LockTaskFeaturesState {
+  if (!state.isDeviceOwner) {
+    return {
+      home: true,
+      notifications: true,
+      systemInfo: true,
+      keyguard: true,
+      globalActions: true,
+    };
+  }
+  const hw = state.hardwareLocks ?? DEFAULT_HARDWARE_LOCKS;
+  const home = state.kioskMode === 'multi_app' || state.adminUnlocked;
+  const statusBarAllowed = !hw.statusBarDisabled || state.adminUnlocked;
+  const keyguardAllowed = !hw.keyguardDisabled || state.adminUnlocked;
+  return {
+    home,
+    // Android enforces that LOCK_TASK_FEATURE_NOTIFICATIONS requires LOCK_TASK_FEATURE_HOME
+    notifications: home && statusBarAllowed,
+    systemInfo: statusBarAllowed,
+    keyguard: keyguardAllowed,
+    globalActions: state.adminUnlocked,
+  };
+}
+
+export function getAdminUnlockRemainingSeconds(state: KioskState, nowMs = Date.now()): number {
+  if (!state.adminUnlocked) return 0;
+  const untilMs = state.adminUnlockUntilMs ?? 0;
+  if (untilMs <= 0) return 0;
+  return Math.max(0, Math.ceil((untilMs - nowMs) / 1000));
 }
 
 export function isWithinScheduleHours(
@@ -1078,12 +1154,14 @@ export function launchApp(
       ...currentState,
       activeScreen: 'self_improvement',
       activeAppPackage: packageName,
-      lockTaskActive: currentState.isDeviceOwner,
+      lockTaskActive: currentState.isDeviceOwner && !currentState.adminUnlocked,
       blockedNotice: null,
       events: appendEvent(
         currentState.events,
-        'startActivity(SelfImprovementActivity, setLockTaskEnabled(true))',
-        'Launched integrated Focus & Growth self-improvement hub in LockTask mode.',
+        currentState.adminUnlocked
+          ? 'startActivity(SelfImprovementActivity, unlocked=true)'
+          : 'startActivity(SelfImprovementActivity, LOCK_TASK_FEATURE_HOME)',
+        'Launched integrated Focus & Growth self-improvement hub.',
         'allowed',
         timestamp
       ),
@@ -1098,11 +1176,13 @@ export function launchApp(
       activeAppPackage: packageName,
       browserCurrentUrl: `https://${startHost}`,
       browserBlockedUrl: null,
-      lockTaskActive: currentState.isDeviceOwner,
+      lockTaskActive: currentState.isDeviceOwner && !currentState.adminUnlocked,
       blockedNotice: null,
       events: appendEvent(
         currentState.events,
-        'startActivity(KioskBrowserActivity, setLockTaskEnabled(true))',
+        currentState.adminUnlocked
+          ? 'startActivity(KioskBrowserActivity, unlocked=true)'
+          : 'startActivity(KioskBrowserActivity, setLockTaskEnabled(true))',
         `Launched Kiosk Browser pinned to allowlist (${currentState.allowedDomains.length} domains).`,
         'allowed',
         timestamp
@@ -1114,14 +1194,18 @@ export function launchApp(
     ...currentState,
     activeScreen: 'app_lock_task',
     activeAppPackage: packageName,
-    lockTaskActive: currentState.isDeviceOwner,
+    lockTaskActive: currentState.isDeviceOwner && !currentState.adminUnlocked,
     blockedNotice: null,
     events: appendEvent(
       currentState.events,
-      currentState.isDeviceOwner
+      currentState.adminUnlocked
+        ? `startActivity("${packageName}", standardTask=true)`
+        : currentState.isDeviceOwner
         ? `startActivity("${packageName}", setLockTaskEnabled(true))`
         : `startLockTask(); startActivity("${packageName}")`,
-      `Launched ${app.label} in pinned LockTask mode.`,
+      currentState.adminUnlocked
+        ? `Launched ${app.label} outside LockTask under timed Admin unlock.`
+        : `Launched ${app.label} in LockTask mode${currentState.kioskMode === 'multi_app' ? ' (HOME enabled)' : ''}.`,
       'allowed',
       timestamp
     ),
@@ -1168,13 +1252,31 @@ export function attemptUninstallApp(
     return recordBypassAttempt(blocked, `Unauthorized uninstall attempt: ${packageName}`, 6, timestamp, nowMs);
   }
 
+  if (!app) {
+    return {
+      ...state,
+      blockedNotice: `${packageName} is already uninstalled.`,
+    };
+  }
+
+  const nextUninstalled = Array.from(new Set([...(state.uninstalledPackages ?? []), packageName]));
+  const nextAllowed = state.allowedPackages.filter((pkg) => pkg !== packageName);
+  const nextCustom = (state.customApps ?? []).filter((item) => item.packageName !== packageName);
+  const nextSingle =
+    state.singleAppPackage === packageName ? SELF_IMPROVEMENT_PACKAGE : state.singleAppPackage;
+
   return {
     ...state,
+    uninstalledPackages: nextUninstalled,
+    allowedPackages: nextAllowed,
+    customApps: nextCustom,
+    singleAppPackage: nextSingle,
+    activeAppPackage: state.activeAppPackage === packageName ? null : state.activeAppPackage,
     blockedNotice: null,
     events: appendEvent(
       state.events,
-      `PackageInstaller.uninstall("${packageName}")`,
-      `Uninstall prompt permitted for ${label} under temporary Admin PIN unlock.`,
+      `PackageInstaller.uninstall("${packageName}") -> UNINSTALLED`,
+      `Uninstalled ${label} (${packageName}) via Device Owner PackageInstaller and removed from Kiosk allowlist.`,
       'allowed',
       timestamp
     ),
@@ -1270,6 +1372,7 @@ export function submitPin(
         activeAppPackage: null,
         pinGateTarget: null,
         adminUnlocked: false,
+        adminUnlockUntilMs: 0,
         lockTaskActive: state.isDeviceOwner,
         blockedNotice: null,
         events: appendEvent(
@@ -1284,6 +1387,10 @@ export function submitPin(
   }
 
   if (target === 'unlock_system') {
+    const durationMins = Math.max(
+      MIN_ADMIN_UNLOCK_MINUTES,
+      Math.min(MAX_ADMIN_UNLOCK_MINUTES, clearedState.adminUnlockDurationMinutes ?? DEFAULT_ADMIN_UNLOCK_MINUTES)
+    );
     return {
       verified: true,
       nextState: {
@@ -1291,11 +1398,14 @@ export function submitPin(
         activeScreen: 'admin_settings',
         pinGateTarget: null,
         adminUnlocked: true,
+        adminUnlockDurationMinutes: durationMins,
+        adminUnlockUntilMs: nowMs + durationMins * 60_000,
+        lockTaskActive: false,
         blockedNotice: null,
         events: appendEvent(
           clearedState.events,
-          'DevicePolicyHelper.setAdminUnlockState(true)',
-          'Admin passcode verified: Settings & Uninstall temporarily unlocked.',
+          `DevicePolicyHelper.setAdminUnlockState(true, ${durationMins}m)`,
+          `Admin passcode verified: Settings, Uninstall, Status Bar & Keyguard unlocked for ${durationMins}m.`,
           'allowed',
           timestamp
         ),
@@ -1830,15 +1940,26 @@ export function setAdminSystemUnlock(
   timestamp = '08:31:25',
   nowMs = Date.now()
 ): KioskState {
+  const durationMins = Math.max(
+    MIN_ADMIN_UNLOCK_MINUTES,
+    Math.min(MAX_ADMIN_UNLOCK_MINUTES, state.adminUnlockDurationMinutes ?? DEFAULT_ADMIN_UNLOCK_MINUTES)
+  );
+  const untilMs = unlocked ? nowMs + durationMins * 60_000 : 0;
+
   const updated: KioskState = {
     ...state,
     adminUnlocked: unlocked,
+    adminUnlockDurationMinutes: durationMins,
+    adminUnlockUntilMs: untilMs,
+    lockTaskActive: state.isDeviceOwner && !unlocked,
     events: appendEvent(
       state.events,
-      `DevicePolicyHelper.setAdminUnlockState(${unlocked})`,
       unlocked
-        ? 'Temporarily lifted DISALLOW_APPS_CONTROL & unsuspended Settings/PackageInstaller.'
-        : 'Re-enforced DISALLOW_APPS_CONTROL & suspended Settings/PackageInstaller.',
+        ? `DevicePolicyHelper.setAdminUnlockState(true, ${durationMins}m)`
+        : 'DevicePolicyHelper.setAdminUnlockState(false)',
+      unlocked
+        ? `Temporarily unlocked Settings, Uninstall, Status Bar & Keyguard for ${durationMins}m.`
+        : 'Re-enforced DISALLOW_APPS_CONTROL, LockTask & suspended Settings/PackageInstaller.',
       unlocked ? 'info' : 'enforced',
       timestamp
     ),
@@ -1846,22 +1967,337 @@ export function setAdminSystemUnlock(
   return recordAdminSettingMutation(updated, `adminUnlock=${unlocked}`, timestamp, nowMs);
 }
 
-export function returnToKioskHome(
+export function adjustAdminUnlockTime(
   state: KioskState,
-  timestamp = '08:31:30'
+  deltaMinutes: number,
+  timestamp = '08:31:25',
+  nowMs = Date.now()
 ): KioskState {
+  const currentPlanned = state.adminUnlockDurationMinutes ?? DEFAULT_ADMIN_UNLOCK_MINUTES;
+  const nextPlanned = Math.max(
+    MIN_ADMIN_UNLOCK_MINUTES,
+    Math.min(MAX_ADMIN_UNLOCK_MINUTES, currentPlanned + Math.trunc(deltaMinutes))
+  );
+
+  if (!state.adminUnlocked) {
+    return {
+      ...state,
+      adminUnlockDurationMinutes: nextPlanned,
+      events: appendEvent(
+        state.events,
+        `KioskPreferences.setAdminUnlockDurationMinutes(${nextPlanned}m)`,
+        `Set default temporary Admin unlock duration to ${nextPlanned}m.`,
+        'info',
+        timestamp
+      ),
+    };
+  }
+
+  const baseUntil = Math.max(nowMs, state.adminUnlockUntilMs || nowMs);
+  const minUntil = nowMs + MIN_ADMIN_UNLOCK_MINUTES * 60_000;
+  const maxUntil = nowMs + MAX_ADMIN_UNLOCK_MINUTES * 60_000;
+  const nextUntil = Math.max(minUntil, Math.min(maxUntil, baseUntil + Math.trunc(deltaMinutes) * 60_000));
+  const newRemainingMins = Math.max(1, Math.ceil((nextUntil - nowMs) / 60_000));
+
   return {
     ...state,
+    adminUnlockDurationMinutes: newRemainingMins,
+    adminUnlockUntilMs: nextUntil,
+    events: appendEvent(
+      state.events,
+      `KioskPreferences.adjustAdminUnlockTime(${deltaMinutes >= 0 ? '+' : ''}${deltaMinutes}m)`,
+      `Adjusted active Settings/Uninstall unlock timer to ${newRemainingMins}m remaining.`,
+      'info',
+      timestamp
+    ),
+  };
+}
+
+export function reconcileAdminUnlockExpiry(
+  state: KioskState,
+  timestamp = '08:36:25',
+  nowMs = Date.now()
+): KioskState {
+  if (!state.adminUnlocked) return state;
+  const untilMs = state.adminUnlockUntilMs ?? 0;
+  if (untilMs <= 0 || nowMs < untilMs) return state;
+
+  const evictedFromAndroidSettings = state.activeScreen === 'android_settings';
+  return {
+    ...state,
+    adminUnlocked: false,
+    adminUnlockUntilMs: 0,
+    activeScreen: evictedFromAndroidSettings ? 'home' : state.activeScreen,
+    activeAppPackage: evictedFromAndroidSettings ? null : state.activeAppPackage,
+    lockTaskActive: state.isDeviceOwner,
+    blockedNotice: evictedFromAndroidSettings
+      ? 'Timed Admin Unlock expired: Android Settings closed and kiosk restrictions re-locked.'
+      : state.blockedNotice,
+    events: appendEvent(
+      state.events,
+      'DevicePolicyHelper.reconcileAdminUnlockTimeout() -> EXPIRED',
+      'Timed Admin unlock expired; re-applied DISALLOW_APPS_CONTROL, LockTask, Status Bar & Keyguard policies.',
+      'enforced',
+      timestamp
+    ),
+  };
+}
+
+export function returnToKioskHome(
+  state: KioskState,
+  timestamp = '08:31:30',
+  keepUnlock = false,
+  nowMs = Date.now()
+): KioskState {
+  const reconciled = reconcileAdminUnlockExpiry(state, timestamp, nowMs);
+  const preserveUnlock =
+    keepUnlock &&
+    reconciled.adminUnlocked &&
+    (reconciled.adminUnlockUntilMs === 0 || reconciled.adminUnlockUntilMs > nowMs);
+  const remainingMins = preserveUnlock
+    ? Math.max(1, Math.ceil(getAdminUnlockRemainingSeconds(reconciled, nowMs) / 60))
+    : 0;
+
+  return {
+    ...reconciled,
     activeScreen: 'home',
     activeAppPackage: null,
     pinGateTarget: null,
-    adminUnlocked: false,
-    lockTaskActive: state.isDeviceOwner,
+    adminUnlocked: preserveUnlock,
+    adminUnlockUntilMs: preserveUnlock ? reconciled.adminUnlockUntilMs : 0,
+    lockTaskActive: reconciled.isDeviceOwner && !preserveUnlock,
+    blockedNotice: null,
+    events: appendEvent(
+      reconciled.events,
+      'KioskLauncherActivity.onResume()',
+      preserveUnlock
+        ? `Returned to Kiosk Home while timed unlock remains active (${remainingMins}m left).`
+        : 'Returned to Kiosk Home; temporary Settings/Uninstall unlock revoked.',
+      preserveUnlock ? 'info' : 'enforced',
+      timestamp
+    ),
+  };
+}
+
+export function pressSystemNavButton(
+  state: KioskState,
+  buttonName: 'Back' | 'Home' | 'Recents',
+  timestamp = '08:31:28',
+  nowMs = Date.now()
+): KioskState {
+  const working = reconcileAdminUnlockExpiry(state, timestamp, nowMs);
+
+  if (working.keyguardLocked) {
+    return {
+      ...working,
+      blockedNotice: 'Unlock the Android lock screen first.',
+    };
+  }
+
+  if (working.activeScreen === 'home') {
+    if (buttonName === 'Recents' && !working.adminUnlocked) {
+      return {
+        ...working,
+        blockedNotice: 'Recents / Task Switcher is disabled while Kiosk LockTask is active.',
+      };
+    }
+    return {
+      ...working,
+      blockedNotice: null,
+    };
+  }
+
+  if (working.activeScreen === 'pin_gate') {
+    if (buttonName === 'Home' || buttonName === 'Back') {
+      return returnToKioskHome(working, timestamp, working.adminUnlocked, nowMs);
+    }
+    return working;
+  }
+
+  if (working.activeScreen === 'android_settings' || working.activeScreen === 'admin_settings') {
+    if (buttonName === 'Home' || buttonName === 'Back') {
+      return returnToKioskHome(working, timestamp, working.adminUnlocked, nowMs);
+    }
+    return working;
+  }
+
+  const features = getLockTaskFeatures(working);
+
+  if (buttonName === 'Recents') {
+    if (!working.adminUnlocked) {
+      return {
+        ...working,
+        blockedNotice: 'Recents / App Switcher is disabled in LockTask mode.',
+        events: appendEvent(
+          working.events,
+          'SystemNav.Recents -> BLOCKED',
+          'Blocked Recents overview while LockTask mode is active.',
+          'blocked',
+          timestamp
+        ),
+      };
+    }
+    return returnToKioskHome(working, timestamp, true, nowMs);
+  }
+
+  if (buttonName === 'Home') {
+    if (features.home || working.adminUnlocked) {
+      const preserved = working.adminUnlocked && getAdminUnlockRemainingSeconds(working, nowMs) > 0;
+      const next = returnToKioskHome(working, timestamp, preserved, nowMs);
+      return {
+        ...next,
+        events: appendEvent(
+          next.events,
+          'SystemNav.Home (LOCK_TASK_FEATURE_HOME) -> KioskLauncherActivity',
+          'Home button cleanly exited foreground app back to Kiosk Home.',
+          'allowed',
+          timestamp
+        ),
+      };
+    }
+    return {
+      ...working,
+      blockedNotice:
+        'Home button is locked in Single-App / Dedicated Browser mode. Exit via Admin Passcode or switch to Multi-App mode.',
+      events: appendEvent(
+        working.events,
+        'SystemNav.Home -> BLOCKED (Single-App Lock)',
+        'Home button disabled because Dedicated Single-App / Browser mode omits LOCK_TASK_FEATURE_HOME.',
+        'blocked',
+        timestamp
+      ),
+    };
+  }
+
+  // Back button inside an app
+  if (
+    working.activeScreen === 'kiosk_browser' ||
+    working.activeScreen === 'self_improvement' ||
+    working.kioskMode === 'multi_app' ||
+    working.adminUnlocked
+  ) {
+    const preserved = working.adminUnlocked && getAdminUnlockRemainingSeconds(working, nowMs) > 0;
+    const next = returnToKioskHome(working, timestamp, preserved, nowMs);
+    return {
+      ...next,
+      events: appendEvent(
+        next.events,
+        'SystemNav.Back -> KioskLauncherActivity',
+        'Back button closed current view and returned to Kiosk Home.',
+        'allowed',
+        timestamp
+      ),
+    };
+  }
+
+  return {
+    ...working,
+    blockedNotice: 'Back exit disabled in Single-App Lock mode. Use Admin Passcode to exit.',
+  };
+}
+
+export function triggerScreenLock(
+  state: KioskState,
+  timestamp = '08:31:29',
+  nowMs = Date.now()
+): KioskState {
+  const working = reconcileAdminUnlockExpiry(state, timestamp, nowMs);
+  const keyguardDisabledByPolicy =
+    working.isDeviceOwner &&
+    (working.hardwareLocks?.keyguardDisabled ?? false) &&
+    !working.adminUnlocked;
+
+  if (keyguardDisabledByPolicy) {
+    return {
+      ...working,
+      keyguardLocked: false,
+      blockedNotice:
+        'Lock screen did not appear because "Skip Lockscreen Keyguard" (setKeyguardDisabled) is enabled in Admin Settings.',
+      events: appendEvent(
+        working.events,
+        'dpm.getKeyguardDisabled(admin) -> true (Keyguard Skipped)',
+        'Screen lock skipped because setKeyguardDisabled(true) is enabled. Turn off Skip Lockscreen Keyguard to allow normal lock screen.',
+        'info',
+        timestamp
+      ),
+    };
+  }
+
+  return {
+    ...working,
+    keyguardLocked: true,
+    blockedNotice: null,
+    events: appendEvent(
+      working.events,
+      'PowerManager / KeyguardManager.lockNow() -> LOCKED',
+      'Locked device display to Android Keyguard lock screen.',
+      'enforced',
+      timestamp
+    ),
+  };
+}
+
+export function dismissKeyguard(
+  state: KioskState,
+  timestamp = '08:31:31'
+): KioskState {
+  return {
+    ...state,
+    keyguardLocked: false,
     blockedNotice: null,
     events: appendEvent(
       state.events,
-      'KioskLauncherActivity.onResume()',
-      'Returned to Kiosk Home; temporary Settings/Uninstall unlock automatically revoked.',
+      'KeyguardManager.dismissKeyguard() -> UNLOCKED',
+      'Unlocked Android Keyguard back to Kiosk screen.',
+      'allowed',
+      timestamp
+    ),
+  };
+}
+
+export function compareAppVersion(
+  remoteCode: number,
+  currentCode: number,
+  remoteName?: string,
+  currentName?: string
+): boolean {
+  if (remoteCode > currentCode) return true;
+  if (remoteCode < currentCode) return false;
+  if (!remoteName || !currentName) return false;
+
+  const parse = (v: string) =>
+    v
+      .trim()
+      .replace(/^v/i, '')
+      .split('-')[0]
+      .split('.')
+      .map((p) => Number.parseInt(p, 10) || 0);
+  const rParts = parse(remoteName);
+  const cParts = parse(currentName);
+  const len = Math.max(rParts.length, cParts.length);
+  for (let i = 0; i < len; i += 1) {
+    const r = rParts[i] ?? 0;
+    const c = cParts[i] ?? 0;
+    if (r > c) return true;
+    if (r < c) return false;
+  }
+  return false;
+}
+
+export function applySimulatedApkUpdate(
+  state: KioskState,
+  manifest: ApkReleaseManifest,
+  timestamp = '08:32:10'
+): KioskState {
+  return {
+    ...state,
+    installedApkVersionCode: manifest.versionCode,
+    installedApkVersionName: manifest.versionName,
+    blockedNotice: null,
+    events: appendEvent(
+      state.events,
+      `PackageInstaller.Session.commit(v${manifest.versionName}, build ${manifest.versionCode})`,
+      `In-app APK update installed cleanly (${manifest.source ?? 'remote'}) without breaking Device Owner privileges.`,
       'enforced',
       timestamp
     ),
@@ -2189,6 +2625,8 @@ export function simulateDeviceReboot(
   const resetBase: KioskState = {
     ...rolled,
     adminUnlocked: false,
+    adminUnlockUntilMs: 0,
+    keyguardLocked: false,
     activeScreen: 'home',
     activeAppPackage: null,
     pinGateTarget: null,
@@ -2269,6 +2707,7 @@ export function triggerPanicLockdown(
     activeAppPackage: null,
     pinGateTarget: null,
     adminUnlocked: false,
+    adminUnlockUntilMs: 0,
     lockTaskActive: state.isDeviceOwner,
     browserCurrentUrl: 'about:blank',
     browserBlockedUrl: null,

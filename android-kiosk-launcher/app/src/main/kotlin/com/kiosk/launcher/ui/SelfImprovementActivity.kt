@@ -13,11 +13,16 @@ import android.text.Spannable
 import android.text.style.StyleSpan
 import android.util.TypedValue
 import android.view.View
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.text.HtmlCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.kiosk.launcher.R
 import com.kiosk.launcher.admin.DevicePolicyHelper
+import com.kiosk.launcher.data.KioskPreferences
 import com.kiosk.launcher.databinding.ActivitySelfImprovementBinding
 import com.kiosk.launcher.selfimprovement.KioskHabit
 import com.kiosk.launcher.selfimprovement.KioskNote
@@ -37,6 +42,7 @@ import java.util.UUID
 class SelfImprovementActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivitySelfImprovementBinding
+    private lateinit var prefs: KioskPreferences
     private lateinit var repo: SelfImprovementRepository
     private var activeNoteId: String? = null
     private var currentFontFamily: String = "sans"
@@ -50,13 +56,9 @@ class SelfImprovementActivity : AppCompatActivity() {
         binding = ActivitySelfImprovementBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        prefs = KioskPreferences(this)
         repo = SelfImprovementRepository(this)
-        if (DevicePolicyHelper.isDeviceOwner(this)) {
-            try {
-                startLockTask()
-            } catch (_: IllegalStateException) {
-            }
-        }
+        syncWindowAndLockTask()
 
         setupSectionTabs()
         setupStreakControls()
@@ -66,6 +68,12 @@ class SelfImprovementActivity : AppCompatActivity() {
         refreshAllSections()
     }
 
+    override fun onResume() {
+        super.onResume()
+        DevicePolicyHelper.reconcileAdminUnlockTimeout(this)
+        syncWindowAndLockTask()
+    }
+
     override fun onDestroy() {
         focusTimer?.cancel()
         super.onDestroy()
@@ -73,7 +81,43 @@ class SelfImprovementActivity : AppCompatActivity() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        // Preserves rich note edits and active tab state across rotation/font-scale changes
+        applySystemBarVisibility()
+    }
+
+    private fun syncWindowAndLockTask() {
+        if (prefs.isKeepScreenAwake()) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        val unlocked = prefs.isSettingsAndUninstallUnlocked()
+        if (unlocked) {
+            try {
+                stopLockTask()
+            } catch (_: IllegalStateException) {
+            }
+        } else if (DevicePolicyHelper.isDeviceOwner(this)) {
+            DevicePolicyHelper.syncLockTaskPackages(this)
+            try {
+                startLockTask()
+            } catch (_: IllegalStateException) {
+            }
+        }
+        applySystemBarVisibility()
+    }
+
+    private fun applySystemBarVisibility() {
+        val shouldHideStatusBar = !prefs.isSettingsAndUninstallUnlocked() && prefs.isStatusBarDisabled()
+        WindowCompat.setDecorFitsSystemWindows(window, !shouldHideStatusBar)
+        WindowInsetsControllerCompat(window, binding.root).apply {
+            if (shouldHideStatusBar) {
+                hide(WindowInsetsCompat.Type.statusBars())
+                systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            } else {
+                show(WindowInsetsCompat.Type.statusBars())
+            }
+        }
     }
 
     private fun setupSectionTabs() {

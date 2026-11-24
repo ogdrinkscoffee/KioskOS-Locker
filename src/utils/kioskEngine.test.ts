@@ -7,17 +7,24 @@ import {
   SELF_IMPROVEMENT_PACKAGE,
   activateStrictShieldLock,
   addCustomApp,
+  adjustAdminUnlockTime,
   advanceAppUsage,
+  applySimulatedApkUpdate,
   attemptUninstallApp,
   clearPanicLockdown,
+  compareAppVersion,
   createInitialKioskState,
   DEFAULT_KIOSK_PIN,
+  dismissKeyguard,
+  getAdminUnlockRemainingSeconds,
+  getAllInstalledApps,
   getAppRemainingSeconds,
   getAppScheduleOrLimitBlockReason,
   getEnforcedRestrictions,
   getExtendedPolicies,
   getFocusBlockRemainingMinutes,
   getLocalDateIso,
+  getLockTaskFeatures,
   getLockTaskWhitelist,
   getPanicLockRemainingMinutes,
   getPinLockoutRemainingSeconds,
@@ -29,6 +36,8 @@ import {
   launchApp,
   navigateKioskBrowser,
   openPinGate,
+  pressSystemNavButton,
+  reconcileAdminUnlockExpiry,
   resetAppUsage,
   resetTamperDiagnostics,
   returnToKioskHome,
@@ -45,6 +54,7 @@ import {
   toggleDeviceOwnerMode,
   toggleHardwarePolicy,
   triggerPanicLockdown,
+  triggerScreenLock,
   updateAdminPin,
   updateAllowedDomains,
   updateBlockedKeywords,
@@ -128,11 +138,13 @@ test('Admin can add any custom app, change PIN from 1234, launch via startLockTa
   assert.equal(updatedPin.ok, true);
   state = updatedPin.nextState;
 
-  // Launch custom app via startLockTask
-  state = setAdminSystemUnlock(state, true);
+  // Launch custom app via startLockTask in kiosk mode, then unlock for admin and reboot
   state = launchApp(state, 'com.amazon.kindle');
   assert.equal(state.activeScreen, 'app_lock_task');
   assert.equal(state.lockTaskActive, true);
+
+  state = setAdminSystemUnlock(state, true);
+  assert.equal(state.adminUnlocked, true);
 
   const afterReboot = simulateDeviceReboot(state);
   assert.equal(afterReboot.activeScreen, 'home');
@@ -519,4 +531,165 @@ test('Emergency Panic Button kills active apps, scrubs browser & clipboard, lock
   const browserAfterClear = launchApp(cleared, KIOSK_BROWSER_PACKAGE, '09:14:05', baseTime + 185_000);
   assert.equal(browserAfterClear.activeScreen, 'kiosk_browser');
 });
+
+test('Home button cleanly exits foreground apps in Multi-App mode while Single-App locks Home unless unlocked', () => {
+  const baseTime = 1_700_000_000_000;
+  let state = createInitialKioskState();
+
+  assert.equal(getLockTaskFeatures(state).home, true);
+
+  // Multi-App: Home exits Retail POS, Kiosk Browser, and Focus & Growth cleanly
+  for (const pkg of ['com.enterprise.pos', KIOSK_BROWSER_PACKAGE, SELF_IMPROVEMENT_PACKAGE]) {
+    state = launchApp(state, pkg, '09:00:00', baseTime);
+    assert.notEqual(state.activeScreen, 'home');
+    state = pressSystemNavButton(state, 'Home', '09:00:05', baseTime + 5000);
+    assert.equal(state.activeScreen, 'home');
+    assert.equal(state.activeAppPackage, null);
+    assert.equal(state.blockedNotice, null);
+  }
+
+  // Recents remains blocked during normal kiosk LockTask mode
+  state = launchApp(state, 'com.enterprise.pos', '09:01:00', baseTime + 60_000);
+  const blockedRecents = pressSystemNavButton(state, 'Recents', '09:01:05', baseTime + 65_000);
+  assert.equal(blockedRecents.activeScreen, 'app_lock_task');
+  assert.ok(blockedRecents.blockedNotice?.includes('Recents'));
+
+  // Single-App mode omits LOCK_TASK_FEATURE_HOME and blocks Home button
+  let single = setKioskOperationMode(createInitialKioskState(), 'single_app', 'com.enterprise.pos');
+  assert.equal(getLockTaskFeatures(single).home, false);
+  single = launchApp(single, 'com.enterprise.pos', '09:02:00', baseTime);
+  const singleHomeBlocked = pressSystemNavButton(single, 'Home', '09:02:05', baseTime + 5000);
+  assert.equal(singleHomeBlocked.activeScreen, 'app_lock_task');
+  assert.ok(singleHomeBlocked.blockedNotice?.includes('Home button is locked'));
+});
+
+test('Keyguard lock screen and Status Bar notification shade respect hardware toggles & LockTask features', () => {
+  const baseTime = 1_700_000_000_000;
+  let state = createInitialKioskState();
+
+  // Default state has statusBarDisabled=true and keyguardDisabled=false
+  assert.equal(getExtendedPolicies(state).SET_STATUS_BAR_DISABLED, true);
+  assert.equal(getExtendedPolicies(state).SET_KEYGUARD_DISABLED, false);
+  assert.deepEqual(getLockTaskFeatures(state), {
+    home: true,
+    notifications: false,
+    systemInfo: false,
+    keyguard: true,
+    globalActions: false,
+  });
+
+  // Turning off statusBarDisabled enables NOTIFICATIONS + SYSTEM_INFO in LockTaskFeatures
+  state = toggleHardwarePolicy(state, 'statusBarDisabled', false, '09:00:00', baseTime);
+  assert.equal(getExtendedPolicies(state).SET_STATUS_BAR_DISABLED, false);
+  assert.equal(getLockTaskFeatures(state).notifications, true);
+  assert.equal(getLockTaskFeatures(state).systemInfo, true);
+
+  // Locking screen activates Android Keyguard and blocks system nav until unlocked
+  state = triggerScreenLock(state, '09:00:10', baseTime + 10_000);
+  assert.equal(state.keyguardLocked, true);
+  const navWhileLocked = pressSystemNavButton(state, 'Home', '09:00:12', baseTime + 12_000);
+  assert.ok(navWhileLocked.blockedNotice?.includes('Unlock the Android lock screen'));
+
+  state = dismissKeyguard(state, '09:00:15');
+  assert.equal(state.keyguardLocked, false);
+
+  // When keyguardDisabled=true while locked down, Keyguard is skipped unless adminUnlocked=true
+  state = toggleHardwarePolicy(state, 'keyguardDisabled', true, '09:00:20', baseTime + 20_000);
+  assert.equal(getLockTaskFeatures(state).keyguard, false);
+  const skipped = triggerScreenLock(state, '09:00:25', baseTime + 25_000);
+  assert.equal(skipped.keyguardLocked, false);
+  assert.ok(skipped.blockedNotice?.includes('Skip Lockscreen Keyguard'));
+});
+
+test('Timed Admin Unlock supports +/- adjustment, survives Home when active, and auto-expires', () => {
+  const baseTime = 1_700_000_000_000;
+  let state = createInitialKioskState();
+
+  // Adjust default unlock duration before activating (5m -> 10m -> 9m, clamped at 1m min)
+  state = adjustAdminUnlockTime(state, 5, '09:00:00', baseTime);
+  assert.equal(state.adminUnlockDurationMinutes, 10);
+  state = adjustAdminUnlockTime(state, -1, '09:00:01', baseTime + 1000);
+  assert.equal(state.adminUnlockDurationMinutes, 9);
+  const minClamped = adjustAdminUnlockTime(state, -50, '09:00:02', baseTime + 2000);
+  assert.equal(minClamped.adminUnlockDurationMinutes, 1);
+
+  // Activate unlock -> 9m timer starts
+  state = setAdminSystemUnlock(state, true, '09:00:05', baseTime + 5000);
+  assert.equal(state.adminUnlocked, true);
+  assert.equal(getAdminUnlockRemainingSeconds(state, baseTime + 5000), 9 * 60);
+
+  // Subtract 5m from active timer at +5s elapsed -> 235s remaining; add 1m at +10s elapsed -> 290s remaining
+  state = adjustAdminUnlockTime(state, -5, '09:00:10', baseTime + 10_000);
+  assert.equal(getAdminUnlockRemainingSeconds(state, baseTime + 10_000), 235);
+  state = adjustAdminUnlockTime(state, 1, '09:00:15', baseTime + 15_000);
+  assert.equal(getAdminUnlockRemainingSeconds(state, baseTime + 15_000), 290);
+
+  // Pressing Home / keeping unlock preserves timer while still unexpired
+  state = launchApp(state, 'com.android.settings', '09:00:20', baseTime + 20_000);
+  assert.equal(state.activeScreen, 'android_settings');
+  const homeKeep = returnToKioskHome(state, '09:00:30', true, baseTime + 30_000);
+  assert.equal(homeKeep.activeScreen, 'home');
+  assert.equal(homeKeep.adminUnlocked, true);
+
+  // Default returnToKioskHome(..., keepUnlock=false) immediately revokes unlock
+  const homeRevoke = returnToKioskHome(state, '09:00:35', false, baseTime + 35_000);
+  assert.equal(homeRevoke.adminUnlocked, false);
+  assert.equal(homeRevoke.adminUnlockUntilMs, 0);
+
+  // Reconciling after timer expires revokes unlock and evicts out of Android Settings
+  const expired = reconcileAdminUnlockExpiry(state, '09:06:00', baseTime + 10 * 60_000);
+  assert.equal(expired.adminUnlocked, false);
+  assert.equal(expired.adminUnlockUntilMs, 0);
+  assert.equal(expired.activeScreen, 'home');
+  assert.equal(expired.lockTaskActive, true);
+  assert.ok(expired.blockedNotice?.includes('expired'));
+});
+
+test('Uninstalling third-party/custom apps succeeds when Admin-unlocked while Device Owner launcher stays protected', () => {
+  const baseTime = 1_700_000_000_000;
+  let state = createInitialKioskState();
+
+  // Launcher uninstall always blocked
+  const launcherBlocked = attemptUninstallApp(state, 'com.kiosk.launcher', '09:00:00', baseTime);
+  assert.ok(launcherBlocked.blockedNotice?.includes('cannot be uninstalled'));
+
+  // Unlock Admin and uninstall Retail POS
+  state = setAdminSystemUnlock(state, true, '09:00:05', baseTime + 5000);
+  assert.ok(getAllInstalledApps(state).some((a) => a.packageName === 'com.enterprise.pos'));
+
+  const afterUninstall = attemptUninstallApp(state, 'com.enterprise.pos', '09:00:10', baseTime + 10_000);
+  assert.equal(afterUninstall.blockedNotice, null);
+  assert.equal(
+    getAllInstalledApps(afterUninstall).some((a) => a.packageName === 'com.enterprise.pos'),
+    false
+  );
+  assert.equal(
+    getVisibleHomeApps(afterUninstall).some((a) => a.packageName === 'com.enterprise.pos'),
+    false
+  );
+});
+
+test('APK version comparison and in-app self-update preserve Device Owner state', () => {
+  assert.equal(compareAppVersion(3, 2, '1.2.0', '1.1.0'), true);
+  assert.equal(compareAppVersion(2, 2, '1.1.1', '1.1.0'), true);
+  assert.equal(compareAppVersion(2, 2, '1.1.0', '1.1.0'), false);
+  assert.equal(compareAppVersion(1, 2, '1.0.0', '1.1.0'), false);
+
+  const initial = createInitialKioskState();
+  const updated = applySimulatedApkUpdate(
+    initial,
+    {
+      versionCode: 3,
+      versionName: '1.2.0',
+      downloadUrl: 'https://kiosk.example.com/kiosk-1.2.0.apk',
+      source: 'uploaded-apk',
+    },
+    '09:05:00'
+  );
+  assert.equal(updated.installedApkVersionCode, 3);
+  assert.equal(updated.installedApkVersionName, '1.2.0');
+  assert.equal(updated.isDeviceOwner, true);
+  assert.ok(updated.events[0]?.apiCall.includes('PackageInstaller.Session.commit'));
+});
+
 

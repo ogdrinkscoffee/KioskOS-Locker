@@ -4,17 +4,20 @@ import android.app.Activity
 import android.app.ActivityManager
 import android.app.ActivityOptions
 import android.app.admin.DevicePolicyManager
+import android.app.PendingIntent
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.UserManager
 import com.kiosk.launcher.data.KioskPreferences
 import com.kiosk.launcher.ui.KioskLauncherActivity
+import com.kiosk.launcher.update.UpdateResultReceiver
 import org.json.JSONArray
 
 /**
@@ -28,6 +31,12 @@ object DevicePolicyHelper {
         "com.android.settings",
         "com.android.packageinstaller",
         "com.google.android.packageinstaller",
+        "com.samsung.android.packageinstaller",
+        "com.miui.packageinstaller",
+        "com.oplus.packageinstaller",
+        "com.coloros.packageinstaller",
+        "com.android.permissioncontroller",
+        "com.google.android.permissioncontroller",
         "com.android.vending"
     )
 
@@ -125,13 +134,23 @@ object DevicePolicyHelper {
             dpm.setCameraDisabled(admin, prefs.isCameraDisabled())
             dpm.setScreenCaptureDisabled(admin, prefs.isScreenCaptureDisabled())
             dpm.setStatusBarDisabled(admin, !isAdminUnlocked && prefs.isStatusBarDisabled())
-            dpm.setKeyguardDisabled(admin, prefs.isKeyguardDisabled())
+            dpm.setKeyguardDisabled(admin, !isAdminUnlocked && prefs.isKeyguardDisabled())
         } catch (_: SecurityException) {
             // Some OEM builds restrict specific hardware flags on secondary users
         }
 
         // 6. Prevent uninstalling the kiosk launcher itself at all times
         dpm.setUninstallBlocked(admin, appContext.packageName, true)
+        if (isAdminUnlocked) {
+            prefs.getAllowedPackages()
+                .filter { it != appContext.packageName }
+                .forEach { pkg ->
+                    try {
+                        dpm.setUninstallBlocked(admin, pkg, false)
+                    } catch (_: Exception) {
+                    }
+                }
+        }
 
         // 7. Enforce or lift suspension on Android Settings, Package Installer, & Unsupported Browsers
         applySystemPackageLockState(appContext, dpm, admin, unlocked = isAdminUnlocked, prefs = prefs)
@@ -144,8 +163,42 @@ object DevicePolicyHelper {
         val homeComponent = ComponentName(appContext, KioskLauncherActivity::class.java)
         dpm.addPersistentPreferredActivity(admin, homeFilter, homeComponent)
 
-        // 9. Configure LockTask whitelist for self + admin-allowed packages
+        // 9. Configure LockTask whitelist AND LockTask features (Home, Keyguard, StatusBar/Notifications)
         syncLockTaskPackages(appContext, dpm, admin, prefs)
+    }
+
+    /**
+     * Configures LockTask allowed UI features on Android 9+ (API 28+).
+     * Without explicitly enabling HOME, SYSTEM_INFO/NOTIFICATIONS, and KEYGUARD here,
+     * LockTask defaults to LOCK_TASK_FEATURE_NONE which traps the Home button, hides the
+     * status bar even when enabled, and disables the lock screen.
+     */
+    fun applyLockTaskFeatures(
+        dpm: DevicePolicyManager,
+        admin: ComponentName,
+        prefs: KioskPreferences,
+        isAdminUnlocked: Boolean
+    ) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return
+        val allowHomeNav = (prefs.getKioskMode() == KioskPreferences.MODE_MULTI_APP) || isAdminUnlocked
+        var features = DevicePolicyManager.LOCK_TASK_FEATURE_GLOBAL_ACTIONS
+        if (allowHomeNav) {
+            features = features or DevicePolicyManager.LOCK_TASK_FEATURE_HOME
+        }
+        if (!prefs.isStatusBarDisabled() || isAdminUnlocked) {
+            features = features or DevicePolicyManager.LOCK_TASK_FEATURE_SYSTEM_INFO
+            if (allowHomeNav) {
+                features = features or DevicePolicyManager.LOCK_TASK_FEATURE_NOTIFICATIONS
+            }
+        }
+        if (!prefs.isKeyguardDisabled() || isAdminUnlocked) {
+            features = features or DevicePolicyManager.LOCK_TASK_FEATURE_KEYGUARD
+        }
+        try {
+            dpm.setLockTaskFeatures(admin, features)
+        } catch (_: Exception) {
+            // Ignored on devices that disallow a subset of LockTask features
+        }
     }
 
     private fun applyPrivateDnsPolicy(
@@ -220,6 +273,75 @@ object DevicePolicyHelper {
         val prefs = KioskPreferences(context)
         prefs.setSettingsAndUninstallUnlocked(unlocked)
         enforceKioskPolicies(context)
+    }
+
+    /**
+     * Reconciles expired timed Admin unlocks. Returns true if unlock was previously active and just expired.
+     */
+    fun reconcileAdminUnlockTimeout(context: Context): Boolean {
+        val prefs = KioskPreferences(context)
+        val hadTimer = prefs.getAdminUnlockUntilMs() > 0L
+        val stillUnlocked = prefs.isSettingsAndUninstallUnlocked()
+        if (hadTimer && !stillUnlocked) {
+            enforceKioskPolicies(context)
+            return true
+        }
+        return false
+    }
+
+    /**
+     * Uninstalls a non-launcher target package when Admin unlock is active.
+     * Uses Device Owner silent PackageInstaller.uninstall() when permitted, with ACTION_DELETE fallback.
+     */
+    fun uninstallPackage(activity: Activity, packageName: String): Boolean {
+        val appContext = activity.applicationContext
+        val prefs = KioskPreferences(appContext)
+        if (packageName == appContext.packageName || !prefs.isSettingsAndUninstallUnlocked()) {
+            return false
+        }
+        val dpm = getDevicePolicyManager(appContext)
+        val admin = KioskDeviceAdminReceiver.getComponentName(appContext)
+        val isDo = dpm.isDeviceOwnerApp(appContext.packageName)
+
+        if (isDo) {
+            try {
+                dpm.clearUserRestriction(admin, UserManager.DISALLOW_APPS_CONTROL)
+                dpm.setUninstallBlocked(admin, packageName, false)
+            } catch (_: Exception) {
+            }
+            try {
+                activity.stopLockTask()
+            } catch (_: Exception) {
+            }
+            try {
+                val callbackIntent = Intent(appContext, UpdateResultReceiver::class.java).apply {
+                    action = UpdateResultReceiver.ACTION_UNINSTALL_RESULT
+                    putExtra(UpdateResultReceiver.EXTRA_TARGET_PACKAGE, packageName)
+                }
+                val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
+                val pending = PendingIntent.getBroadcast(
+                    appContext,
+                    packageName.hashCode(),
+                    callbackIntent,
+                    flags
+                )
+                appContext.packageManager.packageInstaller.uninstall(packageName, pending.intentSender)
+                return true
+            } catch (_: Exception) {
+                // Fall back to standard ACTION_DELETE dialog below
+            }
+        }
+
+        return try {
+            val deleteIntent = Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName")).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            activity.startActivity(deleteIntent)
+            true
+        } catch (_: Exception) {
+            false
+        }
     }
 
     /**
@@ -311,6 +433,7 @@ object DevicePolicyHelper {
             }
         }
         dpm.setLockTaskPackages(admin, allowed.toTypedArray())
+        applyLockTaskFeatures(dpm, admin, prefs, unlocked)
     }
 
     /**
@@ -358,6 +481,17 @@ object DevicePolicyHelper {
             ?: return false
 
         val dpm = getDevicePolicyManager(activity)
+        if (isUnlocked) {
+            // While Admin Settings/Uninstall unlock is active, avoid trapping the user in LockTask
+            try {
+                activity.stopLockTask()
+            } catch (_: Exception) {
+            }
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            activity.startActivity(launchIntent)
+            return true
+        }
+
         if (dpm.isDeviceOwnerApp(activity.packageName)) {
             syncLockTaskPackages(activity, dpm)
             launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)

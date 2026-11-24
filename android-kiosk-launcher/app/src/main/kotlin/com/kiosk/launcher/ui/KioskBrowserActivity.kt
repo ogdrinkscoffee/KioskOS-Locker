@@ -16,6 +16,9 @@ import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.kiosk.launcher.R
 import com.kiosk.launcher.admin.DevicePolicyHelper
 import com.kiosk.launcher.data.KioskPreferences
@@ -66,22 +69,15 @@ class KioskBrowserActivity : AppCompatActivity() {
             return
         }
 
-        if (prefs.isKeepScreenAwake()) {
-            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        }
-        if (DevicePolicyHelper.isDeviceOwner(this)) {
-            try {
-                startLockTask()
-            } catch (_: IllegalStateException) {
-            }
-        }
-
+        syncWindowAndLockTask()
         setupWebView()
         setupControls()
     }
 
     override fun onResume() {
         super.onResume()
+        DevicePolicyHelper.reconcileAdminUnlockTimeout(this)
+        syncWindowAndLockTask()
         lastTickElapsedMs = android.os.SystemClock.elapsedRealtime()
         usageHandler.removeCallbacks(usageRunnable)
         usageHandler.postDelayed(usageRunnable, 5_000L)
@@ -107,6 +103,43 @@ class KioskBrowserActivity : AppCompatActivity() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        applySystemBarVisibility()
+    }
+
+    private fun syncWindowAndLockTask() {
+        if (prefs.isKeepScreenAwake()) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        val unlocked = prefs.isSettingsAndUninstallUnlocked()
+        if (unlocked) {
+            try {
+                stopLockTask()
+            } catch (_: IllegalStateException) {
+            }
+        } else if (DevicePolicyHelper.isDeviceOwner(this)) {
+            DevicePolicyHelper.syncLockTaskPackages(this)
+            try {
+                startLockTask()
+            } catch (_: IllegalStateException) {
+            }
+        }
+        applySystemBarVisibility()
+    }
+
+    private fun applySystemBarVisibility() {
+        val shouldHideStatusBar = !prefs.isSettingsAndUninstallUnlocked() && prefs.isStatusBarDisabled()
+        WindowCompat.setDecorFitsSystemWindows(window, !shouldHideStatusBar)
+        WindowInsetsControllerCompat(window, binding.root).apply {
+            if (shouldHideStatusBar) {
+                hide(WindowInsetsCompat.Type.statusBars())
+                systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            } else {
+                show(WindowInsetsCompat.Type.statusBars())
+            }
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -160,6 +193,11 @@ class KioskBrowserActivity : AppCompatActivity() {
             override fun handleOnBackPressed() {
                 if (binding.kioskWebView.canGoBack()) {
                     binding.kioskWebView.goBack()
+                } else if (
+                    prefs.getKioskMode() != KioskPreferences.MODE_KIOSK_BROWSER ||
+                    prefs.isSettingsAndUninstallUnlocked()
+                ) {
+                    finish()
                 }
             }
         })
@@ -193,7 +231,7 @@ class KioskBrowserActivity : AppCompatActivity() {
         }
 
         binding.browserExitButton.setOnClickListener {
-            if (prefs.getKioskMode() == KioskPreferences.MODE_KIOSK_BROWSER) {
+            if (prefs.getKioskMode() == KioskPreferences.MODE_KIOSK_BROWSER && !prefs.isSettingsAndUninstallUnlocked()) {
                 pinDialog?.dismiss()
                 pinDialog = PinPromptDialog.show(
                     context = this,

@@ -160,14 +160,79 @@ class KioskPreferences(context: Context) {
         setAllowedPackages(updated)
     }
 
-    fun isSettingsAndUninstallUnlocked(): Boolean {
-        return prefs.getBoolean(KEY_ADMIN_UNLOCKED, false)
+    fun isSettingsAndUninstallUnlocked(nowMs: Long = System.currentTimeMillis()): Boolean {
+        val untilMs = prefs.getLong(KEY_ADMIN_UNLOCK_UNTIL_MS, 0L)
+        if (untilMs > nowMs) {
+            return true
+        }
+        if (untilMs > 0L || prefs.getBoolean(KEY_ADMIN_UNLOCKED, false)) {
+            prefs.edit()
+                .putBoolean(KEY_ADMIN_UNLOCKED, false)
+                .putLong(KEY_ADMIN_UNLOCK_UNTIL_MS, 0L)
+                .apply()
+        }
+        return false
     }
 
-    fun setSettingsAndUninstallUnlocked(unlocked: Boolean) {
+    fun getAdminUnlockUntilMs(): Long = prefs.getLong(KEY_ADMIN_UNLOCK_UNTIL_MS, 0L)
+
+    fun getAdminUnlockDurationMinutes(): Int =
+        prefs.getInt(KEY_ADMIN_UNLOCK_DURATION_MINUTES, DEFAULT_ADMIN_UNLOCK_DURATION_MINUTES)
+            .coerceIn(MIN_ADMIN_UNLOCK_MINUTES, MAX_ADMIN_UNLOCK_MINUTES)
+
+    fun setAdminUnlockDurationMinutes(minutes: Int) {
         prefs.edit()
-            .putBoolean(KEY_ADMIN_UNLOCKED, unlocked)
+            .putInt(
+                KEY_ADMIN_UNLOCK_DURATION_MINUTES,
+                minutes.coerceIn(MIN_ADMIN_UNLOCK_MINUTES, MAX_ADMIN_UNLOCK_MINUTES)
+            )
             .apply()
+    }
+
+    fun getAdminUnlockRemainingSeconds(nowMs: Long = System.currentTimeMillis()): Int {
+        if (!isSettingsAndUninstallUnlocked(nowMs)) return 0
+        return computeRemainingUnlockSeconds(getAdminUnlockUntilMs(), nowMs)
+    }
+
+    /**
+     * Adjusts the unlock timer by [deltaMinutes] (positive or negative).
+     * When currently unlocked, extends or shortens the live expiration timestamp (relocking if <= now).
+     * When locked, adjusts the planned unlock duration (1..120 minutes).
+     */
+    fun adjustAdminUnlockTime(deltaMinutes: Int, nowMs: Long = System.currentTimeMillis()): Boolean {
+        if (isSettingsAndUninstallUnlocked(nowMs)) {
+            val nextUntil = computeAdjustedUnlockUntilMs(getAdminUnlockUntilMs(), deltaMinutes, nowMs)
+            val stillUnlocked = nextUntil > nowMs
+            prefs.edit()
+                .putLong(KEY_ADMIN_UNLOCK_UNTIL_MS, if (stillUnlocked) nextUntil else 0L)
+                .putBoolean(KEY_ADMIN_UNLOCKED, stillUnlocked)
+                .apply()
+            return stillUnlocked
+        }
+        val nextDuration = adjustUnlockDurationMinutes(getAdminUnlockDurationMinutes(), deltaMinutes)
+        setAdminUnlockDurationMinutes(nextDuration)
+        return false
+    }
+
+    fun setSettingsAndUninstallUnlocked(
+        unlocked: Boolean,
+        nowMs: Long = System.currentTimeMillis()
+    ) {
+        val editor = prefs.edit().putBoolean(KEY_ADMIN_UNLOCKED, unlocked)
+        if (unlocked) {
+            val durationMins = getAdminUnlockDurationMinutes()
+            editor.putLong(KEY_ADMIN_UNLOCK_UNTIL_MS, nowMs + durationMins * 60_000L)
+        } else {
+            editor.putLong(KEY_ADMIN_UNLOCK_UNTIL_MS, 0L)
+        }
+        editor.apply()
+    }
+
+    fun getApkUpdateManifestUrl(): String =
+        prefs.getString(KEY_APK_UPDATE_MANIFEST_URL, "")?.trim().orEmpty()
+
+    fun setApkUpdateManifestUrl(url: String) {
+        prefs.edit().putString(KEY_APK_UPDATE_MANIFEST_URL, url.trim()).apply()
     }
 
     fun getKioskMode(): String = prefs.getString(KEY_KIOSK_MODE, MODE_MULTI_APP) ?: MODE_MULTI_APP
@@ -510,6 +575,7 @@ class KioskPreferences(context: Context) {
             .putLong(KEY_PANIC_LOCK_UNTIL_MS, nextUntil)
             .putInt(KEY_PANIC_COUNT, nextCount)
             .putBoolean(KEY_ADMIN_UNLOCKED, false)
+            .putLong(KEY_ADMIN_UNLOCK_UNTIL_MS, 0L)
             .apply()
         lockBlockerShieldsForMinutes(minutes, nowMs)
         appendTamperWarningLog(
@@ -814,7 +880,14 @@ class KioskPreferences(context: Context) {
         private const val KEY_PIN_LOCKOUT_UNTIL_MS = "pin_lockout_until_ms"
         private const val KEY_ALLOWED_PACKAGES = "allowed_kiosk_packages"
         private const val KEY_ADMIN_UNLOCKED = "temp_admin_unlocked"
+        private const val KEY_ADMIN_UNLOCK_UNTIL_MS = "temp_admin_unlock_until_ms"
+        private const val KEY_ADMIN_UNLOCK_DURATION_MINUTES = "temp_admin_unlock_duration_minutes"
+        private const val KEY_APK_UPDATE_MANIFEST_URL = "apk_update_manifest_url"
         private const val KEY_KIOSK_MODE = "kiosk_operation_mode"
+
+        const val DEFAULT_ADMIN_UNLOCK_DURATION_MINUTES = 5
+        const val MIN_ADMIN_UNLOCK_MINUTES = 1
+        const val MAX_ADMIN_UNLOCK_MINUTES = 120
         private const val KEY_SINGLE_APP_PACKAGE = "kiosk_single_app_package"
         private const val KEY_KIOSK_TITLE = "kiosk_branding_title"
         private const val KEY_STATUS_BAR_DISABLED = "policy_status_bar_disabled"
@@ -1014,6 +1087,110 @@ class KioskPreferences(context: Context) {
             whitelist: Set<String>
         ): Boolean {
             return packageName == "com.kiosk.launcher" || whitelist.contains(packageName)
+        }
+
+        fun adjustUnlockDurationMinutes(currentMinutes: Int, deltaMinutes: Int): Int {
+            return (currentMinutes + deltaMinutes).coerceIn(MIN_ADMIN_UNLOCK_MINUTES, MAX_ADMIN_UNLOCK_MINUTES)
+        }
+
+        fun computeAdjustedUnlockUntilMs(currentUntilMs: Long, deltaMinutes: Int, nowMs: Long): Long {
+            val shifted = currentUntilMs + deltaMinutes * 60_000L
+            if (shifted <= nowMs) return 0L
+            val maxAllowed = nowMs + MAX_ADMIN_UNLOCK_MINUTES * 60_000L
+            return shifted.coerceAtMost(maxAllowed)
+        }
+
+        fun computeRemainingUnlockSeconds(untilMs: Long, nowMs: Long): Int {
+            val diff = untilMs - nowMs
+            return if (diff > 0L) ((diff + 999L) / 1000L).toInt() else 0
+        }
+
+        data class ApkReleaseManifest(
+            val versionCode: Int,
+            val versionName: String,
+            val downloadUrl: String,
+            val releaseNotes: String,
+            val sha256: String
+        )
+
+        fun isNewerAppVersion(
+            remoteVersionCode: Int,
+            currentVersionCode: Int,
+            remoteVersionName: String = "",
+            currentVersionName: String = ""
+        ): Boolean {
+            if (remoteVersionCode > currentVersionCode) return true
+            if (remoteVersionCode in 1 until currentVersionCode) return false
+            val rParts = remoteVersionName.trim().removePrefix("v").split('.').mapNotNull { it.toIntOrNull() }
+            val cParts = currentVersionName.trim().removePrefix("v").split('.').mapNotNull { it.toIntOrNull() }
+            val maxLen = maxOf(rParts.size, cParts.size)
+            for (i in 0 until maxLen) {
+                val r = rParts.getOrElse(i) { 0 }
+                val c = cParts.getOrElse(i) { 0 }
+                if (r > c) return true
+                if (r < c) return false
+            }
+            return false
+        }
+
+        fun parseUpdateManifestJson(rawJson: String, baseManifestUrl: String = ""): ApkReleaseManifest? {
+            return try {
+                val obj = org.json.JSONObject(rawJson)
+                // 1. KioskOS manifest format (/api/apk/latest)
+                val directDownload = obj.optString("downloadUrl", "").trim()
+                if (obj.has("versionCode") || directDownload.isNotEmpty()) {
+                    val code = obj.optInt("versionCode", 0)
+                    val name = obj.optString("versionName", if (code > 0) "$code.0" else "").trim()
+                    val resolvedUrl = resolveManifestUrl(directDownload, baseManifestUrl)
+                    if (resolvedUrl.isEmpty()) return null
+                    return ApkReleaseManifest(
+                        versionCode = code,
+                        versionName = name,
+                        downloadUrl = resolvedUrl,
+                        releaseNotes = obj.optString("releaseNotes", "").trim(),
+                        sha256 = obj.optString("sha256", "").trim().lowercase()
+                    )
+                }
+
+                // 2. GitHub Releases API format (/repos/<owner>/<repo>/releases/latest)
+                val assets = obj.optJSONArray("assets")
+                if (assets != null) {
+                    for (i in 0 until assets.length()) {
+                        val asset = assets.optJSONObject(i) ?: continue
+                        val assetName = asset.optString("name", "")
+                        val url = asset.optString("browser_download_url", "").trim()
+                        if (assetName.endsWith(".apk", ignoreCase = true) && url.startsWith("https://")) {
+                            val tag = obj.optString("tag_name", "").trim().removePrefix("v")
+                            return ApkReleaseManifest(
+                                versionCode = 0,
+                                versionName = tag.ifEmpty { assetName },
+                                downloadUrl = url,
+                                releaseNotes = obj.optString("body", "").trim().take(400),
+                                sha256 = ""
+                            )
+                        }
+                    }
+                }
+                null
+            } catch (_: Exception) {
+                null
+            }
+        }
+
+        internal fun resolveManifestUrl(rawUrl: String, baseManifestUrl: String): String {
+            if (rawUrl.isBlank()) return ""
+            if (rawUrl.startsWith("https://") || rawUrl.startsWith("http://")) return rawUrl
+            if (rawUrl.startsWith("/") && (baseManifestUrl.startsWith("https://") || baseManifestUrl.startsWith("http://"))) {
+                return try {
+                    val uri = Uri.parse(baseManifestUrl)
+                    val scheme = uri.scheme ?: return ""
+                    val authority = uri.authority ?: return ""
+                    "$scheme://$authority$rawUrl"
+                } catch (_: Exception) {
+                    ""
+                }
+            }
+            return ""
         }
 
         internal fun generateSalt(): String {

@@ -3,7 +3,11 @@ name: Build KioskOS Android APK
 on:
   push:
     branches: [ main, master ]
+    tags: [ 'v*' ]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-apk:
@@ -29,6 +33,9 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Run Unit Tests
+        run: gradle testDebugUnitTest
+
       - name: Build Debug APK
         run: gradle assembleDebug
 
@@ -46,3 +53,12 @@ jobs:
         with:
           name: KioskOS-release-unsigned-apk
           path: app/build/outputs/apk/release/app-release-unsigned.apk
+
+      - name: Publish GitHub Release on Tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/release/app-release-unsigned.apk
+          generate_release_notes: true

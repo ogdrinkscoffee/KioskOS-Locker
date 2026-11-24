@@ -154,4 +154,34 @@
     <string name="toast_cloud_sync_success">Synced Kiosk status &amp; Self-Improvement progress with PC.</string>
     <string name="toast_cloud_sync_pulled">Applied password-verified remote settings &amp; updates from PC.</string>
     <string name="toast_cloud_sync_offline_queued">Device offline — local changes saved and queued for next connection.</string>
+
+    <string name="unlock_timer_active_format">Settings &amp; Uninstall Unlocked · %1$02d:%2$02d left</string>
+    <string name="unlock_timer_planned_format">Locked · Planned unlock duration: %1$d min</string>
+    <string name="action_minus_5m">-5m</string>
+    <string name="action_minus_1m">-1m</string>
+    <string name="action_plus_1m">+1m</string>
+    <string name="action_plus_5m">+5m</string>
+    <string name="action_lock_now">Lock Now</string>
+    <string name="action_return_keep_timer">Home (Keep Timer)</string>
+    <string name="toast_unlock_expired">Temporary Admin unlock timer expired. Kiosk policies re-locked.</string>
+
+    <string name="action_uninstall_app">Uninstall</string>
+    <string name="dialog_uninstall_title">Uninstall %1$s?</string>
+    <string name="dialog_uninstall_message">Remove %1$s (%2$s) from this device?</string>
+    <string name="toast_uninstall_started">Uninstall request sent for %1$s.</string>
+    <string name="toast_uninstall_success">Uninstalled %1$s.</string>
+    <string name="toast_uninstall_failed">Uninstall failed: %1$s</string>
+
+    <string name="admin_section_apk_updater">App Updates (In-App APK Updater)</string>
+    <string name="apk_current_version_format">Installed: v%1$s (build %2$d)</string>
+    <string name="hint_apk_manifest_url">Update Manifest URL (e.g. https://host/api/apk/latest)</string>
+    <string name="action_check_apk_update">Check Update</string>
+    <string name="action_install_apk_update">Download &amp; Install</string>
+    <string name="status_apk_idle">Enter your KioskOS server /api/apk/latest or GitHub releases/latest URL to check inside the app.</string>
+    <string name="status_apk_checking">Checking for updates…</string>
+    <string name="status_apk_update_available">Update ready: v%1$s (build %2$d). %3$s</string>
+    <string name="status_apk_up_to_date">Up to date (latest is v%1$s, build %2$d).</string>
+    <string name="toast_apk_install_success">KioskOS update installed successfully.</string>
+    <string name="toast_apk_install_failed">APK update failed: %1$s</string>
+    <string name="toast_apk_session_started">Installing APK update…</string>
 </resources>

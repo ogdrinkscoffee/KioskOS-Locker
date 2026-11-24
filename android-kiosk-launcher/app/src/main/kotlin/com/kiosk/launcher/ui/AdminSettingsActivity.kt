@@ -5,18 +5,25 @@
  */
 package com.kiosk.launcher.ui
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.res.Configuration
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.kiosk.launcher.BuildConfig
 import com.kiosk.launcher.R
 import com.kiosk.launcher.admin.DevicePolicyHelper
 import com.kiosk.launcher.data.InstalledAppInfo
@@ -25,6 +32,8 @@ import com.kiosk.launcher.data.KioskPreferences
 import com.kiosk.launcher.databinding.ActivityAdminSettingsBinding
 import com.kiosk.launcher.databinding.ItemAdminAppToggleBinding
 import com.kiosk.launcher.sync.CloudSyncManager
+import com.kiosk.launcher.update.AppUpdater
+import com.kiosk.launcher.update.UpdateResultReceiver
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -33,12 +42,11 @@ import java.util.Locale
  * Passcode-protected Admin Settings screen.
  * Supports:
  * 1. Multi-App, Single-App Dedicated, and Locked Kiosk Web Browser modes.
- * 2. BlockP / BlockerX style shields: Disable Porn on Browsers (SafeSearch + Strict YouTube + No Incognito),
- *    Block All In-App Browsers Except Whitelist, Block Unsupported Browsers, Short-Form Feed Blocker,
- *    Family Private DNS (Cloudflare / CleanBrowsing + DISALLOW_CONFIG_VPN), Keywords, and Strict Time-Lock.
+ * 2. BlockP / BlockerX style shields + Family Private DNS + Strict Time-Lock.
  * 3. Enterprise hardware lockdown (status bar, keyguard, camera, USB transfer, clock lock, screenshots, stay-awake).
- * 4. Changeable 4-50 character alphanumeric/symbol admin passcode (default 1234).
- * 5. Search & toggle any installed app on the device for the Kiosk Home allowlist.
+ * 4. Timed temporary Settings & Uninstall unlock with -5m / -1m / +1m / +5m adjustments.
+ * 5. In-App APK Updater checking KioskOS /api/apk/latest or GitHub releases/latest.
+ * 6. Search, toggle, time-limit, Launch LockTask, or Uninstall any installed app on the device.
  */
 class AdminSettingsActivity : AppCompatActivity() {
 
@@ -46,6 +54,36 @@ class AdminSettingsActivity : AppCompatActivity() {
     private lateinit var prefs: KioskPreferences
     private lateinit var adapter: AdminAppsAdapter
     private var allNonSystemApps: List<InstalledAppInfo> = emptyList()
+    private var suppressSwitchCallbacks = false
+    private var pendingReleaseManifest: KioskPreferences.ApkReleaseManifest? = null
+
+    private val timerHandler = Handler(Looper.getMainLooper())
+    private val timerRunnable = object : Runnable {
+        override fun run() {
+            if (isFinishing || isDestroyed) return
+            val expired = DevicePolicyHelper.reconcileAdminUnlockTimeout(this@AdminSettingsActivity)
+            refreshUnlockCountdownUi()
+            if (expired) {
+                syncSwitchesFromPrefs()
+                refreshPolicyReadout()
+                Toast.makeText(
+                    this@AdminSettingsActivity,
+                    R.string.toast_unlock_expired,
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            timerHandler.postDelayed(this, 1_000L)
+        }
+    }
+
+    private val uninstallEventsReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == UpdateResultReceiver.ACTION_PACKAGE_UNINSTALLED_EVENT) {
+                reloadInstalledApps()
+                refreshPolicyReadout()
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,23 +96,69 @@ class AdminSettingsActivity : AppCompatActivity() {
         setupBlockerShieldControls()
         setupAppBlockScheduleControls()
         setupHardwarePolicySwitches()
+        setupUnlockControls()
+        setupApkUpdaterControls()
         setupCloudSyncControls()
         setupAppsList()
         setupPinUpdateForm()
-        setupUnlockControls()
         setupNavigationControls()
         setupTamperLogViewer()
+        syncSwitchesFromPrefs()
         refreshPolicyReadout()
     }
 
     override fun onResume() {
         super.onResume()
+        DevicePolicyHelper.reconcileAdminUnlockTimeout(this)
+        ContextCompat.registerReceiver(
+            this,
+            uninstallEventsReceiver,
+            IntentFilter(UpdateResultReceiver.ACTION_PACKAGE_UNINSTALLED_EVENT),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        syncSwitchesFromPrefs()
         reloadInstalledApps()
         refreshPolicyReadout()
+        refreshUnlockCountdownUi()
+        timerHandler.removeCallbacks(timerRunnable)
+        timerHandler.postDelayed(timerRunnable, 1_000L)
+    }
+
+    override fun onPause() {
+        timerHandler.removeCallbacks(timerRunnable)
+        try {
+            unregisterReceiver(uninstallEventsReceiver)
+        } catch (_: IllegalArgumentException) {
+        }
+        super.onPause()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+    }
+
+    private fun syncSwitchesFromPrefs() {
+        suppressSwitchCallbacks = true
+        try {
+            binding.disablePornBrowsersSwitch.isChecked = prefs.isDisablePornOnBrowsers()
+            binding.blockInAppBrowsersSwitch.isChecked = prefs.isBlockInAppBrowsers()
+            binding.blockUnsupportedBrowsersSwitch.isChecked = prefs.isBlockUnsupportedBrowsers()
+            binding.blockShortFormFeedsSwitch.isChecked = prefs.isBlockShortFormFeeds()
+            binding.downtimeEnabledSwitch.isChecked = prefs.isDowntimeEnabled()
+
+            binding.statusBarDisabledSwitch.isChecked = prefs.isStatusBarDisabled()
+            binding.keyguardDisabledSwitch.isChecked = prefs.isKeyguardDisabled()
+            binding.cameraDisabledSwitch.isChecked = prefs.isCameraDisabled()
+            binding.usbBlockedSwitch.isChecked = prefs.isUsbTransferBlocked()
+            binding.dateTimeLockedSwitch.isChecked = prefs.isDateTimeLocked()
+            binding.screenCaptureDisabledSwitch.isChecked = prefs.isScreenCaptureDisabled()
+            binding.keepAwakeSwitch.isChecked = prefs.isKeepScreenAwake()
+
+            binding.unlockSettingsSwitch.isChecked = prefs.isSettingsAndUninstallUnlocked()
+            binding.cloudSyncEnabledSwitch.isChecked = prefs.isCloudSyncEnabled()
+        } finally {
+            suppressSwitchCallbacks = false
+        }
     }
 
     private fun setupKioskProfileControls() {
@@ -115,11 +199,6 @@ class AdminSettingsActivity : AppCompatActivity() {
     }
 
     private fun setupBlockerShieldControls() {
-        binding.disablePornBrowsersSwitch.isChecked = prefs.isDisablePornOnBrowsers()
-        binding.blockInAppBrowsersSwitch.isChecked = prefs.isBlockInAppBrowsers()
-        binding.blockUnsupportedBrowsersSwitch.isChecked = prefs.isBlockUnsupportedBrowsers()
-        binding.blockShortFormFeedsSwitch.isChecked = prefs.isBlockShortFormFeeds()
-
         when (prefs.getFamilyDnsMode()) {
             KioskPreferences.DNS_CLEANBROWSING_ADULT -> binding.dnsCleanBrowsingRadio.isChecked = true
             KioskPreferences.DNS_OFF -> binding.dnsOffRadio.isChecked = true
@@ -142,6 +221,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         }
 
         binding.disablePornBrowsersSwitch.setOnCheckedChangeListener { buttonView, checked ->
+            if (suppressSwitchCallbacks) return@setOnCheckedChangeListener
             if (!handleSwitch(checked)) {
                 buttonView.isChecked = true
                 return@setOnCheckedChangeListener
@@ -153,6 +233,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         }
 
         binding.blockInAppBrowsersSwitch.setOnCheckedChangeListener { buttonView, checked ->
+            if (suppressSwitchCallbacks) return@setOnCheckedChangeListener
             if (!handleSwitch(checked)) {
                 buttonView.isChecked = true
                 return@setOnCheckedChangeListener
@@ -163,6 +244,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         }
 
         binding.blockUnsupportedBrowsersSwitch.setOnCheckedChangeListener { buttonView, checked ->
+            if (suppressSwitchCallbacks) return@setOnCheckedChangeListener
             if (!handleSwitch(checked)) {
                 buttonView.isChecked = true
                 return@setOnCheckedChangeListener
@@ -174,6 +256,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         }
 
         binding.blockShortFormFeedsSwitch.setOnCheckedChangeListener { buttonView, checked ->
+            if (suppressSwitchCallbacks) return@setOnCheckedChangeListener
             if (!handleSwitch(checked)) {
                 buttonView.isChecked = true
                 return@setOnCheckedChangeListener
@@ -236,7 +319,6 @@ class AdminSettingsActivity : AppCompatActivity() {
     }
 
     private fun setupAppBlockScheduleControls() {
-        binding.downtimeEnabledSwitch.isChecked = prefs.isDowntimeEnabled()
         binding.downtimeStartInput.setText((prefs.getDowntimeStartMinutes() / 60).toString())
         binding.downtimeEndInput.setText((prefs.getDowntimeEndMinutes() / 60).toString())
 
@@ -270,6 +352,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         }
 
         binding.downtimeEnabledSwitch.setOnCheckedChangeListener { buttonView, checked ->
+            if (suppressSwitchCallbacks) return@setOnCheckedChangeListener
             if (!checked && prefs.isStrictShieldLocked()) {
                 buttonView.isChecked = true
                 val mins = prefs.getStrictShieldRemainingMinutes()
@@ -296,68 +379,216 @@ class AdminSettingsActivity : AppCompatActivity() {
     }
 
     private fun setupHardwarePolicySwitches() {
-        binding.statusBarDisabledSwitch.isChecked = prefs.isStatusBarDisabled()
         binding.statusBarDisabledSwitch.setOnCheckedChangeListener { _, checked ->
+            if (suppressSwitchCallbacks) return@setOnCheckedChangeListener
             prefs.setStatusBarDisabled(checked)
             DevicePolicyHelper.enforceKioskPolicies(this)
+            CloudSyncManager.triggerSyncIfEnabled(this)
             recordAdminMutationAndHandleEscalation("statusBarDisabled=$checked")
             refreshPolicyReadout()
         }
 
-        binding.keyguardDisabledSwitch.isChecked = prefs.isKeyguardDisabled()
         binding.keyguardDisabledSwitch.setOnCheckedChangeListener { _, checked ->
+            if (suppressSwitchCallbacks) return@setOnCheckedChangeListener
             prefs.setKeyguardDisabled(checked)
             DevicePolicyHelper.enforceKioskPolicies(this)
+            CloudSyncManager.triggerSyncIfEnabled(this)
             recordAdminMutationAndHandleEscalation("keyguardDisabled=$checked")
             refreshPolicyReadout()
         }
 
-        binding.cameraDisabledSwitch.isChecked = prefs.isCameraDisabled()
         binding.cameraDisabledSwitch.setOnCheckedChangeListener { _, checked ->
+            if (suppressSwitchCallbacks) return@setOnCheckedChangeListener
             prefs.setCameraDisabled(checked)
             DevicePolicyHelper.enforceKioskPolicies(this)
+            CloudSyncManager.triggerSyncIfEnabled(this)
             recordAdminMutationAndHandleEscalation("cameraDisabled=$checked")
             refreshPolicyReadout()
         }
 
-        binding.usbBlockedSwitch.isChecked = prefs.isUsbTransferBlocked()
         binding.usbBlockedSwitch.setOnCheckedChangeListener { _, checked ->
+            if (suppressSwitchCallbacks) return@setOnCheckedChangeListener
             prefs.setUsbTransferBlocked(checked)
             DevicePolicyHelper.enforceKioskPolicies(this)
+            CloudSyncManager.triggerSyncIfEnabled(this)
             recordAdminMutationAndHandleEscalation("usbTransferBlocked=$checked")
             refreshPolicyReadout()
         }
 
-        binding.dateTimeLockedSwitch.isChecked = prefs.isDateTimeLocked()
         binding.dateTimeLockedSwitch.setOnCheckedChangeListener { _, checked ->
+            if (suppressSwitchCallbacks) return@setOnCheckedChangeListener
             prefs.setDateTimeLocked(checked)
             DevicePolicyHelper.enforceKioskPolicies(this)
+            CloudSyncManager.triggerSyncIfEnabled(this)
             recordAdminMutationAndHandleEscalation("dateTimeLocked=$checked")
             refreshPolicyReadout()
         }
 
-        binding.screenCaptureDisabledSwitch.isChecked = prefs.isScreenCaptureDisabled()
         binding.screenCaptureDisabledSwitch.setOnCheckedChangeListener { _, checked ->
+            if (suppressSwitchCallbacks) return@setOnCheckedChangeListener
             prefs.setScreenCaptureDisabled(checked)
             DevicePolicyHelper.enforceKioskPolicies(this)
+            CloudSyncManager.triggerSyncIfEnabled(this)
             recordAdminMutationAndHandleEscalation("screenCaptureDisabled=$checked")
             refreshPolicyReadout()
         }
 
-        binding.keepAwakeSwitch.isChecked = prefs.isKeepScreenAwake()
         binding.keepAwakeSwitch.setOnCheckedChangeListener { _, checked ->
+            if (suppressSwitchCallbacks) return@setOnCheckedChangeListener
             prefs.setKeepScreenAwake(checked)
             CloudSyncManager.triggerSyncIfEnabled(this)
         }
     }
 
+    private fun setupUnlockControls() {
+        binding.unlockSettingsSwitch.setOnCheckedChangeListener { _, isChecked ->
+            if (suppressSwitchCallbacks) return@setOnCheckedChangeListener
+            DevicePolicyHelper.setAdminUnlockState(this, unlocked = isChecked)
+            recordAdminMutationAndHandleEscalation("adminUnlock=$isChecked")
+            refreshPolicyReadout()
+            refreshUnlockCountdownUi()
+        }
+
+        val adjustMinutes = { delta: Int ->
+            val wasUnlocked = prefs.isSettingsAndUninstallUnlocked()
+            val nowUnlocked = prefs.adjustAdminUnlockTime(delta)
+            DevicePolicyHelper.enforceKioskPolicies(this)
+            if (wasUnlocked && !nowUnlocked) {
+                Toast.makeText(this, R.string.toast_unlock_expired, Toast.LENGTH_SHORT).show()
+            }
+            syncSwitchesFromPrefs()
+            refreshPolicyReadout()
+            refreshUnlockCountdownUi()
+        }
+
+        binding.unlockMinus5mButton.setOnClickListener { adjustMinutes(-5) }
+        binding.unlockMinus1mButton.setOnClickListener { adjustMinutes(-1) }
+        binding.unlockPlus1mButton.setOnClickListener { adjustMinutes(1) }
+        binding.unlockPlus5mButton.setOnClickListener { adjustMinutes(5) }
+
+        binding.openAndroidSettingsButton.setOnClickListener {
+            if (!prefs.isSettingsAndUninstallUnlocked()) {
+                Toast.makeText(this, R.string.error_unlock_required, Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val settingsIntent = Intent(android.provider.Settings.ACTION_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(settingsIntent)
+        }
+
+        binding.returnKeepTimerButton.setOnClickListener {
+            finish()
+        }
+    }
+
+    private fun refreshUnlockCountdownUi() {
+        val remainingSec = prefs.getAdminUnlockRemainingSeconds()
+        if (remainingSec > 0) {
+            binding.unlockTimerStatusText.text = getString(
+                R.string.unlock_timer_active_format,
+                remainingSec / 60,
+                remainingSec % 60
+            )
+            binding.openAndroidSettingsButton.isEnabled = true
+        } else {
+            binding.unlockTimerStatusText.text = getString(
+                R.string.unlock_timer_planned_format,
+                prefs.getAdminUnlockDurationMinutes()
+            )
+            binding.openAndroidSettingsButton.isEnabled = false
+        }
+    }
+
+    private fun setupApkUpdaterControls() {
+        binding.apkCurrentVersionText.text = getString(
+            R.string.apk_current_version_format,
+            BuildConfig.VERSION_NAME,
+            BuildConfig.VERSION_CODE
+        )
+        binding.apkManifestUrlInput.setText(prefs.getApkUpdateManifestUrl())
+
+        binding.checkApkUpdateButton.setOnClickListener {
+            val url = binding.apkManifestUrlInput.text?.toString()?.trim().orEmpty()
+            prefs.setApkUpdateManifestUrl(url)
+            binding.checkApkUpdateButton.isEnabled = false
+            binding.installApkUpdateButton.isEnabled = false
+            binding.apkUpdateStatusText.setText(R.string.status_apk_checking)
+
+            AppUpdater.checkForUpdate(this, url) { result ->
+                if (isFinishing || isDestroyed) return@checkForUpdate
+                binding.checkApkUpdateButton.isEnabled = true
+                when (result) {
+                    is AppUpdater.CheckResult.UpdateAvailable -> {
+                        pendingReleaseManifest = result.manifest
+                        binding.installApkUpdateButton.isEnabled = true
+                        binding.apkUpdateStatusText.text = getString(
+                            R.string.status_apk_update_available,
+                            result.manifest.versionName,
+                            result.manifest.versionCode,
+                            result.manifest.releaseNotes
+                        ).trim()
+                    }
+                    is AppUpdater.CheckResult.UpToDate -> {
+                        pendingReleaseManifest = result.manifest
+                        binding.installApkUpdateButton.isEnabled = true
+                        binding.apkUpdateStatusText.text = getString(
+                            R.string.status_apk_up_to_date,
+                            result.manifest.versionName,
+                            result.manifest.versionCode
+                        )
+                    }
+                    is AppUpdater.CheckResult.Failed -> {
+                        pendingReleaseManifest = null
+                        binding.installApkUpdateButton.isEnabled = false
+                        binding.apkUpdateStatusText.text = result.errorMessage
+                    }
+                }
+            }
+        }
+
+        binding.installApkUpdateButton.setOnClickListener {
+            val manifest = pendingReleaseManifest ?: return@setOnClickListener
+            binding.checkApkUpdateButton.isEnabled = false
+            binding.installApkUpdateButton.isEnabled = false
+            AppUpdater.downloadAndInstallApk(
+                activity = this,
+                manifest = manifest,
+                onProgress = { progress ->
+                    if (!isFinishing && !isDestroyed) {
+                        binding.apkUpdateStatusText.text = progress
+                    }
+                },
+                onComplete = { outcome ->
+                    if (isFinishing || isDestroyed) return@downloadAndInstallApk
+                    binding.checkApkUpdateButton.isEnabled = true
+                    binding.installApkUpdateButton.isEnabled = true
+                    when (outcome) {
+                        is AppUpdater.InstallOutcome.SessionCommitted -> {
+                            binding.apkUpdateStatusText.setText(R.string.toast_apk_session_started)
+                            Toast.makeText(this, R.string.toast_apk_session_started, Toast.LENGTH_SHORT).show()
+                        }
+                        is AppUpdater.InstallOutcome.Failed -> {
+                            binding.apkUpdateStatusText.text = outcome.errorMessage
+                            Toast.makeText(
+                                this,
+                                getString(R.string.toast_apk_install_failed, outcome.errorMessage),
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                }
+            )
+        }
+    }
+
     private fun setupCloudSyncControls() {
-        binding.cloudSyncEnabledSwitch.isChecked = prefs.isCloudSyncEnabled()
         binding.cloudUidInput.setText(prefs.getCloudUid())
         binding.cloudDeviceIdInput.setText(prefs.getCloudDeviceId())
         binding.cloudRefreshTokenInput.setText(prefs.getCloudRefreshToken())
 
         binding.cloudSyncEnabledSwitch.setOnCheckedChangeListener { _, checked ->
+            if (suppressSwitchCallbacks) return@setOnCheckedChangeListener
             prefs.setCloudSyncEnabled(checked)
             refreshPolicyReadout()
         }
@@ -387,6 +618,7 @@ class AdminSettingsActivity : AppCompatActivity() {
                         is CloudSyncManager.SyncOutcome.Success -> {
                             val msgRes = if (outcome.pulledRemoteDeviceSettings || outcome.pulledRemoteGrowth) {
                                 reloadInstalledApps()
+                                syncSwitchesFromPrefs()
                                 R.string.toast_cloud_sync_pulled
                             } else {
                                 R.string.toast_cloud_sync_success
@@ -414,12 +646,14 @@ class AdminSettingsActivity : AppCompatActivity() {
             onToggle = { app, allowed ->
                 prefs.setPackageAllowed(app.packageName, allowed)
                 DevicePolicyHelper.syncLockTaskPackages(this)
+                CloudSyncManager.triggerSyncIfEnabled(this)
             },
             onSetTimeLimit = { app -> showTimeLimitPickerDialog(app) },
             onLaunchLockTask = { app ->
                 if (app.packageName !in prefs.getAllowedPackages()) {
                     prefs.setPackageAllowed(app.packageName, true)
                     adapter.notifyDataSetChanged()
+                    CloudSyncManager.triggerSyncIfEnabled(this)
                 }
                 val blockReason = DevicePolicyHelper.getLaunchBlockReason(this, app.packageName)
                 if (blockReason != null && !prefs.isSettingsAndUninstallUnlocked()) {
@@ -434,7 +668,8 @@ class AdminSettingsActivity : AppCompatActivity() {
                         Toast.LENGTH_SHORT
                     ).show()
                 }
-            }
+            },
+            onUninstallApp = { app -> showUninstallConfirmationDialog(app) }
         )
 
         binding.adminAppsRecycler.layoutManager = LinearLayoutManager(this)
@@ -449,6 +684,34 @@ class AdminSettingsActivity : AppCompatActivity() {
         })
 
         reloadInstalledApps()
+    }
+
+    private fun showUninstallConfirmationDialog(app: InstalledAppInfo) {
+        if (!prefs.isSettingsAndUninstallUnlocked()) {
+            Toast.makeText(this, R.string.error_unlock_required, Toast.LENGTH_SHORT).show()
+            return
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.dialog_uninstall_title, app.label))
+            .setMessage(getString(R.string.dialog_uninstall_message, app.label, app.packageName))
+            .setPositiveButton(R.string.action_uninstall_app) { _, _ ->
+                val started = DevicePolicyHelper.uninstallPackage(this, app.packageName)
+                if (started) {
+                    Toast.makeText(
+                        this,
+                        getString(R.string.toast_uninstall_started, app.label),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    Toast.makeText(
+                        this,
+                        getString(R.string.toast_uninstall_failed, app.packageName),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun reloadInstalledApps() {
@@ -496,26 +759,6 @@ class AdminSettingsActivity : AppCompatActivity() {
                     Toast.makeText(this, R.string.error_pin_format, Toast.LENGTH_SHORT).show()
                 }
             }
-        }
-    }
-
-    private fun setupUnlockControls() {
-        binding.unlockSettingsSwitch.isChecked = prefs.isSettingsAndUninstallUnlocked()
-        binding.unlockSettingsSwitch.setOnCheckedChangeListener { _, isChecked ->
-            DevicePolicyHelper.setAdminUnlockState(this, unlocked = isChecked)
-            recordAdminMutationAndHandleEscalation("adminUnlock=$isChecked")
-            refreshPolicyReadout()
-        }
-
-        binding.openAndroidSettingsButton.setOnClickListener {
-            if (!prefs.isSettingsAndUninstallUnlocked()) {
-                Toast.makeText(this, R.string.error_unlock_required, Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            val settingsIntent = Intent(android.provider.Settings.ACTION_SETTINGS).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            startActivity(settingsIntent)
         }
     }
 
@@ -618,7 +861,7 @@ class AdminSettingsActivity : AppCompatActivity() {
                     "Device Owner: Not provisioned (run adb shell dpm set-device-owner)\n"
                 }
             )
-            append("Mode: $mode · SafeSearch/Incognito: ${prefs.isDisablePornOnBrowsers()} · In-App Guard: ${prefs.isBlockInAppBrowsers()} · DNS: ${prefs.getFamilyDnsMode()}\n")
+            append("Mode: $mode · StatusBarBlocked: ${prefs.isStatusBarDisabled()} · KeyguardDisabled: ${prefs.isKeyguardDisabled()} · DNS: ${prefs.getFamilyDnsMode()}\n")
             append("Restrictions: DISALLOW_SAFE_BOOT, DISALLOW_FACTORY_RESET, DISALLOW_ADD_USER")
             append(if (unlocked) " (DISALLOW_APPS_CONTROL lifted)" else ", DISALLOW_APPS_CONTROL")
         }
@@ -659,7 +902,8 @@ class AdminSettingsActivity : AppCompatActivity() {
         private val limitSummary: (String) -> String,
         private val onToggle: (InstalledAppInfo, Boolean) -> Unit,
         private val onSetTimeLimit: (InstalledAppInfo) -> Unit,
-        private val onLaunchLockTask: (InstalledAppInfo) -> Unit
+        private val onLaunchLockTask: (InstalledAppInfo) -> Unit,
+        private val onUninstallApp: (InstalledAppInfo) -> Unit
     ) : RecyclerView.Adapter<AdminAppsAdapter.ViewHolder>() {
 
         private var items: List<InstalledAppInfo> = emptyList()
@@ -679,7 +923,15 @@ class AdminSettingsActivity : AppCompatActivity() {
         }
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            holder.bind(items[position], isAllowed, limitSummary, onToggle, onSetTimeLimit, onLaunchLockTask)
+            holder.bind(
+                items[position],
+                isAllowed,
+                limitSummary,
+                onToggle,
+                onSetTimeLimit,
+                onLaunchLockTask,
+                onUninstallApp
+            )
         }
 
         override fun getItemCount(): Int = items.size
@@ -694,7 +946,8 @@ class AdminSettingsActivity : AppCompatActivity() {
                 limitSummary: (String) -> String,
                 onToggle: (InstalledAppInfo, Boolean) -> Unit,
                 onSetTimeLimit: (InstalledAppInfo) -> Unit,
-                onLaunchLockTask: (InstalledAppInfo) -> Unit
+                onLaunchLockTask: (InstalledAppInfo) -> Unit,
+                onUninstallApp: (InstalledAppInfo) -> Unit
             ) {
                 itemBinding.adminAppTitle.text = app.label
                 itemBinding.adminAppPackage.text = app.packageName
@@ -717,6 +970,10 @@ class AdminSettingsActivity : AppCompatActivity() {
 
                 itemBinding.launchLockTaskButton.setOnClickListener {
                     onLaunchLockTask(app)
+                }
+
+                itemBinding.uninstallAppButton.setOnClickListener {
+                    onUninstallApp(app)
                 }
             }
         }

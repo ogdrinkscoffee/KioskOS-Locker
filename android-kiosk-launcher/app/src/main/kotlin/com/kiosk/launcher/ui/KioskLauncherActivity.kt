@@ -8,6 +8,8 @@ package com.kiosk.launcher.ui
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -35,7 +37,8 @@ import com.kiosk.launcher.sync.CloudSyncManager
  * Main Kiosk Home Launcher Activity.
  * Declared with HOME + DEFAULT categories in AndroidManifest.xml.
  * Supports Multi-App Grid, Single-App Auto-Launch, and Locked Kiosk Browser modes,
- * plus runtime orientation/font-scale recovery without resetting kiosk lockdown.
+ * timed Admin unlock countdown controls, dynamic status bar visibility, and
+ * runtime orientation/font-scale recovery without resetting kiosk lockdown.
  */
 class KioskLauncherActivity : AppCompatActivity() {
 
@@ -43,6 +46,27 @@ class KioskLauncherActivity : AppCompatActivity() {
     private lateinit var prefs: KioskPreferences
     private lateinit var adapter: KioskAppsAdapter
     private var pinDialog: androidx.appcompat.app.AlertDialog? = null
+
+    private val unlockTickHandler = Handler(Looper.getMainLooper())
+    private val unlockTickRunnable = object : Runnable {
+        override fun run() {
+            if (isFinishing || isDestroyed) return
+            val expired = DevicePolicyHelper.reconcileAdminUnlockTimeout(this@KioskLauncherActivity)
+            updateUnlockTimerBanner()
+            if (expired) {
+                Toast.makeText(
+                    this@KioskLauncherActivity,
+                    R.string.toast_unlock_expired,
+                    Toast.LENGTH_LONG
+                ).show()
+                ensureLauncherLockTask()
+                applySystemBarVisibility()
+                updatePolicyStatusBanner()
+            } else if (prefs.isSettingsAndUninstallUnlocked()) {
+                unlockTickHandler.postDelayed(this, 1_000L)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,11 +84,13 @@ class KioskLauncherActivity : AppCompatActivity() {
 
         setupGrid()
         setupAdminTrigger()
-        enterImmersiveKioskUi()
+        setupUnlockBannerControls()
+        applySystemBarVisibility()
         handleBlockedPackageIntent(intent)
     }
 
     override fun onDestroy() {
+        unlockTickHandler.removeCallbacks(unlockTickRunnable)
         pinDialog?.dismiss()
         pinDialog = null
         super.onDestroy()
@@ -78,31 +104,45 @@ class KioskLauncherActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        DevicePolicyHelper.setAdminUnlockState(this, unlocked = false)
+        val expired = DevicePolicyHelper.reconcileAdminUnlockTimeout(this)
+        if (expired) {
+            Toast.makeText(this, R.string.toast_unlock_expired, Toast.LENGTH_LONG).show()
+        }
+        DevicePolicyHelper.enforceKioskPolicies(this)
         applyKeepScreenAwakeFlag()
         ensureLauncherLockTask()
+        applySystemBarVisibility()
         binding.kioskHeaderTitle.text = prefs.getKioskTitle(getString(R.string.kiosk_home_title))
         refreshAllowedApps()
         updatePolicyStatusBanner()
+        updateUnlockTimerBanner()
+        startUnlockTickIfNeeded()
         autoLaunchDedicatedModeIfConfigured()
         CloudSyncManager.triggerSyncIfEnabled(this) { outcome ->
             if (outcome is CloudSyncManager.SyncOutcome.Success && outcome.pulledRemoteDeviceSettings) {
                 runOnUiThread {
                     if (!isFinishing && !isDestroyed) {
                         binding.kioskHeaderTitle.text = prefs.getKioskTitle(getString(R.string.kiosk_home_title))
+                        applySystemBarVisibility()
                         refreshAllowedApps()
                         updatePolicyStatusBanner()
+                        updateUnlockTimerBanner()
                     }
                 }
             }
         }
     }
 
+    override fun onPause() {
+        unlockTickHandler.removeCallbacks(unlockTickRunnable)
+        super.onPause()
+    }
+
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         val spanCount = calculateGridSpanCount(newConfig)
         (binding.appsRecyclerView.layoutManager as? GridLayoutManager)?.spanCount = spanCount
-        enterImmersiveKioskUi()
+        applySystemBarVisibility()
     }
 
     private fun applyKeepScreenAwakeFlag() {
@@ -113,8 +153,77 @@ class KioskLauncherActivity : AppCompatActivity() {
         }
     }
 
+    private fun applySystemBarVisibility() {
+        val shouldHideStatusBar = !prefs.isSettingsAndUninstallUnlocked() && prefs.isStatusBarDisabled()
+        WindowCompat.setDecorFitsSystemWindows(window, !shouldHideStatusBar)
+        WindowInsetsControllerCompat(window, binding.root).apply {
+            if (shouldHideStatusBar) {
+                hide(WindowInsetsCompat.Type.statusBars())
+                systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            } else {
+                show(WindowInsetsCompat.Type.statusBars())
+            }
+        }
+    }
+
+    private fun startUnlockTickIfNeeded() {
+        unlockTickHandler.removeCallbacks(unlockTickRunnable)
+        if (prefs.isSettingsAndUninstallUnlocked()) {
+            unlockTickHandler.postDelayed(unlockTickRunnable, 1_000L)
+        }
+    }
+
+    private fun setupUnlockBannerControls() {
+        binding.unlockSubtract1mButton.setOnClickListener {
+            val stillUnlocked = prefs.adjustAdminUnlockTime(-1)
+            DevicePolicyHelper.enforceKioskPolicies(this)
+            ensureLauncherLockTask()
+            applySystemBarVisibility()
+            updatePolicyStatusBanner()
+            updateUnlockTimerBanner()
+            if (!stillUnlocked) {
+                Toast.makeText(this, R.string.toast_unlock_expired, Toast.LENGTH_SHORT).show()
+            }
+        }
+        binding.unlockAdd1mButton.setOnClickListener {
+            prefs.adjustAdminUnlockTime(1)
+            DevicePolicyHelper.enforceKioskPolicies(this)
+            updateUnlockTimerBanner()
+            startUnlockTickIfNeeded()
+        }
+        binding.unlockReopenAdminButton.setOnClickListener {
+            if (prefs.isSettingsAndUninstallUnlocked()) {
+                startActivity(Intent(this, AdminSettingsActivity::class.java))
+            } else {
+                openAdminWithPinPrompt()
+            }
+        }
+        binding.unlockLockNowButton.setOnClickListener {
+            DevicePolicyHelper.setAdminUnlockState(this, unlocked = false)
+            ensureLauncherLockTask()
+            applySystemBarVisibility()
+            updatePolicyStatusBanner()
+            updateUnlockTimerBanner()
+        }
+    }
+
+    private fun updateUnlockTimerBanner() {
+        val remainingSec = prefs.getAdminUnlockRemainingSeconds()
+        if (remainingSec > 0) {
+            binding.unlockTimerBanner.visibility = View.VISIBLE
+            binding.unlockTimerText.text = getString(
+                R.string.unlock_timer_active_format,
+                remainingSec / 60,
+                remainingSec % 60
+            )
+        } else {
+            binding.unlockTimerBanner.visibility = View.GONE
+        }
+    }
+
     private fun autoLaunchDedicatedModeIfConfigured() {
-        if (prefs.isPanicLockActive()) return
+        if (prefs.isPanicLockActive() || prefs.isSettingsAndUninstallUnlocked()) return
         when (prefs.getKioskMode()) {
             KioskPreferences.MODE_SINGLE_APP -> {
                 val targetPkg = prefs.getSingleAppPackage()
@@ -158,24 +267,35 @@ class KioskLauncherActivity : AppCompatActivity() {
             }
         }
         binding.adminSettingsButton.setOnClickListener {
-            pinDialog?.dismiss()
-            pinDialog = PinPromptDialog.show(
-                context = this,
-                title = getString(R.string.admin_pin_prompt_title),
-                subtitle = getString(R.string.admin_pin_prompt_subtitle)
-            ) {
+            if (prefs.isSettingsAndUninstallUnlocked()) {
                 startActivity(Intent(this, AdminSettingsActivity::class.java))
+            } else {
+                openAdminWithPinPrompt()
             }
         }
         binding.homePanicButton.setOnClickListener {
             val mins = DevicePolicyHelper.triggerEmergencyPanic(this)
+            ensureLauncherLockTask()
+            applySystemBarVisibility()
             refreshAllowedApps()
             updatePolicyStatusBanner()
+            updateUnlockTimerBanner()
             Toast.makeText(
                 this,
                 getString(R.string.toast_panic_activated, mins),
                 Toast.LENGTH_LONG
             ).show()
+        }
+    }
+
+    private fun openAdminWithPinPrompt() {
+        pinDialog?.dismiss()
+        pinDialog = PinPromptDialog.show(
+            context = this,
+            title = getString(R.string.admin_pin_prompt_title),
+            subtitle = getString(R.string.admin_pin_prompt_subtitle)
+        ) {
+            startActivity(Intent(this, AdminSettingsActivity::class.java))
         }
     }
 
@@ -217,6 +337,13 @@ class KioskLauncherActivity : AppCompatActivity() {
     }
 
     private fun ensureLauncherLockTask() {
+        if (prefs.isSettingsAndUninstallUnlocked()) {
+            try {
+                stopLockTask()
+            } catch (_: IllegalStateException) {
+            }
+            return
+        }
         if (DevicePolicyHelper.isDeviceOwner(this)) {
             DevicePolicyHelper.syncLockTaskPackages(this)
             try {
@@ -245,6 +372,10 @@ class KioskLauncherActivity : AppCompatActivity() {
             else -> "Multi-App"
         }
         val statusExtras = buildList {
+            if (prefs.isSettingsAndUninstallUnlocked()) {
+                val rem = prefs.getAdminUnlockRemainingSeconds()
+                add("Admin Unlocked ${(rem + 59) / 60}m")
+            }
             if (prefs.isPanicLockActive()) {
                 add("Panic ${prefs.getPanicLockRemainingMinutes()}m")
             }
@@ -286,15 +417,6 @@ class KioskLauncherActivity : AppCompatActivity() {
             blockedReason ?: getString(R.string.toast_settings_blocked, blockedPkg),
             Toast.LENGTH_LONG
         ).show()
-    }
-
-    private fun enterImmersiveKioskUi() {
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        WindowInsetsControllerCompat(window, binding.root).apply {
-            hide(WindowInsetsCompat.Type.systemBars())
-            systemBarsBehavior =
-                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        }
     }
 
     private fun calculateGridSpanCount(config: Configuration): Int {

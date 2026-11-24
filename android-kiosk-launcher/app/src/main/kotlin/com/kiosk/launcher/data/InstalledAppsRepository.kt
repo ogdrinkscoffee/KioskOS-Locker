@@ -18,7 +18,14 @@ object InstalledAppsRepository {
     private val RESTRICTED_SYSTEM_PACKAGES = setOf(
         "com.android.settings",
         "com.android.packageinstaller",
-        "com.google.android.packageinstaller"
+        "com.google.android.packageinstaller",
+        "com.samsung.android.packageinstaller",
+        "com.miui.packageinstaller",
+        "com.oplus.packageinstaller",
+        "com.coloros.packageinstaller",
+        "com.android.permissioncontroller",
+        "com.google.android.permissioncontroller",
+        "com.android.vending"
     )
 
     fun loadLaunchableApps(context: Context): List<InstalledAppInfo> {
