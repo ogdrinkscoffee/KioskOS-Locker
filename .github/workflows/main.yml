@@ -3,7 +3,19 @@ name: Build Ironclad OS Android APK
 on:
   push:
     branches: [ main ]
+    # The publish step commits the built APK, its metadata and the update feed.
+    # Ignoring those paths stops that commit from starting another build: a signed
+    # APK is never byte-identical (signing timestamps), so without this the checksum
+    # would change every run and the workflow would loop forever.
+    paths-ignore:
+      - 'public/downloads/IroncladOS.apk'
+      - 'public/downloads/latest.json'
+      - 'src/generated/apkMeta.ts'
   workflow_dispatch:
+
+# Required for the publish step to push the new APK back to main.
+permissions:
+  contents: write
 
 jobs:
   build-apk:
@@ -15,6 +27,22 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # Tells the admin straight away if the token cannot publish, instead of failing
+      # after a nine-minute build. A warning, not an error: the build and its artifact
+      # are still useful, and the download page can be refreshed by a manual publish.
+      - name: Check the token can publish
+        working-directory: ${{ github.workspace }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git push --dry-run origin HEAD:main >/dev/null 2>&1; then
+            echo "Token can push to main."
+          else
+            echo "::warning::The workflow token cannot push to main, so the published APK" \
+              "will not be committed. Set Settings → Actions → General → Workflow" \
+              "permissions to 'Read and write permissions' to enable automatic publishing."
+          fi
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -67,7 +95,9 @@ jobs:
           if git diff --staged --quiet; then
             echo "Published APK already current."
           else
-            git commit -m "Publish Ironclad OS APK $(node -p "require('./public/downloads/latest.json').version")"
+            # [skip ci] is belt-and-braces next to paths-ignore, so neither the actor
+            # nor a future workflow edit can turn this into a build loop.
+            git commit -m "Publish Ironclad OS APK $(node -p "require('./public/downloads/latest.json').version") [skip ci]"
             git push origin HEAD:main
           fi
 
