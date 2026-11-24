@@ -14,7 +14,6 @@ import {
 import {
   BLOCKED_DISTRACTION_DOMAINS,
   BlockerShieldToggleKey,
-  DEFAULT_ADMIN_UNLOCK_MINUTES,
   DEFAULT_BLOCKER_SHIELDS,
   DEFAULT_DOWNTIME_SCHEDULE,
   DEFAULT_HARDWARE_LOCKS,
@@ -28,12 +27,10 @@ import {
   KioskState,
   RestrictionKey,
   UNSUPPORTED_BROWSER_PACKAGES,
-  getAdminUnlockRemainingSeconds,
   getAllInstalledApps,
   getAppRemainingSeconds,
   getEnforcedRestrictions,
   getFocusBlockRemainingMinutes,
-  getLockTaskFeatures,
   getLockTaskWhitelist,
   getPanicLockRemainingMinutes,
   getPinLockoutRemainingSeconds,
@@ -194,9 +191,6 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
   const shields = state.blockerShields ?? DEFAULT_BLOCKER_SHIELDS;
   const downtime = state.downtimeSchedule ?? DEFAULT_DOWNTIME_SCHEDULE;
   const lockTaskWhitelist = getLockTaskWhitelist(state);
-  const lockTaskFeatures = getLockTaskFeatures(state);
-  const unlockRemainingSec = getAdminUnlockRemainingSeconds(state);
-  const unlockDurationMins = state.adminUnlockDurationMinutes ?? DEFAULT_ADMIN_UNLOCK_MINUTES;
   const strictLockRemaining = getStrictShieldRemainingMinutes(state);
   const focusBlockRemaining = getFocusBlockRemainingMinutes(state);
   const panicLockRemaining = getPanicLockRemainingMinutes(state);
@@ -754,66 +748,32 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
             LockTask Allowlist &amp; Settings Guard
           </h3>
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 shrink-0 tabular-nums">
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 shrink-0">
             {state.adminUnlocked ? (
               <>
                 <Unlock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-                <span className="text-amber-800 dark:text-amber-300">
-                  Unlocked ({Math.ceil(unlockRemainingSec / 60) || unlockDurationMins}m)
-                </span>
+                <span className="text-amber-800 dark:text-amber-300">Unlocked</span>
               </>
             ) : (
               <>
                 <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
-                <span className="text-emerald-700 dark:text-emerald-400">
-                  Settings &amp; Uninstall Blocked ({unlockDurationMins}m preset)
-                </span>
+                <span className="text-emerald-700 dark:text-emerald-400">Settings &amp; Uninstall Blocked</span>
               </>
             )}
           </span>
         </div>
 
-        <div className="mt-3 space-y-3">
-          <div>
-            <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
-              dpm.setLockTaskFeatures(admin, flags)
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {(
-                [
-                  { label: 'HOME', enabled: lockTaskFeatures.home },
-                  { label: 'NOTIFICATIONS', enabled: lockTaskFeatures.notifications },
-                  { label: 'SYSTEM_INFO', enabled: lockTaskFeatures.systemInfo },
-                  { label: 'KEYGUARD', enabled: lockTaskFeatures.keyguard },
-                  { label: 'GLOBAL_ACTIONS', enabled: lockTaskFeatures.globalActions },
-                ] as const
-              ).map((flag) => (
-                <span
-                  key={flag.label}
-                  className={`px-2 py-0.5 rounded border font-mono text-[11px] font-semibold ${
-                    flag.enabled
-                      ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300'
-                      : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'
-                  }`}
-                >
-                  {flag.label}: {flag.enabled ? 'ON' : 'OFF'}
-                </span>
-              ))}
-            </div>
+        <div className="mt-3">
+          <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
+            dpm.setLockTaskPackages(admin, arrayOf({lockTaskWhitelist.length}))
           </div>
-
-          <div>
-            <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
-              dpm.setLockTaskPackages(admin, arrayOf({lockTaskWhitelist.length}))
-            </div>
-            <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-3 font-mono text-xs text-slate-800 dark:text-slate-200 space-y-1">
-              {lockTaskWhitelist.map((pkg) => (
-                <div key={pkg} className="flex items-center gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" aria-hidden="true" />
-                  <span>{pkg}</span>
-                </div>
-              ))}
-            </div>
+          <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-3 font-mono text-xs text-slate-800 dark:text-slate-200 space-y-1">
+            {lockTaskWhitelist.map((pkg) => (
+              <div key={pkg} className="flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" aria-hidden="true" />
+                <span>{pkg}</span>
+              </div>
+            ))}
           </div>
         </div>
       </section>

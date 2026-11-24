@@ -49,11 +49,7 @@ import {
   hashPinWithSalt,
 } from './utils/cloudSyncEngine';
 import {
-  ApkReleaseManifest,
-  BUILTIN_APK_VERSION_CODE,
-  BUILTIN_APK_VERSION_NAME,
   BlockerShieldToggleKey,
-  DEFAULT_ADMIN_UNLOCK_MINUTES,
   DEFAULT_BLOCKER_SHIELDS,
   DEFAULT_DOWNTIME_SCHEDULE,
   DEFAULT_HARDWARE_LOCKS,
@@ -67,20 +63,15 @@ import {
   SELF_IMPROVEMENT_PACKAGE,
   activateStrictShieldLock,
   addCustomApp,
-  adjustAdminUnlockTime,
   advanceAppUsage,
-  applySimulatedApkUpdate,
   attemptUninstallApp,
   clearPanicLockdown,
   createInitialKioskState,
-  dismissKeyguard,
   ensureUsageDateCurrent,
   getLocalDateIso,
   launchApp,
   navigateKioskBrowser,
   openPinGate,
-  pressSystemNavButton,
-  reconcileAdminUnlockExpiry,
   resetAppUsage,
   resetTamperDiagnostics,
   returnToKioskHome,
@@ -97,7 +88,6 @@ import {
   toggleDeviceOwnerMode,
   toggleHardwarePolicy,
   triggerPanicLockdown,
-  triggerScreenLock,
   updateAdminPin,
   updateAllowedDomains,
   updateBlockedKeywords,
@@ -266,32 +256,10 @@ function loadInitialState(): KioskState {
         typeof parsed.tamperWarningsCount === 'number' ? parsed.tamperWarningsCount : 0,
       allowedPackages: migratedAllowed,
       customApps: Array.isArray(parsed.customApps) ? parsed.customApps : [],
-      uninstalledPackages: Array.isArray(parsed.uninstalledPackages) ? parsed.uninstalledPackages : [],
-      adminUnlockDurationMinutes:
-        typeof parsed.adminUnlockDurationMinutes === 'number'
-          ? parsed.adminUnlockDurationMinutes
-          : DEFAULT_ADMIN_UNLOCK_MINUTES,
-      adminUnlockUntilMs:
-        typeof parsed.adminUnlockUntilMs === 'number' ? parsed.adminUnlockUntilMs : 0,
-      keyguardLocked: typeof parsed.keyguardLocked === 'boolean' ? parsed.keyguardLocked : false,
-      installedApkVersionCode:
-        typeof parsed.installedApkVersionCode === 'number'
-          ? parsed.installedApkVersionCode
-          : BUILTIN_APK_VERSION_CODE,
-      installedApkVersionName:
-        typeof parsed.installedApkVersionName === 'string' && parsed.installedApkVersionName.trim()
-          ? parsed.installedApkVersionName
-          : BUILTIN_APK_VERSION_NAME,
-      apkUpdateManifestUrl:
-        typeof parsed.apkUpdateManifestUrl === 'string' ? parsed.apkUpdateManifestUrl : '',
       activeScreen: parsed.activeScreen === 'rebooting' ? 'home' : parsed.activeScreen ?? 'home',
       events: Array.isArray(parsed.events) && parsed.events.length > 0 ? parsed.events : base.events,
     };
-    return reconcileAdminUnlockExpiry(
-      ensureUsageDateCurrent(migratedState, getLocalDateIso()),
-      formatClockNow(),
-      Date.now()
-    );
+    return ensureUsageDateCurrent(migratedState, getLocalDateIso());
   } catch {
     return createInitialKioskState();
   }
@@ -358,7 +326,6 @@ export default function App() {
   const [syncedDevices, setSyncedDevices] = useState<CloudDeviceSnapshot[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>(DEFAULT_DEVICE_ID);
   const [pinSalt, setPinSalt] = useState<string>(getOrCreatePinSalt);
-  const [apkPublisherToken, setApkPublisherToken] = useState<string | null>(null);
 
   const applyingRemoteDeviceRef = useRef(false);
   const applyingRemoteGrowthRef = useRef(false);
@@ -389,18 +356,6 @@ export default function App() {
       // Ignore storage quota errors
     }
   }, [selfImprovement]);
-
-  // Auto-reconcile timed Settings/Uninstall unlock expiry every second while active
-  useEffect(() => {
-    if (!state.adminUnlocked || (state.adminUnlockUntilMs ?? 0) <= 0) return;
-    const timer = window.setInterval(() => {
-      const now = Date.now();
-      if (now >= state.adminUnlockUntilMs) {
-        setState((prev) => reconcileAdminUnlockExpiry(prev, formatClockNow(), now));
-      }
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [state.adminUnlocked, state.adminUnlockUntilMs]);
 
   // Network listeners + startup Firestore check (non-blocking for offline mode)
   useEffect(() => {
@@ -871,38 +826,7 @@ export default function App() {
   };
 
   const handleSetAdminUnlock = (unlocked: boolean) => {
-    setState((prev) => setAdminSystemUnlock(prev, unlocked, formatClockNow(), Date.now()));
-  };
-
-  const handleAdjustAdminUnlockTime = (deltaMinutes: number) => {
-    setState((prev) => adjustAdminUnlockTime(prev, deltaMinutes, formatClockNow(), Date.now()));
-  };
-
-  const handlePressSystemNav = (buttonName: 'Back' | 'Home' | 'Recents') => {
-    setState((prev) => pressSystemNavButton(prev, buttonName, formatClockNow(), Date.now()));
-  };
-
-  const handleReturnHomeKeepTimer = () => {
-    setState((prev) => returnToKioskHome(prev, formatClockNow(), true, Date.now()));
-  };
-
-  const handleTriggerKeyguard = () => {
-    setState((prev) => triggerScreenLock(prev, formatClockNow(), Date.now()));
-  };
-
-  const handleDismissKeyguard = () => {
-    setState((prev) => dismissKeyguard(prev, formatClockNow()));
-  };
-
-  const handleUpdateApkManifestUrl = (url: string) => {
-    setState((prev) => ({
-      ...prev,
-      apkUpdateManifestUrl: url.trim(),
-    }));
-  };
-
-  const handleApplyApkUpdate = (manifest: ApkReleaseManifest) => {
-    setState((prev) => applySimulatedApkUpdate(prev, manifest, formatClockNow()));
+    setState((prev) => setAdminSystemUnlock(prev, unlocked, formatClockNow()));
   };
 
   const handleSetKioskMode = (mode: KioskOperationMode, singleAppPackage?: string | null) => {
@@ -1220,13 +1144,6 @@ export default function App() {
               onAddCustomApp={handleAddCustomApp}
               onUpdatePin={handleUpdatePin}
               onSetAdminUnlock={handleSetAdminUnlock}
-              onAdjustAdminUnlockTime={handleAdjustAdminUnlockTime}
-              onPressSystemNav={handlePressSystemNav}
-              onReturnHomeKeepTimer={handleReturnHomeKeepTimer}
-              onTriggerKeyguard={handleTriggerKeyguard}
-              onDismissKeyguard={handleDismissKeyguard}
-              onUpdateApkManifestUrl={handleUpdateApkManifestUrl}
-              onApplyApkUpdate={handleApplyApkUpdate}
               onSetKioskMode={handleSetKioskMode}
               onUpdateKioskTitle={handleUpdateKioskTitle}
               onToggleHardwarePolicy={handleToggleHardwarePolicy}
@@ -1401,14 +1318,7 @@ export default function App() {
 
         {activeTab === 'source' && <SourceExplorerView />}
 
-        {activeTab === 'adb' && (
-          <AdbProvisioningView
-            publisherToken={apkPublisherToken}
-            onPublisherTokenChange={setApkPublisherToken}
-            installedVersionCode={state.installedApkVersionCode}
-            installedVersionName={state.installedApkVersionName}
-          />
-        )}
+        {activeTab === 'adb' && <AdbProvisioningView />}
       </main>
       <LegalFooter/>
     </div>

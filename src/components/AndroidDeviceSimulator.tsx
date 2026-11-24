@@ -2,14 +2,10 @@ import React, { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   BatteryCharging,
-  Bell,
   Calculator,
   Camera,
   Check,
-  ChevronDown,
   ClipboardCheck,
-  Clock,
-  Download,
   Eye,
   EyeOff,
   Flame,
@@ -17,12 +13,10 @@ import {
   Home,
   KeyRound,
   Lock,
-  Minus,
   OctagonAlert,
   PackageSearch,
   PlugZap,
   Plus,
-  Power,
   RefreshCw,
   Settings,
   ShieldAlert,
@@ -36,9 +30,7 @@ import {
   Zap,
 } from 'lucide-react';
 import {
-  ApkReleaseManifest,
   BlockerShieldToggleKey,
-  DEFAULT_ADMIN_UNLOCK_MINUTES,
   DEFAULT_BLOCKER_SHIELDS,
   DEFAULT_DOWNTIME_SCHEDULE,
   DowntimeSchedule,
@@ -50,14 +42,11 @@ import {
   MAX_ADMIN_PIN_LENGTH,
   PinGateTarget,
   SELF_IMPROVEMENT_PACKAGE,
-  compareAppVersion,
-  getAdminUnlockRemainingSeconds,
   getAllInstalledApps,
   getAppRemainingSeconds,
   getAppScheduleOrLimitBlockReason,
   getExtendedPolicies,
   getFocusBlockRemainingMinutes,
-  getLockTaskFeatures,
   getPanicLockRemainingMinutes,
   getPinLockoutRemainingSeconds,
   getStrictShieldRemainingMinutes,
@@ -85,13 +74,6 @@ interface AndroidDeviceSimulatorProps {
   onAddCustomApp: (label: string, packageName: string) => { ok: boolean; error?: string };
   onUpdatePin: (currentPin: string, newPin: string, confirmPin: string) => { ok: boolean; error?: string };
   onSetAdminUnlock: (unlocked: boolean) => void;
-  onAdjustAdminUnlockTime: (deltaMinutes: number) => void;
-  onPressSystemNav: (buttonName: 'Back' | 'Home' | 'Recents') => void;
-  onReturnHomeKeepTimer: () => void;
-  onTriggerKeyguard: () => void;
-  onDismissKeyguard: () => void;
-  onUpdateApkManifestUrl: (url: string) => void;
-  onApplyApkUpdate: (manifest: ApkReleaseManifest) => void;
   onSetKioskMode: (mode: KioskOperationMode, singleAppPackage?: string | null) => void;
   onUpdateKioskTitle: (title: string) => void;
   onToggleHardwarePolicy: (key: HardwareLockPolicyKey) => void;
@@ -192,13 +174,6 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
   onAddCustomApp,
   onUpdatePin,
   onSetAdminUnlock,
-  onAdjustAdminUnlockTime,
-  onPressSystemNav,
-  onReturnHomeKeepTimer,
-  onTriggerKeyguard,
-  onDismissKeyguard,
-  onUpdateApkManifestUrl,
-  onApplyApkUpdate,
   onSetKioskMode,
   onUpdateKioskTitle,
   onToggleHardwarePolicy,
@@ -231,18 +206,6 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
   const [pinError, setPinError] = useState<string | null>(null);
   const [navBlockedMessage, setNavBlockedMessage] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
-  const [shadeOpen, setShadeOpen] = useState(false);
-
-  const [apkUrlDraft, setApkUrlDraft] = useState(state.apkUpdateManifestUrl || '/api/apk/latest');
-  const [apkCheckBusy, setApkCheckBusy] = useState(false);
-  const [apkUpdateStatus, setApkUpdateStatus] = useState<{
-    kind: 'idle' | 'up_to_date' | 'available' | 'error' | 'installed';
-    message: string;
-    manifest?: ApkReleaseManifest;
-  }>({
-    kind: 'idle',
-    message: 'Tap Check Update to query your website or GitHub Release APK feed.',
-  });
 
   const [currentPinInput, setCurrentPinInput] = useState('');
   const [newPinInput, setNewPinInput] = useState('');
@@ -304,10 +267,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
   const strictLockMinutes = getStrictShieldRemainingMinutes(state, nowMs);
   const focusBlockMinutes = getFocusBlockRemainingMinutes(state, nowMs);
   const panicLockMinutes = getPanicLockRemainingMinutes(state, nowMs);
-  const unlockRemainingSeconds = getAdminUnlockRemainingSeconds(state, nowMs);
-  const plannedUnlockMinutes = state.adminUnlockDurationMinutes ?? DEFAULT_ADMIN_UNLOCK_MINUTES;
   const extendedPolicies = getExtendedPolicies(state);
-  const lockTaskFeatures = getLockTaskFeatures(state);
   const downtimeActive = isDowntimeActive(state);
   const activeAppLimitMins =
     state.activeAppPackage ? (state.appTimeLimits ?? {})[state.activeAppPackage] ?? 0 : 0;
@@ -341,23 +301,11 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
   }, [state.browserCurrentUrl]);
 
   useEffect(() => {
-    if (state.apkUpdateManifestUrl) {
-      setApkUrlDraft(state.apkUpdateManifestUrl);
-    }
-  }, [state.apkUpdateManifestUrl]);
-
-  useEffect(() => {
     setNowMs(Date.now());
-    if (!state.adminUnlocked && lockoutRemaining <= 0) return;
+    if (lockoutRemaining <= 0) return;
     const tick = window.setInterval(() => setNowMs(Date.now()), 1000);
     return () => window.clearInterval(tick);
-  }, [state.adminUnlocked, lockoutRemaining]);
-
-  useEffect(() => {
-    if (extendedPolicies.SET_STATUS_BAR_DISABLED && shadeOpen) {
-      setShadeOpen(false);
-    }
-  }, [extendedPolicies.SET_STATUS_BAR_DISABLED, shadeOpen]);
+  }, [lockoutRemaining]);
 
   useEffect(() => {
     if (!simTimerRunning) return;
@@ -536,113 +484,23 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
   };
 
   const handleSystemNavButton = (buttonName: 'Back' | 'Home' | 'Recents') => {
-    setNavBlockedMessage(null);
-    setShadeOpen(false);
-    onPressSystemNav(buttonName);
-  };
-
-  const handleToggleNotificationShade = () => {
-    if (extendedPolicies.SET_STATUS_BAR_DISABLED) {
-      setShadeOpen(false);
-      setNavBlockedMessage(
-        'Status Bar & Notification Shade are blocked because "Block Status Bar Shade" is ON. Turn it off in Admin Settings or unlock Admin.'
-      );
+    if (state.activeScreen === 'home') {
+      if (buttonName === 'Recents') {
+        setNavBlockedMessage('Recents / Task Switcher is disabled while Kiosk LockTask is active.');
+      }
       return;
     }
-    setNavBlockedMessage(null);
-    setBatteryPanelOpen(false);
-    setShadeOpen((prev) => !prev);
-  };
-
-  const handleCheckInAppUpdate = async () => {
-    const targetUrl = apkUrlDraft.trim() || '/api/apk/latest';
-    onUpdateApkManifestUrl(apkUrlDraft.trim());
-    setApkCheckBusy(true);
-    try {
-      const response = await fetch(targetUrl, {
-        headers: { Accept: 'application/json' },
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status} while checking ${targetUrl}`);
-      }
-      const data = (await response.json()) as Record<string, unknown>;
-      let manifest: ApkReleaseManifest | null = null;
-
-      if (Array.isArray(data.assets)) {
-        const apkAsset = (data.assets as Array<Record<string, unknown>>).find((a) =>
-          String(a.name ?? '').toLowerCase().endsWith('.apk')
-        );
-        const tag = String(data.tag_name ?? '').replace(/^v/i, '');
-        if (tag && apkAsset?.browser_download_url) {
-          const parsedParts = tag.split('.').map((p) => Number.parseInt(p, 10) || 0);
-          const derivedCode =
-            (parsedParts[0] ?? 1) * 100 + (parsedParts[1] ?? 0) * 10 + (parsedParts[2] ?? 0);
-          manifest = {
-            versionCode: Math.max(derivedCode, state.installedApkVersionCode + 1),
-            versionName: tag,
-            downloadUrl: String(apkAsset.browser_download_url),
-            releaseNotes: typeof data.body === 'string' ? data.body : 'GitHub Release APK',
-            source: 'external',
-          };
-        }
-      } else {
-        const versionCode = Number(data.versionCode ?? 0);
-        const versionName =
-          typeof data.versionName === 'string' ? data.versionName : '';
-        const downloadUrl =
-          typeof data.downloadUrl === 'string' ? data.downloadUrl : '';
-        if (versionCode > 0 || versionName) {
-          manifest = {
-            versionCode: versionCode || 1,
-            versionName: versionName || String(versionCode),
-            downloadUrl,
-            releaseNotes: typeof data.releaseNotes === 'string' ? data.releaseNotes : '',
-            sha256: typeof data.sha256 === 'string' ? data.sha256 : '',
-            source: typeof data.source === 'string' ? data.source : 'website',
-          };
-        }
-      }
-
-      if (!manifest) {
-        throw new Error('Manifest did not include a valid APK release.');
-      }
-
-      const currentCode = state.installedApkVersionCode ?? 2;
-      const currentName = state.installedApkVersionName ?? '1.1.0';
-      const isNewer = compareAppVersion(
-        manifest.versionCode,
-        currentCode,
-        manifest.versionName,
-        currentName
-      );
-
-      if (isNewer && manifest.downloadUrl) {
-        setApkUpdateStatus({
-          kind: 'available',
-          message: `Update available: v${manifest.versionName} (build ${manifest.versionCode}). ${manifest.releaseNotes || ''}`.trim(),
-          manifest,
-        });
-      } else if (isNewer && !manifest.downloadUrl) {
-        setApkUpdateStatus({
-          kind: 'up_to_date',
-          message: `Server lists v${manifest.versionName} (build ${manifest.versionCode}), but no APK binary URL is published yet. Upload or link an APK in ADB Provisioning & APK Updates.`,
-          manifest,
-        });
-      } else {
-        setApkUpdateStatus({
-          kind: 'up_to_date',
-          message: `Up to date on v${currentName} (build ${currentCode}).${manifest.downloadUrl ? ' Published APK is ready to re-install.' : ''}`,
-          manifest,
-        });
-      }
-    } catch (err) {
-      setApkUpdateStatus({
-        kind: 'error',
-        message: err instanceof Error ? err.message : 'Failed to check for APK updates.',
-      });
-    } finally {
-      setApkCheckBusy(false);
+    if (state.activeScreen === 'pin_gate') {
+      onCancelPinGate();
+      return;
     }
+    if (state.activeScreen === 'admin_settings' || state.activeScreen === 'android_settings') {
+      onReturnHome();
+      return;
+    }
+    setNavBlockedMessage(
+      'System Back, Home, and Recents navigation buttons are disabled in LockTask mode. Exit via Admin PIN.'
+    );
   };
 
   const activeLockTags: string[] = [];
@@ -665,31 +523,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
         >
           {/* Android System Status Bar */}
           <div className="bg-slate-900 text-slate-100 px-3 py-1.5 flex items-center justify-between text-xs font-mono shrink-0 gap-1.5 border-b border-slate-800">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="tabular-nums shrink-0">08:31</span>
-              <button
-                type="button"
-                data-testid="status-bar-shade-button"
-                onClick={handleToggleNotificationShade}
-                aria-expanded={shadeOpen}
-                title={
-                  extendedPolicies.SET_STATUS_BAR_DISABLED
-                    ? 'Status Bar Shade blocked (StatusBarOff)'
-                    : 'Pull down Status Bar & Notification Shade'
-                }
-                className={`px-1.5 py-0.5 rounded inline-flex items-center gap-1 text-[10px] font-sans font-medium transition-colors ${
-                  extendedPolicies.SET_STATUS_BAR_DISABLED
-                    ? 'text-slate-400 hover:bg-slate-800/70'
-                    : shadeOpen
-                    ? 'bg-sky-600 text-white'
-                    : 'bg-slate-800 text-emerald-300 hover:bg-slate-700'
-                }`}
-              >
-                <Bell className="w-2.5 h-2.5" aria-hidden="true" />
-                <span>{extendedPolicies.SET_STATUS_BAR_DISABLED ? 'Shade Locked' : 'Shade'}</span>
-                <ChevronDown className="w-2.5 h-2.5" aria-hidden="true" />
-              </button>
-            </div>
+            <span className="tabular-nums shrink-0">08:31</span>
             <div className="flex items-center gap-1.5 min-w-0">
               {state.hardwareLocks?.cameraDisabled && state.isDeviceOwner && (
                 <span className="text-[10px] text-amber-300 shrink-0">CamOff</span>
@@ -697,31 +531,15 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
               {state.lockTaskActive && (
                 <span className="inline-flex items-center gap-1 text-sky-300 shrink-0">
                   <Lock className="w-3 h-3" aria-hidden="true" />
-                  <span>{lockTaskFeatures.home ? 'LT+Home' : 'LockTask'}</span>
+                  <span>LockTask</span>
                 </span>
               )}
-              <button
-                type="button"
-                data-testid="power-lockscreen-button"
-                onClick={() => {
-                  setShadeOpen(false);
-                  onTriggerKeyguard();
-                }}
-                title="Press Power / Lock Screen (Test Keyguard)"
-                aria-label="Test Android Lock Screen"
-                className="p-1 rounded hover:bg-slate-800 text-slate-200 hover:text-white shrink-0 transition-colors"
-              >
-                <Power className="w-3 h-3" aria-hidden="true" />
-              </button>
               <button
                 type="button"
                 data-testid="battery-indicator-button"
                 aria-expanded={batteryPanelOpen}
                 aria-label={`Battery ${batteryLevel} percent${isCharging ? ', charging' : ''}. Open battery controls`}
-                onClick={() => {
-                  setShadeOpen(false);
-                  setBatteryPanelOpen((prev) => !prev);
-                }}
+                onClick={() => setBatteryPanelOpen((prev) => !prev)}
                 className={`ml-0.5 px-1.5 py-0.5 rounded inline-flex items-center gap-1.5 shrink-0 transition-colors ${
                   batteryPanelOpen
                     ? 'bg-slate-800 text-white'
@@ -763,57 +581,6 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
               </button>
             </div>
           </div>
-
-          {/* Pulled-Down Status Bar & Notification Shade (when unlocked / not disabled) */}
-          {shadeOpen && !extendedPolicies.SET_STATUS_BAR_DISABLED && (
-            <div
-              data-testid="notification-shade-drawer"
-              className="bg-slate-800 text-slate-100 border-b border-slate-700 px-3.5 py-3 space-y-2.5 text-xs shrink-0"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="font-semibold text-white">
-                  Android Notification Shade &amp; Quick Settings
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShadeOpen(false)}
-                  className="text-[11px] text-sky-300 hover:text-white font-medium"
-                >
-                  Close Shade
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShadeOpen(false);
-                    onTriggerKeyguard();
-                  }}
-                  className="px-2.5 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-left flex items-center gap-2"
-                >
-                  <Power className="w-3.5 h-3.5 text-sky-300 shrink-0" aria-hidden="true" />
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-semibold text-white">Lock Screen</div>
-                    <div className="text-[10px] text-slate-300 truncate">Test Keyguard</div>
-                  </div>
-                </button>
-                <div className="px-2.5 py-2 rounded-lg bg-slate-700/70 text-left flex items-center gap-2">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-300 shrink-0" aria-hidden="true" />
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-semibold text-white">Status Bar Open</div>
-                    <div className="text-[10px] text-slate-300 truncate">
-                      {state.adminUnlocked ? 'Admin Timed Unlock' : 'Policy Allowed'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="p-2 rounded-lg bg-slate-900/70 border border-slate-700 text-[11px] text-slate-300">
-                <span className="font-semibold text-white">KioskOS Notice:</span>{' '}
-                LockTask features ({lockTaskFeatures.home ? 'HOME' : 'NO_HOME'} ·{' '}
-                {lockTaskFeatures.notifications ? 'NOTIFICATIONS' : 'SYSTEM_INFO_ONLY'}) active cleanly.
-              </div>
-            </div>
-          )}
 
           {/* Interactive Battery Quick-Settings Drawer */}
           {batteryPanelOpen && (
@@ -991,33 +758,6 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
 
           {/* Device Screen Content */}
           <div className="flex-1 overflow-y-auto p-4">
-            {state.keyguardLocked ? (
-              <div
-                data-testid="android-keyguard-screen"
-                className="h-full rounded-2xl bg-gradient-to-b from-slate-900 to-slate-950 text-white p-6 flex flex-col items-center justify-between text-center border border-slate-800"
-              >
-                <div className="mt-6 space-y-2">
-                  <Lock className="w-7 h-7 text-sky-400 mx-auto" aria-hidden="true" />
-                  <div className="text-4xl font-bold font-mono tabular-nums tracking-tight">08:31</div>
-                  <div className="text-xs text-slate-300">Android Lock Screen (Keyguard)</div>
-                </div>
-                <div className="space-y-3 w-full max-w-[240px]">
-                  <p className="text-[11px] text-slate-400">
-                    Keyguard active cleanly (`LOCK_TASK_FEATURE_KEYGUARD = true`, `setKeyguardDisabled ={' '}
-                    {String(extendedPolicies.SET_KEYGUARD_DISABLED)}`).
-                  </p>
-                  <button
-                    type="button"
-                    data-testid="dismiss-keyguard-button"
-                    onClick={onDismissKeyguard}
-                    className="w-full min-h-[42px] px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition-colors"
-                  >
-                    Swipe / Unlock Screen
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
             {state.activeScreen === 'rebooting' && (
               <div className="h-full flex flex-col items-center justify-center text-center px-4">
                 <RefreshCw className="w-8 h-8 text-sky-600 dark:text-sky-400 animate-spin mb-3" aria-hidden="true" />
@@ -1051,7 +791,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                                 ? 'Single-App'
                                 : state.kioskMode === 'kiosk_browser'
                                 ? 'Locked Browser'
-                                : 'Multi-App HOME'
+                                : 'Multi-App'
                             }`
                           : 'Standard Launcher · Non-Owner'}
                       </p>
@@ -1085,58 +825,6 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                     </button>
                   </div>
                 </div>
-
-                {/* Active Timed Settings / Uninstall Unlock Countdown Banner */}
-                {state.adminUnlocked && (
-                  <div
-                    role="status"
-                    data-testid="home-unlock-timer-banner"
-                    className="mt-3 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 text-xs text-amber-950 dark:text-amber-100 space-y-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold inline-flex items-center gap-1.5 tabular-nums">
-                        <Clock className="w-3.5 h-3.5 text-amber-700 dark:text-amber-300" aria-hidden="true" />
-                        <span>
-                          Settings &amp; Uninstall Unlocked · {formatCountdown(unlockRemainingSeconds)}
-                        </span>
-                      </span>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => onAdjustAdminUnlockTime(-1)}
-                          aria-label="Subtract 1 minute from unlock timer"
-                          className="px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 hover:bg-amber-100 dark:hover:bg-amber-900 text-[10px] font-semibold"
-                        >
-                          -1m
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onAdjustAdminUnlockTime(1)}
-                          aria-label="Add 1 minute to unlock timer"
-                          className="px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 hover:bg-amber-100 dark:hover:bg-amber-900 text-[10px] font-semibold"
-                        >
-                          +1m
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => onOpenPinGate('admin_settings')}
-                        className="flex-1 py-1 px-2 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 hover:bg-amber-100 dark:hover:bg-amber-900 text-[11px] font-semibold"
-                      >
-                        Admin Settings
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onSetAdminUnlock(false)}
-                        className="flex-1 py-1 px-2 rounded bg-amber-700 hover:bg-amber-800 text-white text-[11px] font-semibold"
-                      >
-                        Lock Now
-                      </button>
-                    </div>
-                  </div>
-                )}
 
                 {/* Single-App / Kiosk Browser Quick Launch Callout */}
                 {state.kioskMode !== 'multi_app' && (
@@ -1970,40 +1658,24 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                       Modes, BlockP/BlockerX shields, hardware locks &amp; 50-char passcode
                     </p>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {state.adminUnlocked && (
-                      <button
-                        type="button"
-                        onClick={onReturnHomeKeepTimer}
-                        className="min-h-[34px] px-2.5 py-1 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 text-[11px] font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/60 whitespace-nowrap"
-                      >
-                        Keep Timer
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={onReturnHome}
-                      className="min-h-[34px] px-2.5 py-1 rounded-lg bg-slate-900 dark:bg-sky-600 text-white text-[11px] font-semibold hover:bg-slate-800 dark:hover:bg-sky-500 whitespace-nowrap"
-                    >
-                      Lock &amp; Home
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={onReturnHome}
+                    className="min-h-[34px] px-2.5 py-1 rounded-lg bg-slate-900 dark:bg-sky-600 text-white text-xs font-medium hover:bg-slate-800 dark:hover:bg-sky-500 whitespace-nowrap shrink-0"
+                  >
+                    Return Home
+                  </button>
                 </div>
 
-                {/* Timed System Settings & Uninstall Unlock Section */}
+                {/* Temporary System Settings & Uninstall Unlock Section */}
                 <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                        Settings &amp; Uninstall Unlock Timer
+                        Settings &amp; Uninstall Unlock
                       </div>
-                      <div
-                        data-testid="admin-unlock-timer-status"
-                        className="text-[11px] text-slate-600 dark:text-slate-400 tabular-nums"
-                      >
-                        {state.adminUnlocked
-                          ? `Active: ${formatCountdown(unlockRemainingSeconds)} remaining · Settings, Uninstall, Shade & Lockscreen unlocked`
-                          : `Auto-relocks after ${plannedUnlockMinutes}m (survives Home until timer expires)`}
+                      <div className="text-[11px] text-slate-600 dark:text-slate-400">
+                        Temporarily lifts DISALLOW_APPS_CONTROL until returning Home
                       </div>
                     </div>
                     <button
@@ -2032,36 +1704,6 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                     </button>
                   </div>
 
-                  {/* Adjust Unlock Time (-5m / -1m / Duration / +1m / +5m) */}
-                  <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
-                    <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400 shrink-0">
-                      Timer ({plannedUnlockMinutes}m):
-                    </span>
-                    <div className="flex items-center gap-1">
-                      {[
-                        { label: '-5m', delta: -5 },
-                        { label: '-1m', delta: -1 },
-                        { label: '+1m', delta: 1 },
-                        { label: '+5m', delta: 5 },
-                      ].map((adj) => (
-                        <button
-                          key={adj.label}
-                          type="button"
-                          data-testid={`unlock-adjust-${adj.delta}`}
-                          onClick={() => onAdjustAdminUnlockTime(adj.delta)}
-                          className="px-2 py-1 rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-[11px] font-mono font-semibold text-slate-800 dark:text-slate-200 inline-flex items-center gap-0.5"
-                        >
-                          {adj.delta < 0 ? (
-                            <Minus className="w-2.5 h-2.5" aria-hidden="true" />
-                          ) : (
-                            <Plus className="w-2.5 h-2.5" aria-hidden="true" />
-                          )}
-                          <span>{adj.label.replace(/^[+-]/, '')}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                   <div className="flex items-center gap-2 pt-1">
                     <button
                       type="button"
@@ -2077,76 +1719,6 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                     >
                       Test Uninstall
                     </button>
-                  </div>
-                </div>
-
-                {/* In-App APK Self-Updater */}
-                <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                      App Updates (In-App APK Updater)
-                    </div>
-                    <span
-                      data-testid="apk-installed-version"
-                      className="text-[11px] font-mono font-semibold text-sky-700 dark:text-sky-400 tabular-nums"
-                    >
-                      v{state.installedApkVersionName} (b{state.installedApkVersionCode})
-                    </span>
-                  </div>
-                  <div>
-                    <label htmlFor="apk-manifest-url-input" className="block text-[10px] text-slate-600 dark:text-slate-400 mb-0.5">
-                      Update Manifest or GitHub Releases API URL
-                    </label>
-                    <input
-                      id="apk-manifest-url-input"
-                      type="text"
-                      value={apkUrlDraft}
-                      onChange={(e) => setApkUrlDraft(e.target.value)}
-                      placeholder="/api/apk/latest"
-                      className="w-full h-8 px-2 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-mono text-[11px]"
-                    />
-                  </div>
-                  <p
-                    role="status"
-                    className={`text-[11px] ${
-                      apkUpdateStatus.kind === 'error'
-                        ? 'text-red-600 dark:text-red-400'
-                        : apkUpdateStatus.kind === 'available' || apkUpdateStatus.kind === 'installed'
-                        ? 'text-emerald-700 dark:text-emerald-400 font-medium'
-                        : 'text-slate-600 dark:text-slate-400'
-                    }`}
-                  >
-                    {apkUpdateStatus.message}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      data-testid="check-apk-update-button"
-                      disabled={apkCheckBusy}
-                      onClick={handleCheckInAppUpdate}
-                      className="flex-1 min-h-[34px] px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 disabled:opacity-50"
-                    >
-                      {apkCheckBusy ? 'Checking...' : 'Check Update'}
-                    </button>
-                    {apkUpdateStatus.manifest?.downloadUrl && (
-                      <button
-                        type="button"
-                        data-testid="install-apk-update-button"
-                        onClick={() => {
-                          if (!apkUpdateStatus.manifest) return;
-                          onApplyApkUpdate(apkUpdateStatus.manifest);
-                          setApkUpdateStatus({
-                            kind: 'installed',
-                            message: `Installed v${apkUpdateStatus.manifest.versionName} (build ${apkUpdateStatus.manifest.versionCode}) silently via Device Owner PackageInstaller.`,
-                            manifest: apkUpdateStatus.manifest,
-                          });
-                        }}
-                        className="flex-1 min-h-[34px] px-2.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold inline-flex items-center justify-center gap-1"
-                      >
-                        <Download className="w-3.5 h-3.5" aria-hidden="true" />
-                        <span>Download &amp; Install</span>
-                      </button>
-                    )}
                   </div>
                 </div>
 
@@ -2733,15 +2305,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                                 </span>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => onAttemptUninstall(app.packageName)}
-                                aria-label={`Uninstall ${app.label}`}
-                                className="px-2 py-1 rounded border border-red-200 dark:border-red-800 text-[11px] font-medium text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50"
-                              >
-                                Uninstall
-                              </button>
+                            <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
                                 onClick={() => onLaunchApp(app.packageName)}
@@ -2984,8 +2548,6 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                   </div>
                 </div>
               </div>
-            )}
-              </>
             )}
           </div>
 
