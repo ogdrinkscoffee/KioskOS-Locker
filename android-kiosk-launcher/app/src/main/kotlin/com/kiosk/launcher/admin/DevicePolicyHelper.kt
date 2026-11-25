@@ -10,14 +10,17 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.UserManager
 import android.provider.Settings
 import com.kiosk.launcher.R
+import com.kiosk.launcher.data.InstalledAppsRepository
 import com.kiosk.launcher.data.KioskPreferences
 import com.kiosk.launcher.ui.KioskLauncherActivity
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Every DevicePolicyManager call is wrapped: the app runs as a normal launcher in
@@ -34,6 +37,7 @@ class DevicePolicyHelper(context: Context) {
         appContext.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
     private val admin = ComponentName(appContext, KioskDeviceAdminReceiver::class.java)
     private val prefs = KioskPreferences(appContext)
+    private val systemResolver = SystemFeatureResolver(appContext)
 
     val isDeviceOwner: Boolean
         get() = runCatching { dpm.isDeviceOwnerApp(appContext.packageName) }.getOrDefault(false)
@@ -46,6 +50,7 @@ class DevicePolicyHelper(context: Context) {
 
     fun applyPolicy() {
         if (!isDeviceOwner) return
+        systemResolver.invalidateCache()
 
         // The explicit kiosk state is the opt-in; Home ownership only decides whether it can
         // take effect. [PolicyGate] owns the rule, including releasing as soon as the kiosk
@@ -65,19 +70,21 @@ class DevicePolicyHelper(context: Context) {
     }
 
     private fun enforcePolicy() {
+        val state = restrictionState()
+
         // The status bar toggle must win over lock task. LOCK_TASK_FEATURE_NONE used to
         // hide the shade no matter what was switched off here.
-        runCatching { dpm.setStatusBarDisabled(admin, prefs.statusBarLocked) }
+        runCatching { dpm.setStatusBarDisabled(admin, state.statusBarDisabled) }
 
         // Re-enabling needs no extra permission; disabling returns false when the device
         // has a lock password, which the diagnostics surface as "not applied".
-        runCatching { dpm.setKeyguardDisabled(admin, prefs.keyguardDisabled) }
-        runCatching { dpm.setCameraDisabled(admin, prefs.cameraDisabled) }
-        runCatching { dpm.setScreenCaptureDisabled(admin, prefs.screenCaptureDisabled) }
+        runCatching { dpm.setKeyguardDisabled(admin, state.keyguardDisabled) }
+        runCatching { dpm.setCameraDisabled(admin, state.cameraDisabled) }
+        runCatching { dpm.setScreenCaptureDisabled(admin, state.screenCaptureDisabled) }
         runCatching { dpm.setLockTaskPackages(admin, lockTaskPackages()) }
         applyLockTaskFeatures()
 
-        restrictions().forEach { (key, enabled) ->
+        state.userRestrictions.forEach { (key, enabled) ->
             runCatching {
                 if (enabled) dpm.addUserRestriction(admin, key)
                 else dpm.clearUserRestriction(admin, key)
@@ -85,21 +92,20 @@ class DevicePolicyHelper(context: Context) {
         }
 
         runCatching {
-            val suspended = prefs.blockUnsupportedBrowsers && !prefs.isAdminTemporarilyUnlocked()
-            dpm.setPackagesSuspended(admin, UNSUPPORTED_BROWSERS, suspended)
+            dpm.setPackagesSuspended(admin, UNSUPPORTED_BROWSERS, state.suspendUnsupportedBrowsers)
         }
 
         runCatching {
             dpm.setGlobalSetting(
                 admin,
                 Settings.Global.STAY_ON_WHILE_PLUGGED_IN,
-                if (prefs.stayAwake) "7" else "0"
+                state.stayAwakeSetting
             )
         }
 
         // DISALLOW_APPS_CONTROL alone only hides the buttons in Settings on some builds;
         // blocking every installed package explicitly is what actually refuses an uninstall.
-        applyUninstallPolicy(block = prefs.disallowAppsControl && !prefs.isAdminTemporarilyUnlocked())
+        applyUninstallPolicy(block = state.blockPackageUninstalls)
 
         prefs.logPolicy("Policy applied")
     }
@@ -120,7 +126,7 @@ class DevicePolicyHelper(context: Context) {
         runCatching { dpm.setKeyguardDisabled(admin, false) }
         runCatching { dpm.setCameraDisabled(admin, false) }
         runCatching { dpm.setScreenCaptureDisabled(admin, false) }
-        restrictions().keys.forEach { key ->
+        KioskRestrictions.allClearedRestrictionKeys().forEach { key ->
             runCatching { dpm.clearUserRestriction(admin, key) }
         }
         runCatching { dpm.setPackagesSuspended(admin, UNSUPPORTED_BROWSERS, false) }
@@ -173,25 +179,93 @@ class DevicePolicyHelper(context: Context) {
     /** Feature flags for lock task, derived from the same toggles as the rest of the policy. */
     fun applyLockTaskFeatures() {
         if (!isDeviceOwner || Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return
+        val unlocked = prefs.isAdminTemporarilyUnlocked()
         val features = LockTaskFeatures.compute(
-            statusBarLocked = prefs.statusBarLocked,
+            statusBarLocked = prefs.statusBarLocked && !unlocked,
             keyguardDisabled = prefs.keyguardDisabled,
-            blockActivityStartInTask = true
+            blockActivityStartInTask = prefs.isPanicLocked()
         )
         runCatching { dpm.setLockTaskFeatures(admin, features) }
     }
 
     /**
-     * Blocking runs per package, so it is pushed to a worker: both calls walk the whole
-     * package list. The packages this app blocked are recorded, so switching the toggle
-     * off releases them even when an earlier pass was cut short or the app was reinstalled.
+     * Explicitly clears app-control & uninstall restrictions even if PolicyGate would leave
+     * the device untouched (for example while Home is transiently unresolved).
      */
-    private fun applyUninstallPolicy(block: Boolean) {
+    fun forceReleaseAppControl() {
+        if (!isDeviceOwner) return
+        runCatching { dpm.clearUserRestriction(admin, UserManager.DISALLOW_APPS_CONTROL) }
+        prefs.uninstallReleaseSwept = false
+        applyUninstallPolicy(block = false, forceSweep = true)
+        refreshLockTaskPackages()
+    }
+
+    /**
+     * Keeps lock task allowlist and uninstall blocks consistent when apps are installed,
+     * updated, or removed while the kiosk is active.
+     */
+    fun onPackagesChanged(changedPackage: String? = null) {
+        if (!isDeviceOwner) return
+        systemResolver.invalidateCache()
+        if (prefs.kioskEnabled != true || !isDefaultLauncher) return
+
+        val unlocked = prefs.isAdminTemporarilyUnlocked()
+        if ((!prefs.disallowAppsControl || unlocked) &&
+            !changedPackage.isNullOrBlank() &&
+            changedPackage != appContext.packageName
+        ) {
+            worker.execute {
+                if (runCatching { dpm.isUninstallBlocked(admin, changedPackage) }.getOrDefault(false)) {
+                    setUninstallBlocked(changedPackage, false)
+                }
+                val recorded = prefs.uninstallBlockedPackages()
+                if (changedPackage in recorded) {
+                    prefs.setUninstallBlockedPackages(recorded - changedPackage)
+                }
+            }
+        } else if (prefs.disallowAppsControl && !unlocked &&
+            !changedPackage.isNullOrBlank() &&
+            changedPackage != appContext.packageName &&
+            changedPackage !in protectedFromUninstallLockPackages()
+        ) {
+            worker.execute {
+                if (setUninstallBlocked(changedPackage, true)) {
+                    prefs.setUninstallBlockedPackages(prefs.uninstallBlockedPackages() + changedPackage)
+                }
+            }
+        }
+
+        if (prefs.allowAllApps || !prefs.disallowAppsControl || unlocked) {
+            refreshLockTaskPackages()
+        }
+    }
+
+    /**
+     * Blocking runs per package, so it is pushed to a worker: both calls walk the whole
+     * package list. A monotonic [uninstallPassId] aborts superseded blocking passes and
+     * reading persisted state inside the worker prevents a fast toggle-off from reading
+     * empty preferences before a queued block pass finishes writing.
+     */
+    private fun applyUninstallPolicy(block: Boolean, forceSweep: Boolean = false) {
+        val passId = uninstallPassId.incrementAndGet()
         if (block) {
             worker.execute {
-                val installed = installedPackages() ?: return@execute
+                if (uninstallPassId.get() != passId) return@execute
+                val removable = removablePackages() ?: return@execute
+                val protectedPackages = protectedFromUninstallLockPackages()
                 val blocked = prefs.uninstallBlockedPackages().toMutableSet()
-                UninstallBlocks.targets(installed, appContext.packageName).forEach { packageName ->
+
+                // Never leave essential calling/Google/system helpers uninstall-blocked.
+                blocked.filter { it == appContext.packageName || it in protectedPackages }
+                    .forEach { protectedPkg ->
+                        if (setUninstallBlocked(protectedPkg, false)) blocked -= protectedPkg
+                    }
+
+                for (packageName in UninstallBlocks.blockTargets(removable, appContext.packageName, protectedPackages)) {
+                    if (uninstallPassId.get() != passId) {
+                        prefs.setUninstallBlockedPackages(blocked)
+                        return@execute
+                    }
                     if (setUninstallBlocked(packageName, true)) blocked += packageName
                 }
                 prefs.setUninstallBlockedPackages(blocked)
@@ -199,28 +273,27 @@ class DevicePolicyHelper(context: Context) {
             return
         }
 
-        // Releasing touches the recorded packages only. A build that did not record its
-        // blocks must not leave an app permanently un-uninstallable, so the first release
-        // also sweeps every installed package once; after that a kiosk that is off does no
-        // package walk on cold starts.
-        val recorded = prefs.uninstallBlockedPackages()
-        val sweep = !prefs.uninstallReleaseSwept
-        if (!UninstallBlocks.releaseNeeded(recorded, prefs.uninstallReleaseSwept)) return
-
         worker.execute {
-            // A failed scan keeps the sweep pending so the next release retries it. Passing
-            // null once the sweep is done is what keeps a cold start off the package list.
-            val installed = if (sweep) installedPackages() ?: return@execute else null
-            val installedNames = installed?.toSet().orEmpty()
+            val recorded = prefs.uninstallBlockedPackages()
+            val sweep = forceSweep || !prefs.uninstallReleaseSwept
+            if (!forceSweep && !UninstallBlocks.releaseNeeded(recorded, !sweep)) return@execute
+
+            val installedAll = installedPackages()
+            val installedForSweep = if (sweep) installedAll else null
+            val installedNames = installedAll?.toSet()
             val failed = mutableSetOf<String>()
-            UninstallBlocks.releaseTargets(recorded, installed, appContext.packageName)
+            UninstallBlocks.releaseTargets(recorded, installedForSweep, appContext.packageName)
                 .forEach { packageName ->
-                    if (!setUninstallBlocked(packageName, false) && packageName in installedNames) {
+                    val shouldUnblock = packageName in recorded ||
+                        runCatching { dpm.isUninstallBlocked(admin, packageName) }.getOrDefault(true)
+                    if (!shouldUnblock) return@forEach
+                    val released = setUninstallBlocked(packageName, false)
+                    if (!released && (installedNames == null || packageName in installedNames)) {
                         failed += packageName
                     }
                 }
             prefs.setUninstallBlockedPackages(failed)
-            if (sweep) prefs.uninstallReleaseSwept = true
+            if (sweep && installedAll != null) prefs.uninstallReleaseSwept = true
         }
     }
 
@@ -229,6 +302,7 @@ class DevicePolicyHelper(context: Context) {
      * cleared; after that [setUninstallBlocked] fails and the blocks would be stranded.
      */
     private fun releaseUninstallBlocksNow() {
+        uninstallPassId.incrementAndGet()
         val recorded = prefs.uninstallBlockedPackages()
         if (!UninstallBlocks.releaseNeeded(recorded, prefs.uninstallReleaseSwept)) return
         // A failed scan no longer fakes a sweep: recorded blocks are still released, the
@@ -252,6 +326,16 @@ class DevicePolicyHelper(context: Context) {
         appContext.packageManager.getInstalledPackages(0).map { it.packageName }
     }.getOrNull()
 
+    private fun removablePackages(): List<String>? = runCatching {
+        appContext.packageManager.getInstalledPackages(0)
+            .filter { info ->
+                val ai = info.applicationInfo ?: return@filter false
+                (ai.flags and ApplicationInfo.FLAG_SYSTEM) == 0 ||
+                    (ai.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+            }
+            .map { it.packageName }
+    }.getOrNull()
+
     private fun setUninstallBlocked(packageName: String, blocked: Boolean): Boolean =
         runCatching { dpm.setUninstallBlocked(admin, packageName, blocked) }.isSuccess
 
@@ -266,33 +350,75 @@ class DevicePolicyHelper(context: Context) {
         }
     }
 
-    private fun restrictions(): Map<String, Boolean> {
-        val unlocked = prefs.isAdminTemporarilyUnlocked()
-        return mapOf(
-            UserManager.DISALLOW_SAFE_BOOT to prefs.disallowSafeBoot,
-            UserManager.DISALLOW_FACTORY_RESET to prefs.disallowFactoryReset,
-            UserManager.DISALLOW_ADD_USER to prefs.disallowAddUser,
-            UserManager.DISALLOW_APPS_CONTROL to (prefs.disallowAppsControl && !unlocked),
-            UserManager.DISALLOW_CONFIG_DATE_TIME to prefs.dateTimeLocked,
-            UserManager.DISALLOW_USB_FILE_TRANSFER to prefs.usbLocked,
-            UserManager.DISALLOW_MOUNT_PHYSICAL_MEDIA to prefs.usbLocked
+    private fun restrictionState(): KioskRestrictions.EnforcedState = KioskRestrictions.computeEnforced(
+        KioskRestrictions.Config(
+            disallowSafeBoot = prefs.disallowSafeBoot,
+            disallowFactoryReset = prefs.disallowFactoryReset,
+            disallowAddUser = prefs.disallowAddUser,
+            disallowAppsControl = prefs.disallowAppsControl,
+            dateTimeLocked = prefs.dateTimeLocked,
+            usbLocked = prefs.usbLocked,
+            statusBarLocked = prefs.statusBarLocked,
+            keyguardDisabled = prefs.keyguardDisabled,
+            cameraDisabled = prefs.cameraDisabled,
+            screenCaptureDisabled = prefs.screenCaptureDisabled,
+            blockUnsupportedBrowsers = prefs.blockUnsupportedBrowsers,
+            stayAwake = prefs.stayAwake,
+            temporaryAdminUnlockActive = prefs.isAdminTemporarilyUnlocked()
         )
-    }
+    )
 
     /**
-     * Lock task packages. The installer is included while a kiosk update is in progress so
-     * the system install prompt is not bounced back to the launcher.
+     * Resolves phone, in-call UI, and emergency calling packages dynamically alongside static
+     * OEM fallbacks so incoming/outgoing calls never fail on any Android device.
+     */
+    fun callingPackages(): Set<String> = systemResolver.callingPackages()
+
+    /**
+     * Resolves core Google Services, runtime permission controller, pickers, WebView, and system
+     * dialog packages so standard system features keep operating inside Lock Task Mode.
+     */
+    fun essentialSystemPackages(): Set<String> = systemResolver.essentialSystemPackages()
+
+    /**
+     * Resolves APK/package installers and uninstall UIs for the current device/OEM.
+     */
+    fun installerPackages(): Set<String> = systemResolver.installerPackages()
+
+    /** Packages that must never be flagged via [setUninstallBlocked] even when app control is locked. */
+    fun protectedFromUninstallLockPackages(): Set<String> =
+        systemResolver.protectedFromUninstallLockPackages()
+
+    /**
+     * Lock task packages. Includes:
+     * - all launchable apps when [KioskPreferences.allowAllApps] is enabled, or only allowlisted apps
+     * - essential calling/telecom, Google Services, permission controller, WebView & file picker
+     * - package installer & Play Store whenever app control is unlocked or updating
      */
     private fun lockTaskPackages(): Array<String> {
-        if (prefs.isPanicLocked()) {
-            return arrayOf(appContext.packageName)
+        val launchable = if (!prefs.isPanicLocked() && prefs.allowAllApps) {
+            runCatching { InstalledAppsRepository(appContext).launchable().map { it.packageName } }
+                .getOrDefault(emptyList())
+        } else {
+            emptyList()
         }
-        val packages = prefs.allowedPackages().toMutableSet()
-        packages.add(appContext.packageName)
-        if (prefs.isInstallingUpdate()) {
-            packages.addAll(INSTALLER_PACKAGES)
-        }
-        return packages.toTypedArray()
+        return KioskLockTaskPackages.compute(
+            ownPackage = appContext.packageName,
+            panicLocked = prefs.isPanicLocked(),
+            allowAllApps = prefs.allowAllApps,
+            allowedPackages = prefs.allowedPackages(),
+            launchablePackages = launchable,
+            callingPackages = callingPackages(),
+            essentialSystemPackages = essentialSystemPackages(),
+            installerPackages = installerPackages(),
+            storePackages = listOf(PLAY_STORE_PACKAGE),
+            unsupportedBrowsers = UNSUPPORTED_BROWSERS.toSet(),
+            disallowAppsControl = prefs.disallowAppsControl,
+            installingUpdate = prefs.isInstallingUpdate(),
+            adminTemporarilyUnlocked = prefs.isAdminTemporarilyUnlocked(),
+            blockUnsupportedBrowsers = prefs.blockUnsupportedBrowsers,
+            sdkInt = Build.VERSION.SDK_INT
+        )
     }
 
     /** Package Android resolves Home to right now, or null when it does not resolve. */
@@ -369,7 +495,15 @@ class DevicePolicyHelper(context: Context) {
             inLockTaskMode = alreadyLocked,
             installingUpdate = prefs.isInstallingUpdate()
         )
-        if (!shouldStart) return alreadyLocked
+        if (!shouldStart) {
+            if (isDeviceOwner && isDefaultLauncher && alreadyLocked &&
+                !prefs.isAdminTemporarilyUnlocked() && !prefs.isInstallingUpdate()
+            ) {
+                runCatching { dpm.setLockTaskPackages(admin, lockTaskPackages()) }
+                applyLockTaskFeatures()
+            }
+            return alreadyLocked
+        }
 
         // The package list is re-applied here so a freshly provisioned owner can lock
         // immediately, before the next applyPolicy() pass runs.
@@ -400,6 +534,68 @@ class DevicePolicyHelper(context: Context) {
         const val PROVISION_COMMAND =
             "adb shell dpm set-device-owner com.kiosk.launcher/.admin.KioskDeviceAdminReceiver"
 
+        const val PLAY_STORE_PACKAGE = "com.android.vending"
+
+        val CALLING_PACKAGES = arrayOf(
+            "com.android.server.telecom",
+            "com.android.phone",
+            "com.android.incallui",
+            "com.samsung.android.incallui",
+            "com.google.android.dialer",
+            "com.android.dialer",
+            "com.samsung.android.dialer",
+            "com.oneplus.dialer",
+            "com.oplus.dialer",
+            "com.coloros.dialer",
+            "com.asus.dialer",
+            "com.android.emergency",
+            "com.google.android.ims",
+            "com.android.stk",
+            "com.android.cellbroadcastreceiver",
+            "com.google.android.cellbroadcastreceiver"
+        )
+
+        val ESSENTIAL_SYSTEM_PACKAGES = arrayOf(
+            "com.google.android.gms",
+            "com.google.android.gsf",
+            "com.google.android.gsf.login",
+            "com.google.android.ext.services",
+            "com.google.android.onetimeinitializer",
+            "com.google.android.partnersetup",
+            "com.google.android.syncadapters.contacts",
+            "com.google.android.syncadapters.calendar",
+            "com.google.android.tts",
+            "com.android.permissioncontroller",
+            "com.google.android.permissioncontroller",
+            "com.samsung.android.permissioncontroller",
+            "com.android.webview",
+            "com.google.android.webview",
+            "com.android.documentsui",
+            "com.google.android.documentsui",
+            "com.android.providers.downloads",
+            "com.android.providers.downloads.ui",
+            "com.android.providers.media",
+            "com.android.providers.media.module",
+            "com.google.android.providers.media.module",
+            "com.android.credentialmanager",
+            "com.google.android.credentialmanager",
+            "com.android.intentresolver",
+            "com.google.android.intentresolver",
+            "com.android.wifi.dialog",
+            "com.google.android.wifi.dialog",
+            "com.android.networkstack.permissionconfig",
+            "com.google.android.networkstack.permissionconfig",
+            "com.android.captiveportallogin",
+            "com.google.android.captiveportallogin",
+            "com.android.vpndialogs",
+            "com.android.bluetooth",
+            "com.google.android.bluetooth",
+            "com.android.nfc",
+            "com.android.keychain",
+            "com.android.printspooler",
+            "com.android.bips"
+        )
+
         val UNSUPPORTED_BROWSERS = arrayOf(
             "org.mozilla.firefox",
             "com.opera.browser",
@@ -411,12 +607,22 @@ class DevicePolicyHelper(context: Context) {
             "com.kiwibrowser.browser"
         )
 
-        /** Installers that must be reachable while an in-app update is being installed. */
+        /** Installers that must be reachable while installing/uninstalling apps or updating the kiosk. */
         val INSTALLER_PACKAGES = arrayOf(
             "com.android.packageinstaller",
             "com.google.android.packageinstaller",
-            "com.android.permissioncontroller"
+            "com.samsung.android.packageinstaller",
+            "com.miui.packageinstaller",
+            "com.oplus.packageinstaller",
+            "com.coloros.packageinstaller",
+            "com.heytap.packageinstaller",
+            "com.vivo.packageinstaller",
+            "com.huawei.packageinstaller",
+            "com.android.permissioncontroller",
+            "com.google.android.permissioncontroller"
         )
+
+        private val uninstallPassId = AtomicLong(0L)
 
         private val worker = Executors.newSingleThreadExecutor { runnable ->
             Thread(runnable, "kiosk-dpm").apply { isDaemon = true }
@@ -435,6 +641,17 @@ object UninstallBlocks {
     /** Installed packages whose removal the kiosk may block. */
     fun targets(installed: Collection<String>, ownPackage: String): List<String> =
         installed.filter { it != ownPackage }.distinct()
+
+    /**
+     * Installed packages whose removal may be blocked, excluding [ownPackage] and any
+     * critical system/calling/Google packages so updates and core services keep working.
+     */
+    fun blockTargets(
+        installed: Collection<String>,
+        ownPackage: String,
+        protectedPackages: Set<String>
+    ): List<String> =
+        installed.filter { it != ownPackage && it !in protectedPackages }.distinct()
 
     /**
      * Packages a release pass must clear. Normally only the packages recorded as blocked,

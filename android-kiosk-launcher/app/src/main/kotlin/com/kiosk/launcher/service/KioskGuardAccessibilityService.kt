@@ -1,6 +1,7 @@
 package com.kiosk.launcher.service
 
 import android.accessibilityservice.AccessibilityService
+import android.os.Build
 import android.view.accessibility.AccessibilityEvent
 import com.kiosk.launcher.admin.DevicePolicyHelper
 import com.kiosk.launcher.data.KioskPreferences
@@ -30,23 +31,34 @@ class KioskGuardAccessibilityService : AccessibilityService() {
         // The guard belongs to the kiosk. While another launcher owns Home the kiosk is
         // not in charge, so it must not keep bouncing the user's own launcher, Settings
         // and the Google apps they opened back to a grid they were not using.
-        if (store.kioskEnabled != true || policy?.isDefaultLauncher != true) return
+        val helper = policy ?: DevicePolicyHelper(this).also { policy = it }
+        if (store.kioskEnabled != true || !helper.isDefaultLauncher) return
 
         val packageName = event.packageName?.toString() ?: return
         if (packageName == this.packageName) return
         if (packageName.startsWith("com.android.systemui")) return
+
+        // Never block phone calls, in-call UI, or emergency dialer UI, even during Panic Lock.
+        if (packageName in helper.callingPackages()) return
+
+        if (store.isAdminTemporarilyUnlocked()) return
 
         if (store.blockUnsupportedBrowsers && packageName in DevicePolicyHelper.UNSUPPORTED_BROWSERS) {
             performGlobalAction(GLOBAL_ACTION_HOME)
             return
         }
 
-        if (store.isAdminTemporarilyUnlocked()) return
-
         if (store.isPanicLocked()) {
             performGlobalAction(GLOBAL_ACTION_HOME)
             return
         }
+
+        if (packageName in helper.essentialSystemPackages()) return
+
+        // On Android 7-9 (API < 29), runtime permission dialogs live inside packageinstaller.
+        val allowInstaller = !store.disallowAppsControl || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+        if (allowInstaller && packageName in helper.installerPackages()) return
+        if (!store.disallowAppsControl && packageName == DevicePolicyHelper.PLAY_STORE_PACKAGE) return
 
         if (store.isAllowed(packageName)) return
 

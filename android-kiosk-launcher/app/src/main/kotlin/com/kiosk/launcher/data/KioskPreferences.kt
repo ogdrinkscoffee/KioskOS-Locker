@@ -102,16 +102,16 @@ class KioskPreferences(context: Context) {
         set(value) = setBool(KEY_DISALLOW_ADD_USER, value)
 
     var disallowAppsControl: Boolean
-        get() = bool(KEY_DISALLOW_APPS_CONTROL, true)
+        get() = bool(KEY_DISALLOW_APPS_CONTROL, false)
         set(value) = setBool(KEY_DISALLOW_APPS_CONTROL, value)
 
-    // Hardware & tamper locks
+    // Hardware & tamper locks (opt-in so calling, status bar, lock screen, USB & screenshots work by default)
     var statusBarLocked: Boolean
-        get() = bool(KEY_STATUS_BAR, true)
+        get() = bool(KEY_STATUS_BAR, false)
         set(value) = setBool(KEY_STATUS_BAR, value)
 
     var keyguardDisabled: Boolean
-        get() = bool(KEY_KEYGUARD, true)
+        get() = bool(KEY_KEYGUARD, false)
         set(value) = setBool(KEY_KEYGUARD, value)
 
     var cameraDisabled: Boolean
@@ -119,19 +119,19 @@ class KioskPreferences(context: Context) {
         set(value) = setBool(KEY_CAMERA, value)
 
     var screenCaptureDisabled: Boolean
-        get() = bool(KEY_SCREENSHOTS, true)
+        get() = bool(KEY_SCREENSHOTS, false)
         set(value) = setBool(KEY_SCREENSHOTS, value)
 
     var usbLocked: Boolean
-        get() = bool(KEY_USB, true)
+        get() = bool(KEY_USB, false)
         set(value) = setBool(KEY_USB, value)
 
     var dateTimeLocked: Boolean
-        get() = bool(KEY_DATE_TIME, true)
+        get() = bool(KEY_DATE_TIME, false)
         set(value) = setBool(KEY_DATE_TIME, value)
 
     var stayAwake: Boolean
-        get() = bool(KEY_STAY_AWAKE, true)
+        get() = bool(KEY_STAY_AWAKE, false)
         set(value) = setBool(KEY_STAY_AWAKE, value)
 
     var guardEnabled: Boolean
@@ -303,6 +303,10 @@ class KioskPreferences(context: Context) {
     var skippedUpdateVersionCode: Int
         get() = prefs.getInt(KEY_SKIPPED_UPDATE_CODE, 0)
         set(value) { prefs.edit().putInt(KEY_SKIPPED_UPDATE_CODE, value).apply() }
+
+    var lastAppliedVersionCode: Int
+        get() = prefs.getInt(KEY_LAST_APPLIED_VERSION_CODE, 0)
+        set(value) { prefs.edit().putInt(KEY_LAST_APPLIED_VERSION_CODE, value).apply() }
 
     // ----------------------------------------------------------------- allowlist
     fun allowedPackages(): Set<String> =
@@ -476,6 +480,7 @@ class KioskPreferences(context: Context) {
         private const val KEY_UPDATE_STARTED_AT = "update_started_at_ms"
         private const val KEY_LAST_UPDATE_CHECK = "last_update_check_ms"
         private const val KEY_SKIPPED_UPDATE_CODE = "skipped_update_code"
+        private const val KEY_LAST_APPLIED_VERSION_CODE = "last_applied_version_code"
         private const val KEY_UPDATE_FEED = "update_feed_url"
         private const val KEY_STREAK = "streak"
         private const val KEY_BEST = "best_streak"

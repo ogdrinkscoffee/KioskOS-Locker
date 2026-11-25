@@ -96,4 +96,25 @@ class UninstallBlocksTest {
             UninstallBlocks.releaseNeeded(setOf("com.example.app"), legacySweepDone = true)
         )
     }
+
+    @Test
+    fun blockTargetsSkipsProtectedSystemGoogleAndCallingPackages() {
+        val protectedPkgs = setOf(
+            "com.google.android.gms",
+            "com.android.vending",
+            "com.google.android.dialer"
+        )
+        val targets = UninstallBlocks.blockTargets(
+            installed = listOf(
+                "com.kiosk.launcher",
+                "com.google.android.gms",
+                "com.android.vending",
+                "com.google.android.dialer",
+                "com.example.app"
+            ),
+            ownPackage = "com.kiosk.launcher",
+            protectedPackages = protectedPkgs
+        )
+        assertEquals(listOf("com.example.app"), targets)
+    }
 }

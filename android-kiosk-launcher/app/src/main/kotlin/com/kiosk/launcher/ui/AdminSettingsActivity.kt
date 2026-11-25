@@ -68,8 +68,11 @@ class AdminSettingsActivity : AppCompatActivity() {
     private lateinit var updateCheckButton: View
     private lateinit var updateInstallButton: View
     private lateinit var updateFeedInput: TextInputEditText
+    private lateinit var updateCustomSourceToggle: View
+    private lateinit var updateCustomSourceContainer: View
 
     private var availableUpdate: UpdateManifest? = null
+    private var availableUpdateFeedUrl: String? = null
     private var updateInProgress = false
 
     /** Guards the switch listener while it is being synced to the observed state. */
@@ -121,6 +124,14 @@ class AdminSettingsActivity : AppCompatActivity() {
         updateCheckButton = findViewById(R.id.updateCheckButton)
         updateInstallButton = findViewById(R.id.updateInstallButton)
         updateFeedInput = findViewById(R.id.updateFeedInput)
+        updateCustomSourceToggle = findViewById(R.id.updateCustomSourceToggle)
+        updateCustomSourceContainer = findViewById(R.id.updateCustomSourceContainer)
+        updateCustomSourceContainer.visibility =
+            if (prefs.updateFeedUrl.isNotBlank()) View.VISIBLE else View.GONE
+        updateCustomSourceToggle.setOnClickListener {
+            updateCustomSourceContainer.visibility =
+                if (updateCustomSourceContainer.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        }
 
         findViewById<View>(R.id.adminWindowMinus).setOnClickListener { stepAdminWindow(-1) }
         findViewById<View>(R.id.adminWindowPlus).setOnClickListener { stepAdminWindow(1) }
@@ -324,6 +335,7 @@ class AdminSettingsActivity : AppCompatActivity() {
     private fun dropDefaultLauncher() {
         prefs.kioskEnabled = false
         pendingHomeRequest = false
+        if (policy.isInLockTaskMode()) policy.stopKiosk(this)
         val cleared = policy.clearHomeLauncher()
         // The recorded off state releases policy whether or not Home changes, so a
         // non-owner — or a launcher the user picked in system settings — is not left
@@ -342,9 +354,15 @@ class AdminSettingsActivity : AppCompatActivity() {
         toast(getString(R.string.default_launcher_manual_off))
     }
 
-    private fun openDefaultLauncherSettings(intent: Intent): Boolean =
-        runCatching { startActivity(intent); true }.getOrDefault(false) ||
+    private fun openDefaultLauncherSettings(intent: Intent): Boolean {
+        if (policy.isInLockTaskMode()) {
+            prefs.grantTemporaryAdminWindow(prefs.adminUnlockMinutes)
+            policy.applyPolicy()
+            policy.stopKiosk(this)
+        }
+        return runCatching { startActivity(intent); true }.getOrDefault(false) ||
             runCatching { startActivity(Intent(Settings.ACTION_HOME_SETTINGS)); true }.getOrDefault(false)
+    }
 
     private fun renderRecoveryState() {
         clearPanicButton.visibility = if (prefs.isPanicLocked()) View.VISIBLE else View.GONE
@@ -444,23 +462,31 @@ class AdminSettingsActivity : AppCompatActivity() {
 
     private fun checkForUpdates(manual: Boolean) {
         if (updateInProgress) return
-        if (!updates.hasFeed()) {
-            updateStatus.setText(R.string.update_no_feed)
-            updateDetail.setText(R.string.update_feed_required)
-            return
-        }
         if (manual) {
             updateStatus.setText(R.string.update_checking)
             updateDetail.text = ""
             updateCheckButton.isEnabled = false
         }
-        updates.check { manifest ->
-            if (isFinishing || isDestroyed) return@check
-            availableUpdate = manifest
-            renderUpdate()
-            if (manual && manifest == null) {
-                updateStatus.setText(R.string.update_check_failed)
-                updateDetail.setText(R.string.update_feed_required)
+        updates.checkDetailed { outcome ->
+            if (isFinishing || isDestroyed) return@checkDetailed
+            when (outcome) {
+                is UpdateManager.CheckOutcome.Success -> {
+                    availableUpdate = outcome.manifest
+                    availableUpdateFeedUrl = outcome.resolvedFeedUrl
+                    renderUpdate()
+                    if (manual && updates.isUpdateAvailable(outcome.manifest)) {
+                        runInstall(outcome.manifest)
+                    }
+                }
+                is UpdateManager.CheckOutcome.Error -> {
+                    availableUpdate = null
+                    availableUpdateFeedUrl = null
+                    renderUpdate()
+                    if (manual) {
+                        updateStatus.setText(R.string.update_check_failed)
+                        updateDetail.text = getString(R.string.update_check_failed_detail_fmt, outcome.reason)
+                    }
+                }
             }
         }
     }
@@ -496,7 +522,11 @@ class AdminSettingsActivity : AppCompatActivity() {
         updateStatus.setText(R.string.update_downloading)
         updateDetail.text = ""
 
-        updates.downloadAndInstall(this, manifest) { event ->
+        updates.downloadAndInstall(
+            this,
+            manifest,
+            resolvedFeedUrl = availableUpdateFeedUrl
+        ) { event ->
             if (isFinishing || isDestroyed) return@downloadAndInstall
             when (event) {
                 is UpdateInstaller.Event.Progress -> {
@@ -515,7 +545,7 @@ class AdminSettingsActivity : AppCompatActivity() {
                     updateProgress.isIndeterminate = true
                     updateStatus.setText(R.string.update_installing)
                 }
-                UpdateInstaller.Event.NeedsUserAction -> {
+                is UpdateInstaller.Event.NeedsUserAction -> {
                     updateInProgress = false
                     updateProgress.visibility = View.GONE
                     updateStatus.setText(R.string.update_needs_confirm)
@@ -534,9 +564,12 @@ class AdminSettingsActivity : AppCompatActivity() {
     }
 
     private fun saveUpdateFeed() {
-        prefs.updateFeedUrl = updateFeedInput.text?.toString().orEmpty()
+        val raw = updateFeedInput.text?.toString().orEmpty().trim()
+        prefs.updateFeedUrl = raw
         prefs.lastUpdateCheckMs = 0L
-        toast(getString(R.string.update_feed_saved))
+        availableUpdate = null
+        availableUpdateFeedUrl = null
+        toast(getString(if (raw.isEmpty()) R.string.update_feed_cleared else R.string.update_feed_saved))
         renderUpdate()
     }
 
@@ -595,6 +628,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         ) {
             prefs.disallowAppsControl = it
             applyLocks()
+            if (!it) policy.forceReleaseAppControl()
         }
     }
 
@@ -691,6 +725,11 @@ class AdminSettingsActivity : AppCompatActivity() {
             prefs.guardEnabled = enabled
             prefs.logPolicy(getString(if (enabled) R.string.log_guard_enabled else R.string.log_guard_disabled))
             if (enabled) {
+                if (policy.isInLockTaskMode()) {
+                    prefs.grantTemporaryAdminWindow(prefs.adminUnlockMinutes)
+                    policy.applyPolicy()
+                    policy.stopKiosk(this)
+                }
                 runCatching {
                     startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                 }

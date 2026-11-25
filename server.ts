@@ -5,6 +5,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
+import { APK_META } from './src/generated/apkMeta.js';
+import { buildUpdateFeedPayload, resolveFeedOrigin } from './src/utils/updateFeed.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -49,6 +51,28 @@ function getGeminiClient(): GoogleGenAI | null {
 async function createApp() {
   const app = express();
   app.use(express.json({ limit: '256kb' }));
+
+  const downloadsDir = path.resolve(__dirname, 'public/downloads');
+
+  // Serve dynamic latest.json at both /downloads/latest.json and /latest.json so any
+  // client pointing at the site root or /downloads gets a valid HTTPS apkUrl matching
+  // the host serving the request.
+  app.get(['/downloads/latest.json', '/latest.json'], (req: Request, res: Response) => {
+    const origin = resolveFeedOrigin({
+      forwardedProto: req.header('x-forwarded-proto'),
+      protocol: req.protocol,
+      forwardedHost: req.header('x-forwarded-host'),
+      host: req.header('host'),
+      envBaseUrl: process.env.UPDATE_FEED_BASE_URL,
+    });
+    const payload = buildUpdateFeedPayload(APK_META, origin);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(payload);
+  });
+
+  if (fs.existsSync(downloadsDir)) {
+    app.use('/downloads', express.static(downloadsDir));
+  }
 
   app.post('/api/notes/daily-prompt', async (req: Request, res: Response) => {
     const ai = getGeminiClient();

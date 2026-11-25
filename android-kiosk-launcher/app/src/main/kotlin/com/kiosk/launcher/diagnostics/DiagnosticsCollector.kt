@@ -181,6 +181,8 @@ class DiagnosticsCollector(context: Context) {
 
         val rows = mutableListOf<GuardStatus>()
 
+        val unlocked = prefs.isAdminTemporarilyUnlocked()
+
         fun userRestriction(labelRes: Int, key: String, requested: Boolean) {
             val inEffect = observed.getBoolean(key, false)
             rows += GuardStatus(s(labelRes), state(inEffect), drift(inEffect, requested))
@@ -196,17 +198,17 @@ class DiagnosticsCollector(context: Context) {
         userRestriction(
             R.string.diag_restriction_apps_control,
             UserManager.DISALLOW_APPS_CONTROL,
-            prefs.disallowAppsControl
+            prefs.disallowAppsControl && !unlocked
         )
         userRestriction(
             R.string.diag_restriction_date_time,
             UserManager.DISALLOW_CONFIG_DATE_TIME,
-            prefs.dateTimeLocked
+            prefs.dateTimeLocked && !unlocked
         )
         userRestriction(
             R.string.diag_restriction_usb,
             UserManager.DISALLOW_USB_FILE_TRANSFER,
-            prefs.usbLocked
+            prefs.usbLocked && !unlocked
         )
 
         rows += devicePolicyFlag(R.string.diag_restriction_camera) { dpm.getCameraDisabled(admin) }

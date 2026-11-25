@@ -41,7 +41,11 @@ const generatedFile = path.join(root, 'src/generated/apkMeta.ts');
  * served on, because the kiosk build has no knowledge of the hosting provider.
  * Override with UPDATE_FEED_BASE_URL when the site moves domain.
  */
-const DEFAULT_FEED_BASE_URL = process.env.UPDATE_FEED_BASE_URL || 'https://ironclad-os.freecode.page';
+const rawFeedBaseUrl = process.env.UPDATE_FEED_BASE_URL?.trim();
+const DEFAULT_FEED_BASE_URL =
+  rawFeedBaseUrl && rawFeedBaseUrl.startsWith('https://')
+    ? rawFeedBaseUrl
+    : 'https://ais-pre-u5dgsx5axes4w2tjefjlrb-528486795455.europe-west1.run.app';
 const APK_FILE_NAME = 'IroncladOS.apk';
 
 const args = process.argv.slice(2);

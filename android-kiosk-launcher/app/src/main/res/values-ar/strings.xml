@@ -369,11 +369,10 @@
     <string name="update_available_title">فيه إصدار أحدث متاح</string>
     <string name="update_available_detail_fmt">v%1$s (بناء %2$d) · %3$d ميجا · بيتنزّل عبر HTTPS وبيتأكد من البصمة قبل التسطيب.</string>
     <string name="update_installed_fmt">المسطّب: Ironclad OS v%1$s (بناء %2$d)</string>
-    <string name="update_up_to_date">محدّث. التحديثات بتتسطّب فوق التطبيق الحالي وبتسيب كل الإعدادات.</string>
-    <string name="update_no_feed">مفيش رابط تحديثات متسجّل</string>
-    <string name="update_feed_required">حطّ رابط HTTPS لملف latest.json المنشور عشان تشغّل التحديث من جوه التطبيق.</string>
+    <string name="update_up_to_date">محدّث. التحديثات بتتسطّب تلقائيًا فوق التطبيق الحالي وبتسيب كل الإعدادات.</string>
     <string name="update_checking">بيدوّر على تحديثات…</string>
-    <string name="update_check_failed">مقدرناش نوصل لرابط التحديثات</string>
+    <string name="update_check_failed">مقدرناش نوصل لخادم التحديثات</string>
+    <string name="update_check_failed_detail_fmt">تعذر التحقق من التحديثات (%1$s). اتأكد من الإنترنت وحاول تاني.</string>
     <string name="update_check">دوّر على تحديث</string>
     <string name="update_now">حدّث دلوقتي</string>
     <string name="update_later">بعدين</string>
@@ -386,9 +385,11 @@
     <string name="update_failed">التحديث فشل</string>
     <string name="update_needs_confirm">أكّد التسطيب على الشاشة</string>
     <string name="update_needs_confirm_detail">أندرويد بيطلب ضغطة واحدة. اقبلها عشان يخلص. لو طلب منك تسمح بالتسطيب من Ironclad OS، شغّلها واضغط تحديث تاني.</string>
-    <string name="update_install_permission">اسمح بـ "تسطيب تطبيقات مش معروفة" لـ Ironclad OS وبعدين حدّث تاني.</string>
-    <string name="update_feed_hint">الموقع بينشر latest.json جنب ملف APK. وجّه الرابط للفولدر ده (أو الملف نفسه).</string>
-    <string name="update_feed_hint_label">رابط التحديثات</string>
+    <string name="update_install_permission">اسمح بـ "تسطيب تطبيقات مش معروفة" لـ Ironclad OS وبعدين دوّر على تحديث تاني.</string>
+    <string name="update_custom_source">مصدر تحديث مخصص (اختياري)</string>
+    <string name="update_feed_hint">اختياري. سيبه فاضي عشان التطبيق يحدّث تلقائيًا من مصدر الإصدار الرسمي.</string>
+    <string name="update_feed_hint_label">رابط تحديث مخصص (اختياري)</string>
     <string name="update_feed_save">احفظ الرابط</string>
-    <string name="update_feed_saved">رابط التحديثات اتحفظ</string>
+    <string name="update_feed_saved">رابط التحديث المخصص اتحفظ</string>
+    <string name="update_feed_cleared">رجعنا لمصدر التحديث التلقائي الرسمي</string>
 </resources>

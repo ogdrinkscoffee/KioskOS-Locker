@@ -14,6 +14,7 @@ import android.os.Looper
 import android.provider.Settings
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import com.kiosk.launcher.admin.DevicePolicyHelper
 import com.kiosk.launcher.data.KioskPreferences
 import java.io.File
 import java.security.MessageDigest
@@ -39,7 +40,7 @@ class UpdateInstaller(context: Context) {
         data class Failed(val reason: String) : Event
         data object ReadyToInstall : Event
         /** The system wants one confirmation tap before it will install. */
-        data object NeedsUserAction : Event
+        data class NeedsUserAction(val confirmIntent: Intent? = null) : Event
         data object Installed : Event
     }
 
@@ -48,7 +49,11 @@ class UpdateInstaller(context: Context) {
     private val mainHandler = Handler(Looper.getMainLooper())
 
     /** Downloads and verifies on a worker; callbacks are delivered on the main thread. */
-    fun download(manifest: UpdateManifest, onEvent: (Event) -> Unit) {
+    fun download(
+        manifest: UpdateManifest,
+        fallbackApkUrl: String? = null,
+        onEvent: (Event) -> Unit
+    ) {
         fun emit(event: Event) = mainHandler.post { onEvent(event) }
 
         worker.execute {
@@ -59,15 +64,28 @@ class UpdateInstaller(context: Context) {
 
             if (!cached) {
                 target.delete()
-                val failure = runCatching {
-                    UpdateHttpClient().download(manifest.apkUrl, target) { percent ->
-                        emit(Event.Progress(percent))
-                    }
-                }.exceptionOrNull()
+                val urls = listOfNotNull(manifest.apkUrl, fallbackApkUrl).distinct()
+                var lastFailure: Throwable? = null
+                var downloaded = false
 
-                if (failure != null) {
+                for (url in urls) {
+                    val failure = runCatching {
+                        UpdateHttpClient().download(url, target) { percent ->
+                            emit(Event.Progress(percent))
+                        }
+                    }.exceptionOrNull()
+
+                    if (failure == null) {
+                        downloaded = true
+                        break
+                    }
+                    lastFailure = failure
                     target.delete()
-                    emit(Event.Failed(failure.message ?: FAILED_DOWNLOAD))
+                }
+
+                if (!downloaded) {
+                    target.delete()
+                    emit(Event.Failed(lastFailure?.message ?: FAILED_DOWNLOAD))
                     return@execute
                 }
             }
@@ -96,12 +114,24 @@ class UpdateInstaller(context: Context) {
                 ) ?: PackageInstaller.STATUS_FAILURE
                 val message = intent?.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
 
+                if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
+                    val confirmIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        intent?.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        intent?.getParcelableExtra(Intent.EXTRA_INTENT)
+                    }
+                    // Keep the receiver registered and keep the APK file intact while the
+                    // user responds to the system confirmation dialog.
+                    onEvent(Event.NeedsUserAction(confirmIntent))
+                    return
+                }
+
                 when (status) {
                     PackageInstaller.STATUS_SUCCESS -> {
                         prefs.finishUpdateInstall()
                         onEvent(Event.Installed)
                     }
-                    PackageInstaller.STATUS_PENDING_USER_ACTION -> onEvent(Event.NeedsUserAction)
                     else -> {
                         prefs.finishUpdateInstall()
                         onEvent(Event.Failed(message ?: FAILED_INSTALL))
@@ -160,14 +190,20 @@ class UpdateInstaller(context: Context) {
      * the system screen that grants it, and no install starts.
      */
     fun promptUserInstall(activity: Activity, apk: File): Boolean {
+        val policy = DevicePolicyHelper(activity)
         if (!canInstall(appContext)) {
             prefs.finishUpdateInstall()
+            if (policy.isInLockTaskMode()) {
+                prefs.grantTemporaryAdminWindow()
+                policy.applyPolicy()
+                policy.stopKiosk(activity)
+            }
             runCatching {
                 activity.startActivity(
                     Intent(
                         Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                         Uri.parse("package:${appContext.packageName}")
-                    )
+                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 )
             }
             return false
@@ -181,19 +217,32 @@ class UpdateInstaller(context: Context) {
         }
 
         prefs.beginUpdateInstall()
-        val intent = Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
-            data = uri
+        policy.refreshLockTaskPackages()
+
+        val viewIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/vnd.android.package-archive")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
-            putExtra(Intent.EXTRA_RETURN_RESULT, true)
         }
         return runCatching {
-            activity.startActivity(intent)
+            activity.startActivity(viewIntent)
             true
         }.getOrElse {
-            prefs.finishUpdateInstall()
-            false
+            @Suppress("DEPRECATION")
+            val installIntent = Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
+                data = uri
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
+                putExtra(Intent.EXTRA_RETURN_RESULT, true)
+            }
+            runCatching {
+                activity.startActivity(installIntent)
+                true
+            }.getOrElse {
+                prefs.finishUpdateInstall()
+                false
+            }
         }
     }
 

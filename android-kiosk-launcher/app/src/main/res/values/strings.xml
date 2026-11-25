@@ -369,11 +369,10 @@
     <string name="update_available_title">A newer build is available</string>
     <string name="update_available_detail_fmt">v%1$s (build %2$d) · %3$d MB · downloaded over HTTPS and checksum-verified before installing.</string>
     <string name="update_installed_fmt">Installed: Ironclad OS v%1$s (build %2$d)</string>
-    <string name="update_up_to_date">Up to date. Updates install over the existing app and keep all settings.</string>
-    <string name="update_no_feed">No update feed set</string>
-    <string name="update_feed_required">Add an HTTPS link to the published latest.json to enable in-app updates.</string>
+    <string name="update_up_to_date">Up to date. Updates install automatically over the existing app and keep all settings.</string>
     <string name="update_checking">Checking for updates…</string>
-    <string name="update_check_failed">Could not reach the update feed</string>
+    <string name="update_check_failed">Could not reach the update server</string>
+    <string name="update_check_failed_detail_fmt">Could not check for updates (%1$s). Verify internet access and try again.</string>
     <string name="update_check">Check for update</string>
     <string name="update_now">Update now</string>
     <string name="update_later">Later</string>
@@ -385,11 +384,13 @@
     <string name="update_installed_again">Update installed. Reopening the app applies it.</string>
     <string name="update_failed">Update failed</string>
     <string name="update_needs_confirm">Confirm the install on screen</string>
-    <string name="update_needs_confirm_detail">Android is asking for one tap. Allow it to finish. If Android asks to allow installs from Ironclad OS, turn that on, then press Update again.</string>
-    <string name="update_install_permission">Allow "Install unknown apps" for Ironclad OS, then update again.</string>
-    <string name="update_feed_hint">The website publishes latest.json next to the APK. Point this at that folder (or the file itself).</string>
-    <string name="update_feed_hint_label">Update feed URL</string>
-    <string name="update_feed_save">Save feed</string>
-    <string name="update_feed_saved">Update feed saved</string>
-    <string name="update_default_feed" translatable="false">https://ironclad-os.freecode.page/downloads</string>
+    <string name="update_needs_confirm_detail">Android is asking for one tap. Allow it to finish. If Android asks to allow installs from Ironclad OS, turn that on, then press Check for update again.</string>
+    <string name="update_install_permission">Allow "Install unknown apps" for Ironclad OS, then press Check for update again.</string>
+    <string name="update_custom_source">Custom update source (optional)</string>
+    <string name="update_feed_hint">Optional override. Leave blank to update automatically from the built-in release feed.</string>
+    <string name="update_feed_hint_label">Custom update URL (optional)</string>
+    <string name="update_feed_save">Save custom URL</string>
+    <string name="update_feed_saved">Custom update URL saved</string>
+    <string name="update_feed_cleared">Using built-in automatic update source</string>
+    <string name="update_default_feed" translatable="false">https://ais-pre-u5dgsx5axes4w2tjefjlrb-528486795455.europe-west1.run.app/downloads/latest.json</string>
 </resources>

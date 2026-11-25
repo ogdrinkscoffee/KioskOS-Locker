@@ -1,14 +1,22 @@
 package com.kiosk.launcher.update
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import com.kiosk.launcher.R
+import com.kiosk.launcher.admin.DevicePolicyHelper
 import com.kiosk.launcher.data.KioskPreferences
 
 /**
  * One place for "is there a newer build, and install it". The launcher checks quietly on
- * start; Admin uses the same object for the manual check and the install button.
+ * start; Admin uses the same object for the automatic check + install button.
  */
 class UpdateManager(private val context: Context) {
+
+    sealed interface CheckOutcome {
+        data class Success(val manifest: UpdateManifest, val resolvedFeedUrl: String) : CheckOutcome
+        data class Error(val reason: String) : CheckOutcome
+    }
 
     private val prefs = KioskPreferences(context)
 
@@ -27,30 +35,64 @@ class UpdateManager(private val context: Context) {
         }
     }.getOrDefault(0)
 
-    /** Feed location saved in Admin, or the built-in default. */
+    /** Primary feed location saved in Admin, or the built-in default. */
     fun feedUrl(): String {
         val stored = prefs.updateFeedUrl
-        return stored.ifBlank { context.getString(R.string.update_default_feed) }.let(UpdateManifest::manifestUrl)
+        return stored.ifBlank { context.getString(R.string.update_default_feed) }
+            .let(UpdateManifest::manifestUrl)
     }
 
-    fun hasFeed(): Boolean = feedUrl().startsWith("https://")
+    /** Built-in update feed chain is always available without manual configuration. */
+    fun hasFeed(): Boolean = feedCandidates().isNotEmpty()
+
+    fun feedCandidates(): List<String> {
+        val list = mutableListOf<String>()
+        if (prefs.updateFeedUrl.isNotBlank()) {
+            list.addAll(UpdateManifest.candidateUrls(prefs.updateFeedUrl))
+        }
+        list.addAll(UpdateManifest.candidateUrls(context.getString(R.string.update_default_feed)))
+        list.add(GITHUB_RAW_FEED)
+        return list.distinct()
+    }
 
     /**
-     * Fetches the manifest off the main thread. [onResult] receives null when the feed is
-     * unreachable or invalid; failures are never treated as "up to date".
+     * Fetches the manifest off the main thread across the candidate feed URLs.
      */
     fun check(onResult: (UpdateManifest?) -> Unit) {
-        val feed = feedUrl()
-        if (!feed.startsWith("https://")) {
-            onResult(null)
+        checkDetailed { outcome ->
+            onResult((outcome as? CheckOutcome.Success)?.manifest)
+        }
+    }
+
+    fun checkDetailed(onResult: (CheckOutcome) -> Unit) {
+        val candidates = feedCandidates()
+        if (candidates.isEmpty()) {
+            mainHandler.post { onResult(CheckOutcome.Error("no_feed")) }
             return
         }
         worker.execute {
-            val manifest = runCatching {
-                UpdateManifest.parse(UpdateHttpClient().fetchText(feed))
-            }.getOrNull()
+            val client = UpdateHttpClient()
+            var lastError: String? = null
+            var found: CheckOutcome.Success? = null
+
+            for (url in candidates) {
+                val bodyResult = runCatching { client.fetchText(url) }
+                if (bodyResult.isFailure) {
+                    lastError = bodyResult.exceptionOrNull()?.message ?: "network_error"
+                    continue
+                }
+                val manifest = UpdateManifest.parse(bodyResult.getOrNull().orEmpty(), url)
+                if (manifest != null) {
+                    found = CheckOutcome.Success(manifest, url)
+                    break
+                } else {
+                    lastError = "invalid_manifest"
+                }
+            }
+
             prefs.lastUpdateCheckMs = System.currentTimeMillis()
-            mainHandler.post { onResult(manifest) }
+            val outcome: CheckOutcome = found ?: CheckOutcome.Error(lastError ?: "unreachable")
+            mainHandler.post { onResult(outcome) }
         }
     }
 
@@ -67,25 +109,43 @@ class UpdateManager(private val context: Context) {
     }
 
     fun downloadAndInstall(
-        activity: android.app.Activity,
+        activity: Activity,
         manifest: UpdateManifest,
+        resolvedFeedUrl: String? = null,
         onEvent: (UpdateInstaller.Event) -> Unit
     ) {
+        val fallbackApkUrl = resolvedFeedUrl?.let { UpdateManifest.siblingApkUrl(it) }
         val installer = UpdateInstaller(activity)
-        installer.download(manifest, onEvent = { event ->
+        installer.download(manifest, fallbackApkUrl = fallbackApkUrl, onEvent = { event ->
             when (event) {
                 is UpdateInstaller.Event.ReadyToInstall -> {
                     val file = java.io.File(
                         activity.cacheDir,
                         "IroncladOS-${manifest.versionCode}.apk"
                     )
-                    // Relax lock task before the installer UI can appear.
-                    com.kiosk.launcher.admin.DevicePolicyHelper(activity).refreshLockTaskPackages()
+                    // Mark update install active BEFORE refreshing lock task packages so
+                    // INSTALLER_PACKAGES are always included.
+                    prefs.beginUpdateInstall()
+                    DevicePolicyHelper(activity).refreshLockTaskPackages()
 
                     val sessionStarted = installer.installFromSession(file) { installEvent ->
-                        if (installEvent == UpdateInstaller.Event.NeedsUserAction) {
-                            if (!installer.promptUserInstall(activity, file)) {
-                                onEvent(UpdateInstaller.Event.Failed(context.getString(R.string.update_install_permission)))
+                        if (installEvent is UpdateInstaller.Event.NeedsUserAction) {
+                            val confirm = installEvent.confirmIntent
+                            val launchedConfirm = confirm != null && runCatching {
+                                activity.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                                true
+                            }.getOrDefault(false)
+
+                            if (launchedConfirm) {
+                                onEvent(installEvent)
+                            } else if (!installer.promptUserInstall(activity, file)) {
+                                onEvent(
+                                    UpdateInstaller.Event.Failed(
+                                        context.getString(R.string.update_install_permission)
+                                    )
+                                )
+                            } else {
+                                onEvent(installEvent)
                             }
                         } else {
                             onEvent(installEvent)
@@ -93,9 +153,13 @@ class UpdateManager(private val context: Context) {
                     }
                     if (!sessionStarted) {
                         if (!installer.promptUserInstall(activity, file)) {
-                            onEvent(UpdateInstaller.Event.Failed(context.getString(R.string.update_install_permission)))
+                            onEvent(
+                                UpdateInstaller.Event.Failed(
+                                    context.getString(R.string.update_install_permission)
+                                )
+                            )
                         } else {
-                            onEvent(UpdateInstaller.Event.NeedsUserAction)
+                            onEvent(UpdateInstaller.Event.NeedsUserAction())
                         }
                     }
                 }
@@ -105,6 +169,9 @@ class UpdateManager(private val context: Context) {
     }
 
     private companion object {
+        const val GITHUB_RAW_FEED =
+            "https://raw.githubusercontent.com/ogdrinkscoffee/KioskOS-Locker/main/public/downloads/latest.json"
+
         val worker = java.util.concurrent.Executors.newSingleThreadExecutor { runnable ->
             Thread(runnable, "kiosk-update-check").apply { isDaemon = true }
         }

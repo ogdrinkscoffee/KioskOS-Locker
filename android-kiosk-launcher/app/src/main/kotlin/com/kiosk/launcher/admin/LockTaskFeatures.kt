@@ -28,7 +28,8 @@ object LockTaskFeatures {
         // the platform default even without this call.
         if (sdkInt < Build.VERSION_CODES.P) return 0
 
-        var flags = DevicePolicyManager.LOCK_TASK_FEATURE_HOME
+        var flags = DevicePolicyManager.LOCK_TASK_FEATURE_HOME or
+            DevicePolicyManager.LOCK_TASK_FEATURE_GLOBAL_ACTIONS
 
         if (!statusBarLocked) {
             flags = flags or

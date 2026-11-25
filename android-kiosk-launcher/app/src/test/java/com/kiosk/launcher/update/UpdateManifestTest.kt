@@ -83,4 +83,35 @@ class UpdateManifestTest {
             UpdateManifest.manifestUrl("https://example.com/meta/latest.json")
         )
     }
+
+    @Test
+    fun resolvesRelativeApkUrlAndSiteRootCandidates() {
+        val manifest = UpdateManifest.parse(
+            json(url = "IroncladOS.apk"),
+            feedUrl = "https://example.com/downloads/latest.json"
+        )
+        assertNotNull(manifest)
+        assertEquals("https://example.com/downloads/IroncladOS.apk", manifest!!.apkUrl)
+
+        assertEquals(
+            listOf(
+                "https://example.com/downloads/latest.json",
+                "https://example.com/latest.json"
+            ),
+            UpdateManifest.candidateUrls("https://example.com")
+        )
+
+        assertEquals(
+            listOf(
+                "https://raw.githubusercontent.com/ogdrinkscoffee/KioskOS-Locker/main/public/downloads/latest.json",
+                "https://raw.githubusercontent.com/ogdrinkscoffee/KioskOS-Locker/master/public/downloads/latest.json"
+            ),
+            UpdateManifest.candidateUrls("https://github.com/ogdrinkscoffee/KioskOS-Locker")
+        )
+
+        assertEquals(
+            "https://example.com/downloads/IroncladOS.apk",
+            UpdateManifest.siblingApkUrl("https://example.com/downloads/latest.json")
+        )
+    }
 }

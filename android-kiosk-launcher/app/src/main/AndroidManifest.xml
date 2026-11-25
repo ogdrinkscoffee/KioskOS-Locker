@@ -21,6 +21,78 @@
             <action android:name="android.intent.action.INSTALL_PACKAGE" />
             <data android:mimeType="application/vnd.android.package-archive" />
         </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="application/vnd.android.package-archive" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="tel" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.CALL_BUTTON" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.CALL_EMERGENCY" />
+            <data android:scheme="tel" />
+        </intent>
+        <intent>
+            <action android:name="android.telecom.InCallService" />
+        </intent>
+        <intent>
+            <action android:name="android.telecom.ConnectionService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DELETE" />
+            <data android:scheme="package" />
+        </intent>
+        <intent>
+            <action android:name="com.google.android.gms.common.account.CHOOSE_ACCOUNT" />
+        </intent>
+        <intent>
+            <action android:name="com.google.android.gms.auth.GOOGLE_SIGN_IN" />
+        </intent>
+        <intent>
+            <action android:name="com.google.android.gms.auth.api.credentials.PICKER" />
+        </intent>
+        <intent>
+            <action android:name="com.google.android.gms.location.settings.LOCATION_ACCURACY" />
+        </intent>
+        <intent>
+            <action android:name="androidx.credentials.ACTION_GET_CREDENTIAL" />
+        </intent>
+        <intent>
+            <action android:name="android.service.credentials.CredentialProviderService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.OPEN_DOCUMENT" />
+            <category android:name="android.intent.category.OPENABLE" />
+            <data android:mimeType="*/*" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.GET_CONTENT" />
+            <category android:name="android.intent.category.OPENABLE" />
+            <data android:mimeType="*/*" />
+        </intent>
+        <intent>
+            <action android:name="android.provider.action.PICK_IMAGES" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.CHOOSER" />
+        </intent>
+        <intent>
+            <action android:name="android.net.conn.CAPTIVE_PORTAL" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
     </queries>
 
     <application
@@ -77,6 +149,7 @@
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
 

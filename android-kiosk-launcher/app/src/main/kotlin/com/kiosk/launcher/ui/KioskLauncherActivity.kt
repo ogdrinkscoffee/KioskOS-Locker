@@ -156,6 +156,7 @@ class KioskLauncherActivity : AppCompatActivity() {
             prefs.endTemporaryAdminWindow()
             policy.applyPolicy()
         }
+        syncSystemBars()
         renderAll()
         // Idempotent: only enters when this is a device owner kiosk with no admin
         // unlock window open, and does nothing while lock task is already held.
@@ -375,16 +376,7 @@ class KioskLauncherActivity : AppCompatActivity() {
     // -------------------------------------------------------------------- chrome
     private fun hideSystemBars() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        // Only the navigation/gesture area is hidden. The status bar is left to the
-        // policy: hiding it here made the "Status bar" toggle look broken while unlocked,
-        // because the window itself refused to draw it.
-        controller.hide(WindowInsetsCompat.Type.navigationBars())
-        controller.systemBarsBehavior =
-            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        if (!prefs.statusBarLocked || prefs.isAdminTemporarilyUnlocked()) {
-            controller.show(WindowInsetsCompat.Type.statusBars())
-        }
+        syncSystemBars()
 
         val root = findViewById<View>(R.id.root)
         val base = dp(20)
@@ -397,6 +389,18 @@ class KioskLauncherActivity : AppCompatActivity() {
                 cutout.bottom + base
             )
             insets
+        }
+    }
+
+    private fun syncSystemBars() {
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.hide(WindowInsetsCompat.Type.navigationBars())
+        controller.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        if (!prefs.statusBarLocked || prefs.isAdminTemporarilyUnlocked()) {
+            controller.show(WindowInsetsCompat.Type.statusBars())
+        } else {
+            controller.hide(WindowInsetsCompat.Type.statusBars())
         }
     }
 
