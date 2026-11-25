@@ -98,10 +98,12 @@ class SystemFeatureResolver(context: Context) {
         packages.addAll(DevicePolicyHelper.ESSENTIAL_SYSTEM_PACKAGES)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            runCatching { appContext.packageManager.permissionControllerPackageName }
-                .getOrNull()
-                ?.takeIf { it.isNotBlank() }
-                ?.let { packages.add(it) }
+            packages.addAll(
+                queryActivityPackages(
+                    Intent("android.content.pm.action.REQUEST_PERMISSIONS"),
+                    systemOnly = true
+                )
+            )
         }
 
         // Standard Google Play Services / Auth / Credential Manager / Location Accuracy intents.
