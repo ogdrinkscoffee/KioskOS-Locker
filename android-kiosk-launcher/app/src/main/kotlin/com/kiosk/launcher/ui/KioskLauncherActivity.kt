@@ -137,8 +137,6 @@ class KioskLauncherActivity : AppCompatActivity() {
                 )
             }
         }
-
-        if (!prefs.homeLauncherDeclined) policy.setAsHomeLauncher()
     }
 
     private fun returnToHome() {

@@ -5,6 +5,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.text.InputFilter
@@ -56,6 +57,8 @@ class AdminSettingsActivity : AppCompatActivity() {
     private lateinit var policyLog: TextView
     private lateinit var defaultLauncherSwitch: SwitchMaterial
     private lateinit var defaultLauncherDetail: TextView
+    private lateinit var kioskStateDetail: TextView
+    private lateinit var releaseOwnerButton: View
 
     private lateinit var adminWindowValue: TextView
     private lateinit var adminWindowHint: TextView
@@ -71,6 +74,9 @@ class AdminSettingsActivity : AppCompatActivity() {
 
     /** Guards the switch listener while it is being synced to the observed state. */
     private var syncingLauncherSwitch = false
+
+    /** The system Home picker is open and its answer is not in yet. */
+    private var pendingHomeRequest = false
 
     /** Bumped per scan so a slow, stale result can't repaint the list. */
     private var allowListRequest = 0
@@ -103,6 +109,9 @@ class AdminSettingsActivity : AppCompatActivity() {
         policyLog = findViewById(R.id.policyLog)
         defaultLauncherSwitch = findViewById(R.id.defaultLauncherSwitch)
         defaultLauncherDetail = findViewById(R.id.defaultLauncherDetail)
+        kioskStateDetail = findViewById(R.id.kioskStateDetail)
+        releaseOwnerButton = findViewById(R.id.releaseOwnerButton)
+        releaseOwnerButton.setOnClickListener { confirmReleaseOwner() }
 
         adminWindowValue = findViewById(R.id.adminWindowValue)
         adminWindowHint = findViewById(R.id.adminWindowHint)
@@ -176,6 +185,17 @@ class AdminSettingsActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // Adopt the opt-in only once Android really resolves Home to this app, so a
+        // dismissed system prompt cannot leave an enabled kiosk that owns nothing.
+        if (pendingHomeRequest) {
+            pendingHomeRequest = false
+            if (policy.isDefaultLauncher && prefs.kioskEnabled != true) {
+                prefs.kioskEnabled = true
+                prefs.logPolicy(getString(R.string.log_default_launcher_on))
+            }
+        }
+        // Coming back from the system Home picker can change which policy applies.
+        policy.applyPolicy()
         renderDefaultLauncher()
         renderRecoveryState()
         renderAdminWindow()
@@ -199,6 +219,59 @@ class AdminSettingsActivity : AppCompatActivity() {
             status.setText(R.string.owner_preview_title)
             detail.text = getString(R.string.owner_preview_detail_fmt, DevicePolicyHelper.PROVISION_COMMAND)
         }
+        // The way out only exists while this app really owns the device.
+        releaseOwnerButton.visibility = if (policy.isDeviceOwner) View.VISIBLE else View.GONE
+    }
+
+    /**
+     * Hands ownership back so this phone can be uninstalled without adb or a factory reset.
+     * The system uninstaller is offered right after, because that is what this is for; the
+     * app stays usable as an ordinary launcher if the admin chooses to keep it.
+     */
+    private fun confirmReleaseOwner() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.release_owner_confirm_title)
+            .setMessage(R.string.release_owner_confirm_body)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.release_owner_confirm_action) { _, _ -> releaseOwner() }
+            .show()
+    }
+
+    private fun releaseOwner() {
+        if (policy.isInLockTaskMode()) policy.stopKiosk(this)
+        val result = policy.relinquishDeviceOwner()
+        renderOwner()
+        renderDefaultLauncher()
+        renderRecoveryState()
+        renderPolicyLog()
+
+        when (result) {
+            DevicePolicyHelper.OwnershipRelease.RELEASED -> showReleasedDialog()
+            DevicePolicyHelper.OwnershipRelease.NOT_OWNER ->
+                toast(getString(R.string.release_owner_not_owner))
+            DevicePolicyHelper.OwnershipRelease.FAILED ->
+                MaterialAlertDialogBuilder(this)
+                    .setTitle(R.string.release_owner_failed_title)
+                    .setMessage(R.string.release_owner_failed_body)
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show()
+        }
+    }
+
+    private fun showReleasedDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.release_owner_done_title)
+            .setMessage(R.string.release_owner_done_body)
+            .setNegativeButton(R.string.release_owner_later, null)
+            .setPositiveButton(R.string.release_owner_uninstall) { _, _ -> openUninstaller() }
+            .show()
+    }
+
+    private fun openUninstaller() {
+        val intent = Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName"))
+        if (!runCatching { startActivity(intent); true }.getOrDefault(false)) {
+            toast(getString(R.string.release_owner_uninstall_manual))
+        }
     }
 
     // --------------------------------------------------------------- default home
@@ -210,19 +283,37 @@ class AdminSettingsActivity : AppCompatActivity() {
         defaultLauncherDetail.text = getString(
             if (active) R.string.default_launcher_on else R.string.default_launcher_off
         )
+        renderKioskState()
+    }
+
+    /** The explicit kiosk state, which survives a launcher change until Admin changes it. */
+    private fun renderKioskState() {
+        val enabled = prefs.kioskEnabled == true
+        kioskStateDetail.setText(
+            when {
+                !enabled -> R.string.kiosk_state_off
+                policy.isDefaultLauncher -> R.string.kiosk_state_on
+                else -> R.string.kiosk_state_pending
+            }
+        )
     }
 
     private fun requestDefaultLauncher() {
-        prefs.homeLauncherDeclined = false
         // A device owner can pin Home silently; anyone else confirms in the system prompt.
         if (policy.pinAsHomeLauncher()) {
+            prefs.kioskEnabled = true
             prefs.logPolicy(getString(R.string.log_default_launcher_on))
             toast(getString(R.string.default_launcher_set))
+            // Kiosk policy starts with Home ownership; apply it now instead of on reboot.
+            policy.applyPolicy()
             renderDefaultLauncher()
             renderPolicyLog()
             return
         }
+        // Keep the state off until the system picker confirms Home ownership.
+        pendingHomeRequest = true
         if (!openDefaultLauncherSettings(policy.homePickerIntent())) {
+            pendingHomeRequest = false
             toast(getString(R.string.default_launcher_manual))
             renderDefaultLauncher()
             return
@@ -231,19 +322,23 @@ class AdminSettingsActivity : AppCompatActivity() {
     }
 
     private fun dropDefaultLauncher() {
-        prefs.homeLauncherDeclined = true
-        if (policy.clearHomeLauncher()) {
+        prefs.kioskEnabled = false
+        pendingHomeRequest = false
+        val cleared = policy.clearHomeLauncher()
+        // The recorded off state releases policy whether or not Home changes, so a
+        // non-owner — or a launcher the user picked in system settings — is not left
+        // restricted behind an "Off" label.
+        policy.applyPolicy()
+        renderDefaultLauncher()
+        renderPolicyLog()
+        if (cleared) {
             prefs.logPolicy(getString(R.string.log_default_launcher_off))
             toast(getString(R.string.default_launcher_cleared))
-            renderDefaultLauncher()
-            renderPolicyLog()
             return
         }
         // Home can only be changed by the user here, so show them where it lives — and
         // point at a different Home app, since this branch is the way back out.
-        if (!openDefaultLauncherSettings(Intent(Settings.ACTION_HOME_SETTINGS))) {
-            renderDefaultLauncher()
-        }
+        openDefaultLauncherSettings(Intent(Settings.ACTION_HOME_SETTINGS))
         toast(getString(R.string.default_launcher_manual_off))
     }
 

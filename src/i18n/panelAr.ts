@@ -652,8 +652,8 @@ export const panelAr: Record<string, string> = {
   'Set Device Owner': 'ظبط مالك الجهاز',
   'Enable the window guard': 'شغّل حارس النوافذ',
   'Reboot and verify': 'اعيد التشغيل وتأكد',
-  'Enforces DISALLOW_SAFE_BOOT, DISALLOW_FACTORY_RESET, DISALLOW_ADD_USER and DISALLOW_APPS_CONTROL immediately.':
-    'بيفرض على طول DISALLOW_SAFE_BOOT, DISALLOW_FACTORY_RESET, DISALLOW_ADD_USER, DISALLOW_APPS_CONTROL.',
+  'Grants the admin APIs. Kiosk locks start once Ironclad OS is the Home app (Admin → Default launcher), so a device you keep using stays untouched.':
+    'بيدي صلاحيات الإدارة. قيود الكشك بتبدأ لما Ironclad OS يبقى تطبيق الشاشة الرئيسية (الإدارة ← المشغّل الافتراضي)، فالجهاز اللي بتستخدمه عادي بيفضل زي ما هو.',
   'Optional. Blocks Settings and package-installer dialogs while the admin passcode is locked.':
     'اختياري. بيقفل نوافذ الإعدادات ومثبّت الحزم طول ما رمز مرور الإدارة مقفول.',
   'BootCompletedReceiver restores the kiosk home screen with all restrictions intact.':

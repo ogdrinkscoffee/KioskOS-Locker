@@ -138,10 +138,51 @@ class KioskPreferences(context: Context) {
         get() = bool(KEY_GUARD, false)
         set(value) = setBool(KEY_GUARD, value)
 
-    /** Set when an admin opts out, so the launcher stops re-pinning itself as Home. */
-    var homeLauncherDeclined: Boolean
-        get() = bool(KEY_HOME_LAUNCHER_DECLINED, false)
-        set(value) = setBool(KEY_HOME_LAUNCHER_DECLINED, value)
+    /**
+     * Explicit record that this device was set up as a kiosk. Null only on installs that
+     * predate the flag; the next cold start resolves it once with [migrateKioskState].
+     * Kept separate from Home ownership so an upgrade can tell a real kiosk from a phone
+     * an older build pinned by force.
+     */
+    var kioskEnabled: Boolean?
+        get() = if (prefs.contains(KEY_KIOSK_ENABLED)) {
+            prefs.getBoolean(KEY_KIOSK_ENABLED, false)
+        } else {
+            null
+        }
+        set(value) {
+            val editor = prefs.edit()
+            if (value == null) editor.remove(KEY_KIOSK_ENABLED)
+            else editor.putBoolean(KEY_KIOSK_ENABLED, value)
+            editor.apply()
+        }
+
+    /**
+     * Resolves the explicit kiosk state for installs that predate it. [homeIsKiosk] is
+     * whether Android already resolves Home to this app: the only evidence an older build
+     * leaves that the device was actually running as a kiosk. Writes the result so the
+     * decision is made exactly once.
+     */
+    fun migrateKioskState(homeIsKiosk: Boolean): KioskActivation.Decision {
+        val legacyDeclined = if (prefs.contains(KEY_HOME_LAUNCHER_DECLINED)) {
+            prefs.getBoolean(KEY_HOME_LAUNCHER_DECLINED, true)
+        } else {
+            null
+        }
+        val decision = KioskActivation.resolve(kioskEnabled, legacyDeclined, homeIsKiosk)
+        if (!decision.migrated) return decision
+
+        kioskEnabled = decision.enabled
+        prefs.edit().remove(KEY_HOME_LAUNCHER_DECLINED).apply()
+        logPolicy(
+            when (decision.source) {
+                KioskActivation.Source.HOME_OWNER -> "Kiosk state: on (already the Home app)"
+                KioskActivation.Source.NEVER_OPTED_IN -> "Kiosk state: off (never opted in)"
+                else -> "Kiosk state: ${if (decision.enabled) "on" else "off"}"
+            }
+        )
+        return decision
+    }
 
     // Browser & shield toggles
     var blockUnsupportedBrowsers: Boolean
@@ -276,6 +317,27 @@ class KioskPreferences(context: Context) {
     fun isAllowed(packageName: String): Boolean =
         allowAllApps || allowedPackages().contains(packageName)
 
+    // --------------------------------------------------------- uninstall blocks
+    /**
+     * Packages this app currently holds an uninstall block on. Recording them is what
+     * lets a later pass release an app whose block was applied by an older build.
+     */
+    fun uninstallBlockedPackages(): Set<String> =
+        prefs.getStringSet(KEY_UNINSTALL_BLOCKED, emptySet())?.toSet() ?: emptySet()
+
+    fun setUninstallBlockedPackages(value: Set<String>) {
+        prefs.edit().putStringSet(KEY_UNINSTALL_BLOCKED, value.toMutableSet()).apply()
+    }
+
+    /**
+     * True once the one-time release sweep for blocks left by older builds has run. After
+     * that a release pass only touches the recorded packages, so cold starts with the
+     * kiosk off no longer walk the whole package list.
+     */
+    var uninstallReleaseSwept: Boolean
+        get() = bool(KEY_UNINSTALL_RELEASE_SWEPT, false)
+        set(value) = setBool(KEY_UNINSTALL_RELEASE_SWEPT, value)
+
     // ------------------------------------------------------------------- browser
     fun domains(): Set<String> =
         prefs.getStringSet(KEY_DOMAINS, DEFAULT_DOMAINS)?.toSet() ?: DEFAULT_DOMAINS
@@ -398,7 +460,11 @@ class KioskPreferences(context: Context) {
         private const val KEY_DATE_TIME = "lock_date_time"
         private const val KEY_STAY_AWAKE = "stay_awake"
         private const val KEY_GUARD = "guard_enabled"
+        private const val KEY_KIOSK_ENABLED = "kiosk_enabled"
+        /** Written by 1.3.1 only; read once by [migrateKioskState]. */
         private const val KEY_HOME_LAUNCHER_DECLINED = "home_launcher_declined"
+        private const val KEY_UNINSTALL_BLOCKED = "uninstall_blocked_packages"
+        private const val KEY_UNINSTALL_RELEASE_SWEPT = "uninstall_release_swept"
         private const val KEY_BLOCK_UNSUPPORTED_BROWSERS = "block_unsupported_browsers"
         private const val KEY_BLOCK_SHORT_FEEDS = "block_short_form_feeds"
         private const val KEY_PANIC_LOCK_UNTIL = "panic_lock_until_ms"

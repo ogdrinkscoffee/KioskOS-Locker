@@ -13,16 +13,24 @@ import com.kiosk.launcher.data.KioskPreferences
 class KioskGuardAccessibilityService : AccessibilityService() {
 
     private var prefs: KioskPreferences? = null
+    private var policy: DevicePolicyHelper? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         prefs = KioskPreferences(this)
+        policy = DevicePolicyHelper(this)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null || event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val store = prefs ?: return
         if (!store.guardEnabled && !store.isPanicLocked()) return
+        // The system installer has to stay reachable while an in-app update runs.
+        if (!store.isPanicLocked() && store.isInstallingUpdate()) return
+        // The guard belongs to the kiosk. While another launcher owns Home the kiosk is
+        // not in charge, so it must not keep bouncing the user's own launcher, Settings
+        // and the Google apps they opened back to a grid they were not using.
+        if (store.kioskEnabled != true || policy?.isDefaultLauncher != true) return
 
         val packageName = event.packageName?.toString() ?: return
         if (packageName == this.packageName) return

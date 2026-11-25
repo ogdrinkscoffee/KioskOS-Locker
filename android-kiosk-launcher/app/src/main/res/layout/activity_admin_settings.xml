@@ -105,6 +105,17 @@
                             android:layout_height="wrap_content" />
                     </LinearLayout>
 
+                    <TextView
+                        android:id="@+id/kioskStateDetail"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:lineSpacingExtra="3dp"
+                        android:text="@string/kiosk_state_off"
+                        android:textAlignment="viewStart"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp" />
+
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -128,6 +139,15 @@
                             android:layout_weight="1"
                             android:text="@string/activate_admin" />
                     </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/releaseOwnerButton"
+                        style="@style/Widget.IroncladOS.Button.Outlined"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/release_owner_button"
+                        android:visibility="gone" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/diagnosticsButton"

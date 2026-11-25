@@ -1,8 +1,8 @@
 {
-  "version": "1.3.0",
-  "versionCode": 7,
+  "version": "1.3.4",
+  "versionCode": 11,
   "apkUrl": "https://ironclad-os.freecode.page/downloads/IroncladOS.apk",
-  "sha256": "b7cf47e0db4e6ca596a0666e9a3e1ddc460b6e66d4aab05066705ba729d46260",
-  "sizeBytes": 5082384,
-  "generatedAt": "2026-11-24T20:07:38.455Z"
+  "sha256": "daacf52689892846270ebc0258a70ceae8570165f9a3f97714e6d0ca199202c7",
+  "sizeBytes": 5098200,
+  "generatedAt": "2026-11-25T13:37:11.467Z"
 }

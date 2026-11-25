@@ -19,7 +19,7 @@ const STEPS: CommandStep[] = [
   {
     id: 'device-owner',
     title: 'Set Device Owner',
-    hint: 'Enforces DISALLOW_SAFE_BOOT, DISALLOW_FACTORY_RESET, DISALLOW_ADD_USER and DISALLOW_APPS_CONTROL immediately.',
+    hint: 'Grants the admin APIs. Kiosk locks start once Ironclad OS is the Home app (Admin → Default launcher), so a device you keep using stays untouched.',
     command: 'adb shell dpm set-device-owner com.kiosk.launcher/.admin.KioskDeviceAdminReceiver',
   },
   {

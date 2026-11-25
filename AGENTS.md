@@ -13,8 +13,33 @@ docs site (Vite + React) that also serves the APK.
 - **The keyguard cannot be disabled while a lock password exists.** Android returns
   `false` from `setKeyguardDisabled`. The toggle is respected but the device's own lock
   screen still wins; diagnostics report it as not applied rather than pretending.
+- Kiosk enforcement needs both the opt-in and Home ownership. `admin/PolicyGate.kt` is the
+  single rule `applyPolicy()` follows: enforce only while the recorded state is on **and**
+  Android resolves Home to this app; release every restriction, uninstall block, lock-task
+  package and suspended browser as soon as the state is turned off or another launcher owns
+  Home; leave the device untouched when Home does not resolve. Release must undo everything
+  enforce sets except lock task features, which are re-derived from the toggles and must
+  never be reset to `LOCK_TASK_FEATURE_NONE`. The Home pin is opt-in ("Default launcher" in Admin), and lock task also needs
+  the app to be the default launcher, so a device-owner install cannot trap a phone that
+  never opted in.
+- Kiosk intent is an explicit persisted state (`kiosk_enabled`), not a side effect of
+  Home ownership. `KioskActivation.resolve` runs once on installs that predate the flag:
+  a recorded choice wins, then 1.3.1's `home_launcher_declined`, then the fact that Home
+  already resolves to this app. Only an install that never owned Home is released, so an
+  upgrade cannot quietly un-kiosk a device that was already running as a kiosk. Admin
+  shows the state next to the Default launcher switch, and turning it off releases policy
+  immediately instead of waiting for Home to change.
 - Uninstall blocking is per package (`setUninstallBlocked`), pushed on a worker. The
-  app never blocks removal of its own package.
+  app never blocks removal of its own package. Blocked packages are recorded in
+  `uninstall_blocked_packages` so turning the toggle off releases them. The full sweep of
+  every installed package runs once (`uninstall_release_swept`) to clear leftovers from
+  builds that kept no record; later release passes only touch the recorded packages, so
+  cold starts with the kiosk off do no package walk.
+- Admin's "Remove device ownership" releases the policy and the recorded uninstall blocks
+  synchronously, clears the Home pin and lock task packages, then calls
+  `clearDeviceOwnerApp` and removes the admin, so the app can be uninstalled without adb
+  or a factory reset. That call is deprecated but is the only in-app handover; a refusal
+  is reported as a failure rather than treated as success.
 - The temporary admin window has a configurable length (`adminUnlockMinutes`) and is
   closed by a launcher-side timer, not only by returning to Home.
 
