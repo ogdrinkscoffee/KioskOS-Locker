@@ -102,6 +102,10 @@
         "allowedPackages": {
           "type": "array"
         },
+        "protectedPackages": {
+          "type": "array",
+          "description": "Package names that require the App Access PIN before launch."
+        },
         "allowedDomains": {
           "type": "array"
         },

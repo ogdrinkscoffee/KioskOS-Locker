@@ -39,6 +39,17 @@ test('firestore.rules validates Dirty Dozen invariants: IDs, immutable fields, r
   assert.match(rulesContent, /incoming\(\)\.updatedAt == request\.time/);
 
   // Strict map/field whitelisting via hasAll + hasOnly
+  // Per-app password flags must be accepted but stay optional, so a device that
+  // synced before the feature existed can still write its snapshot.
+  assert.match(rulesContent, /function isAbsentOrStringListBounded/);
+  assert.match(rulesContent, /isAbsentOrStringListBounded\(data, 'protectedPackages', 120\)/);
+  assert.equal(
+    /hasAll\(\[[^\]]*'protectedPackages'/.test(rulesContent),
+    false,
+    'protectedPackages must not be required, or older documents cannot update'
+  );
+  assert.equal((rulesContent.match(/'allowedPackages', 'protectedPackages'/g) ?? []).length, 3);
+
   assert.match(rulesContent, /data\.keys\(\)\.hasAll/);
   assert.match(rulesContent, /data\.keys\(\)\.hasOnly/);
 });

@@ -39,6 +39,13 @@ service cloud.firestore {
             && arr[arr.size() - 1] is string && arr[arr.size() - 1].size() <= 160));
     }
 
+    // Optional on purpose: a snapshot written before per-app passwords existed has
+    // no `protectedPackages`, and requiring it would reject that device's next
+    // write. Absence is valid; a present value must still be a bounded string list.
+    function isAbsentOrStringListBounded(data, field, maxLen) {
+      return !(field in data) || isStringListBounded(data[field], maxLen);
+    }
+
     function isMapListBounded(arr, maxLen) {
       return arr is list
         && arr.size() <= maxLen
@@ -160,7 +167,7 @@ service cloud.firestore {
           'ownerId', 'deviceId', 'deviceLabel', 'platform', 'isOnline',
           'isDeviceOwner', 'kioskMode', 'singleAppPackage', 'kioskTitle',
           'activeScreen', 'lockTaskActive', 'adminPinSalt', 'adminPinHash',
-          'allowedPackages', 'allowedDomains', 'adminRestrictions', 'hardwareLocks',
+          'allowedPackages', 'protectedPackages', 'allowedDomains', 'adminRestrictions', 'hardwareLocks',
           'blockerShields', 'appTimeLimits', 'appUsageSeconds', 'downtimeSchedule',
           'focusBlockUntilMs', 'panicLockUntilMs', 'panicCount',
           'blockedAttemptsToday', 'tamperWarningsCount', 'tamperEscalationTier',
@@ -183,6 +190,7 @@ service cloud.firestore {
         && data.adminPinSalt is string && data.adminPinSalt.size() >= 16 && data.adminPinSalt.size() <= 64
         && data.adminPinHash is string && data.adminPinHash.size() == 64 && data.adminPinHash.matches('^[a-f0-9]{64}$')
         && isStringListBounded(data.allowedPackages, 120)
+        && isAbsentOrStringListBounded(data, 'protectedPackages', 120)
         && isStringListBounded(data.allowedDomains, 120)
         && isValidAdminRestrictions(data.adminRestrictions)
         && isValidHardwareLocks(data.hardwareLocks)
@@ -280,7 +288,7 @@ service cloud.firestore {
               && incoming().diff(existing()).affectedKeys().hasOnly([
                 'deviceLabel', 'platform', 'isOnline', 'isDeviceOwner', 'kioskMode',
                 'singleAppPackage', 'kioskTitle', 'activeScreen', 'lockTaskActive',
-                'adminPinSalt', 'adminPinHash', 'allowedPackages', 'allowedDomains',
+                'adminPinSalt', 'adminPinHash', 'allowedPackages', 'protectedPackages', 'allowedDomains',
                 'adminRestrictions', 'hardwareLocks', 'blockerShields', 'appTimeLimits',
                 'appUsageSeconds', 'downtimeSchedule', 'focusBlockUntilMs', 'panicLockUntilMs',
                 'panicCount', 'blockedAttemptsToday', 'tamperWarningsCount',
@@ -291,7 +299,7 @@ service cloud.firestore {
             (
               incoming().lastModifiedBy == 'pc_web'
               && incoming().diff(existing()).affectedKeys().hasOnly([
-                'kioskMode', 'singleAppPackage', 'kioskTitle', 'allowedPackages',
+                'kioskMode', 'singleAppPackage', 'kioskTitle', 'allowedPackages', 'protectedPackages',
                 'allowedDomains', 'adminRestrictions', 'hardwareLocks', 'blockerShields',
                 'appTimeLimits', 'appUsageSeconds', 'downtimeSchedule', 'focusBlockUntilMs',
                 'panicLockUntilMs', 'blockedAttemptsToday', 'tamperWarningsCount',

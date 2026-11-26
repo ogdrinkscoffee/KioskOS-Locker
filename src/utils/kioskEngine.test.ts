@@ -25,6 +25,7 @@ import {
   getTamperWarningEvents,
   getVisibleHomeApps,
   isValidPinFormat,
+  isAppPasswordProtected,
   isWithinScheduleHours,
   launchApp,
   navigateKioskBrowser,
@@ -42,6 +43,7 @@ import {
   testInAppBrowserAccess,
   toggleAdminRestriction,
   toggleAllowedApp,
+  toggleAppPasswordProtection,
   toggleBlockerShield,
   toggleDeviceOwnerMode,
   toggleHardwarePolicy,
@@ -532,3 +534,28 @@ test('Emergency Panic Button kills active apps, scrubs browser & clipboard, lock
   assert.equal(browserAfterClear.activeScreen, 'kiosk_browser');
 });
 
+
+test('hiding an app does not forget its password setting', () => {
+  let state = createInitialKioskState();
+  state = toggleAppPasswordProtection(state, 'com.enterprise.pos');
+  assert.equal(isAppPasswordProtected(state, 'com.enterprise.pos'), true);
+
+  // Hidden apps are unreachable, so the flag correctly reads as inactive.
+  const hidden = toggleAllowedApp(state, 'com.enterprise.pos');
+  assert.equal(hidden.allowedPackages.includes('com.enterprise.pos'), false);
+
+  // Re-showing it must restore the protection rather than silently dropping it:
+  // a visibility toggle should not weaken a security setting.
+  const reshown = toggleAllowedApp(hidden, 'com.enterprise.pos');
+  assert.equal(isAppPasswordProtected(reshown, 'com.enterprise.pos'), true);
+});
+
+test('turning the password off clears it, and non-allowlisted apps cannot be protected', () => {
+  let state = toggleAppPasswordProtection(createInitialKioskState(), 'com.enterprise.pos');
+  state = toggleAppPasswordProtection(state, 'com.enterprise.pos', false);
+  assert.equal(isAppPasswordProtected(state, 'com.enterprise.pos'), false);
+
+  // An app that is not on the allowlist is refused rather than silently stored.
+  const refused = toggleAppPasswordProtection(createInitialKioskState(), 'com.amazon.kindle');
+  assert.equal(isAppPasswordProtected(refused, 'com.amazon.kindle'), false);
+});

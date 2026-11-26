@@ -44,6 +44,12 @@ export interface CloudDeviceSnapshot {
   adminPinSalt: string;
   adminPinHash: string;
   allowedPackages: string[];
+  /**
+   * Per-app password flags keyed by package name; a key present means "protected".
+   * Optional because snapshots written before the feature existed omit it and must
+   * still apply (as "nothing protected") instead of being treated as corrupt.
+   */
+  protectedPackages?: string[];
   allowedDomains: string[];
   adminRestrictions?: Record<RestrictionKey, boolean>;
   hardwareLocks: HardwareLockPolicies;
@@ -219,6 +225,12 @@ export function buildDeviceSyncPayload(params: {
     adminPinSalt: adminPinSalt.slice(0, 64),
     adminPinHash: adminPinHash.slice(0, 64).toLowerCase(),
     allowedPackages: clampStringList(state.allowedPackages, 120),
+    // Only allowlisted packages can carry the flag, so a stale entry for an app
+    // that was later removed cannot follow the device around.
+    protectedPackages: clampStringList(
+      state.allowedPackages.filter((pkg) => state.allowedApps?.[pkg]?.passwordProtected === true),
+      120
+    ),
     allowedDomains: clampStringList(state.allowedDomains, 120),
     adminRestrictions: {
       DISALLOW_SAFE_BOOT: Boolean(ar.DISALLOW_SAFE_BOOT),
@@ -316,6 +328,19 @@ export function applyRemoteDeviceToKioskState(
       browserCurrentUrl: localState.browserCurrentUrl,
       browserBlockedUrl: localState.browserBlockedUrl,
       pinGateTarget: localState.pinGateTarget,
+      // The wire format is a flat list, but the state model keys the flag per app.
+      // Expanding it into a *complete* map with explicit `false` values matters:
+      // a partial map makes the validator fall back to local flags, so an empty
+      // list (admin removed every password) would not clear anything. A snapshot
+      // with no field at all keeps whatever this device already had.
+      allowedApps: remote.protectedPackages
+        ? Object.fromEntries(
+            (remote.allowedPackages ?? localState.allowedPackages).map((pkg) => [
+              pkg,
+              { passwordProtected: remote.protectedPackages!.includes(pkg) },
+            ])
+          )
+        : localState.allowedApps,
     },
     localState
   );

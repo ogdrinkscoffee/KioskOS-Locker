@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
-import { createInitialKioskState } from './kioskEngine';
+import {
+  createInitialKioskState,
+  isAppPasswordProtected,
+  toggleAppPasswordProtection,
+} from './kioskEngine';
 import { createInitialSelfImprovementState } from './selfImprovementEngine';
 import {
   applyRemoteDeviceToKioskState,
@@ -167,4 +171,36 @@ test('buildGrowthSyncPayload and applyRemoteGrowthToLocalState preserve self-imp
   assert.equal(synced.longestCleanStreakDays, 21);
   assert.equal(synced.urgeVictories, 9);
   assert.equal(synced.habits.length, growth.habits.length);
+});
+
+test('per-app password flags survive cloud sync round-trips', () => {
+  const local = createInitialKioskState();
+  const protectedState = toggleAppPasswordProtection(local, 'com.enterprise.pos');
+  assert.equal(isAppPasswordProtected(protectedState, 'com.enterprise.pos'), true);
+
+  const salt = '0123456789abcdef0123456789abcdef';
+  const payload = buildDeviceSyncPayload({
+    state: protectedState,
+    ownerId: 'uid_user_1',
+    deviceId: 'sim-1',
+    adminPinSalt: salt,
+    adminPinHash: 'a'.repeat(64),
+    source: 'web_simulator',
+  });
+
+  // The wire format is a flat list of protected package names.
+  assert.deepEqual(payload.protectedPackages, ['com.enterprise.pos']);
+
+  // A second device receiving that snapshot must protect the same app.
+  const other = applyRemoteDeviceToKioskState(createInitialKioskState(), payload);
+  assert.equal(isAppPasswordProtected(other, 'com.enterprise.pos'), true);
+
+  // A snapshot from a client that never had the field keeps local flags.
+  const { protectedPackages: _omitted, ...legacy } = payload;
+  const kept = applyRemoteDeviceToKioskState(protectedState, legacy);
+  assert.equal(isAppPasswordProtected(kept, 'com.enterprise.pos'), true);
+
+  // An explicit empty list means "nothing protected" and clears the flag.
+  const cleared = applyRemoteDeviceToKioskState(protectedState, { ...payload, protectedPackages: [] });
+  assert.equal(isAppPasswordProtected(cleared, 'com.enterprise.pos'), false);
 });

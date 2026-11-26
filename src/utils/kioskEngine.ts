@@ -1393,10 +1393,23 @@ export function toggleAllowedApp(
     ? state.allowedPackages.filter((pkg) => pkg !== packageName)
     : [...state.allowedPackages, packageName];
 
+  // `syncAllowedAppsMap` rebuilds the map from the new allowlist, which drops the
+  // entry for the app being hidden — re-showing it then lost its password flag.
+  // Carry the hidden app's flag over so hiding is a visibility change, not a
+  // silent reset of its security setting.
+  const nextAllowedApps = syncAllowedAppsMap(nextPackages, state.allowedApps);
+  if (
+    exists &&
+    state.allowedApps?.[packageName]?.passwordProtected === true &&
+    !nextAllowedApps[packageName]
+  ) {
+    nextAllowedApps[packageName] = { passwordProtected: true };
+  }
+
   const updated: KioskState = {
     ...state,
     allowedPackages: nextPackages,
-    allowedApps: syncAllowedAppsMap(nextPackages, state.allowedApps),
+    allowedApps: nextAllowedApps,
   };
 
   return {
