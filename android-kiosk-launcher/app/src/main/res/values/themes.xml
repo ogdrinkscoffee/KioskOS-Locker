@@ -20,6 +20,16 @@
         <item name="materialAlertDialogTheme">@style/ThemeOverlay.IroncladOS.Dialog</item>
     </style>
 
+    <!-- Always dark: the lock screen is a fixed, full-screen surface. -->
+    <style name="Theme.IroncladOS.LockScreen" parent="Theme.IroncladOS">
+        <item name="android:windowBackground">@drawable/bg_lock_screen</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">false</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
+    </style>
+
     <style name="ThemeOverlay.IroncladOS.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
         <item name="colorSurface">@color/surface</item>
         <item name="colorOnSurface">@color/text_primary</item>

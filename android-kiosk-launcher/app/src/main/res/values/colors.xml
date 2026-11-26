@@ -17,4 +17,15 @@
     <color name="chip_bg">#EEF2F6</color>
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
+
+    <!-- Custom lock screen: intentionally dark in both day and night themes. -->
+    <color name="lock_bg_top">#0B1220</color>
+    <color name="lock_bg_mid">#111C2E</color>
+    <color name="lock_bg_bottom">#050A12</color>
+    <color name="lock_glass">#1AFFFFFF</color>
+    <color name="lock_glass_stroke">#33FFFFFF</color>
+    <color name="lock_text">#F8FAFC</color>
+    <color name="lock_text_dim">#94A3B8</color>
+    <color name="lock_accent">#2DD4BF</color>
+    <color name="lock_accent_text">#04201C</color>
 </resources>

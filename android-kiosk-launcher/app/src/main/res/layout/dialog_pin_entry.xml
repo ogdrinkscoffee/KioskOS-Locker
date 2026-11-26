@@ -8,6 +8,7 @@
     android:paddingEnd="24dp">
 
     <TextView
+        android:id="@+id/pinFieldLabel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/pin_label_passcode"
@@ -58,6 +59,7 @@
         android:visibility="gone" />
 
     <TextView
+        android:id="@+id/pinHelper"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"

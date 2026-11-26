@@ -7,6 +7,8 @@ import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.text.InputFilter
 import android.text.InputType
@@ -20,6 +22,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.progressindicator.LinearProgressIndicator
@@ -31,6 +34,8 @@ import com.kiosk.launcher.admin.KioskDeviceAdminReceiver
 import com.kiosk.launcher.data.AppEntry
 import com.kiosk.launcher.data.InstalledAppsRepository
 import com.kiosk.launcher.data.KioskPreferences
+import com.kiosk.launcher.schedule.ScheduleController
+import com.kiosk.launcher.schedule.ScheduleParse
 import com.kiosk.launcher.update.UpdateInstaller
 import com.kiosk.launcher.update.UpdateManager
 import com.kiosk.launcher.update.UpdateManifest
@@ -59,6 +64,26 @@ class AdminSettingsActivity : AppCompatActivity() {
     private lateinit var defaultLauncherDetail: TextView
     private lateinit var kioskStateDetail: TextView
     private lateinit var releaseOwnerButton: View
+    private lateinit var appPinState: TextView
+    private lateinit var appPinButton: MaterialButton
+    private lateinit var clearAppPinButton: View
+    private lateinit var lockScreenSwitch: SwitchMaterial
+    private lateinit var lockNoteInput: TextInputEditText
+    private lateinit var lockQuickLaunchDetail: TextView
+    private lateinit var scheduleSwitch: SwitchMaterial
+    private lateinit var scheduleWindowsInput: TextInputEditText
+    private lateinit var scheduleHint: TextView
+    private lateinit var allowListDayGroup: MaterialButtonToggleGroup
+    private lateinit var allowListScopeHint: TextView
+
+    /** Which list the allowlist rows edit once a schedule is on. */
+    private var editingWeekendList = false
+
+    /** Guards the schedule switch while it is synced to the stored state. */
+    private var syncingScheduleSwitch = false
+
+    /** Guards the lock screen switch while it is synced to the stored state. */
+    private var syncingLockScreenSwitch = false
 
     private lateinit var adminWindowValue: TextView
     private lateinit var adminWindowHint: TextView
@@ -87,6 +112,8 @@ class AdminSettingsActivity : AppCompatActivity() {
 
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
+    private val handler = Handler(Looper.getMainLooper())
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_admin_settings)
@@ -112,9 +139,31 @@ class AdminSettingsActivity : AppCompatActivity() {
         policyLog = findViewById(R.id.policyLog)
         defaultLauncherSwitch = findViewById(R.id.defaultLauncherSwitch)
         defaultLauncherDetail = findViewById(R.id.defaultLauncherDetail)
+        scheduleSwitch = findViewById(R.id.scheduleSwitch)
+        scheduleWindowsInput = findViewById(R.id.scheduleWindowsInput)
+        scheduleHint = findViewById(R.id.scheduleHint)
+        allowListDayGroup = findViewById(R.id.allowListDayGroup)
+        allowListScopeHint = findViewById(R.id.allowListScopeHint)
         kioskStateDetail = findViewById(R.id.kioskStateDetail)
         releaseOwnerButton = findViewById(R.id.releaseOwnerButton)
         releaseOwnerButton.setOnClickListener { confirmReleaseOwner() }
+
+        appPinState = findViewById(R.id.appPinState)
+        appPinButton = findViewById(R.id.appPinButton)
+        clearAppPinButton = findViewById(R.id.clearAppPinButton)
+        lockScreenSwitch = findViewById(R.id.lockScreenSwitch)
+        lockNoteInput = findViewById(R.id.lockNoteInput)
+        lockQuickLaunchDetail = findViewById(R.id.lockQuickLaunchDetail)
+
+        appPinButton.setOnClickListener { promptForAppPin() }
+        clearAppPinButton.setOnClickListener { confirmClearAppPin() }
+        findViewById<View>(R.id.lockNoteSave).setOnClickListener { saveLockScreenNote() }
+        findViewById<View>(R.id.lockQuickLaunchButton).setOnClickListener { chooseQuickLaunchApps() }
+        findViewById<View>(R.id.lockPreviewButton).setOnClickListener { previewLockScreen() }
+        lockScreenSwitch.setOnCheckedChangeListener { _, checked ->
+            if (syncingLockScreenSwitch) return@setOnCheckedChangeListener
+            setCustomLockScreen(checked)
+        }
 
         adminWindowValue = findViewById(R.id.adminWindowValue)
         adminWindowHint = findViewById(R.id.adminWindowHint)
@@ -175,6 +224,9 @@ class AdminSettingsActivity : AppCompatActivity() {
         renderStrongRestrictions()
         renderLocks()
         renderAllowList()
+        renderSchedule()
+        renderAppPin()
+        renderLockScreen()
 
         modeGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (!isChecked) return@addOnButtonCheckedListener
@@ -191,6 +243,14 @@ class AdminSettingsActivity : AppCompatActivity() {
             prefs.allowAllApps = checked
             policy.applyPolicy()
             if (loadedApps.isEmpty()) renderAllowList() else renderAllowListRows(loadedApps)
+        }
+
+        scheduleSwitch.setOnCheckedChangeListener { _, checked -> setScheduleEnabled(checked) }
+        findViewById<View>(R.id.scheduleSave).setOnClickListener { saveSchedule() }
+        allowListDayGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (!isChecked) return@addOnButtonCheckedListener
+            editingWeekendList = checkedId == R.id.allowListWeekends
+            renderAllowListRows(loadedApps)
         }
     }
 
@@ -210,12 +270,19 @@ class AdminSettingsActivity : AppCompatActivity() {
         renderDefaultLauncher()
         renderRecoveryState()
         renderAdminWindow()
+        scheduleAdminWindowTick()
+        renderSchedule()
         renderPolicyLog()
         // Jumped here from the launcher's update banner: land on the right section.
         if (intent?.getIntExtra(EXTRA_UPDATE_VERSION, 0)?.let { it > 0 } == true) {
             intent?.removeExtra(EXTRA_UPDATE_VERSION)
             if (availableUpdate == null) checkForUpdates(manual = true)
         }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        handler.removeCallbacks(adminWindowTick)
     }
 
     // ---------------------------------------------------------------- provisioning
@@ -391,6 +458,37 @@ class AdminSettingsActivity : AppCompatActivity() {
             getString(R.string.admin_window_remaining_fmt, (remaining + 59) / 60)
         } else {
             getString(R.string.admin_window_desc)
+        }
+    }
+
+    /**
+     * Keeps the hint honest while this screen stays open. The alarm and the launcher close the
+     * window on their own; without this the hint kept advertising the remaining minutes after
+     * the window had already ended, which reads as an unlock that never expires.
+     */
+    private fun scheduleAdminWindowTick() {
+        handler.removeCallbacks(adminWindowTick)
+        if (prefs.isAdminTemporarilyUnlocked()) handler.postDelayed(adminWindowTick, 5_000L)
+    }
+
+    private val adminWindowTick = object : Runnable {
+        override fun run() {
+            if (prefs.isAdminTemporarilyUnlocked()) {
+                renderAdminWindow()
+                handler.postDelayed(this, 5_000L)
+                return
+            }
+            // The window ran out while this screen was open: close it here too, in case the
+            // alarm was never delivered.
+            if (prefs.adminUnlockedUntilMs == 0L) {
+                renderAdminWindow()
+                return
+            }
+            prefs.endTemporaryAdminWindow()
+            policy.applyPolicy()
+            renderAdminWindow()
+            renderPolicyLog()
+            toast(getString(R.string.admin_window_closed))
         }
     }
 
@@ -815,17 +913,283 @@ class AdminSettingsActivity : AppCompatActivity() {
             row.findViewById<ImageView>(R.id.toggleIcon).setImageDrawable(entry.icon)
             row.findViewById<TextView>(R.id.toggleLabel).text = entry.label
 
+            // With a schedule on, the rows edit the weekday or weekend list the admin picked;
+            // the old single list still drives everything while the schedule is off.
+            val scheduleOn = prefs.scheduleEnabled
+            val weekend = scheduleOn && editingWeekendList
             val switch = row.findViewById<SwitchMaterial>(R.id.toggleSwitch)
-            switch.isChecked = prefs.isAllowed(entry.packageName)
+            switch.isChecked = if (scheduleOn) {
+                prefs.isDayAllowed(entry.packageName, weekend)
+            } else {
+                prefs.isAllowed(entry.packageName)
+            }
             switch.isEnabled = !prefs.allowAllApps
             switch.setOnCheckedChangeListener { _, checked ->
-                prefs.setAppAllowed(entry.packageName, checked)
+                if (scheduleOn) {
+                    prefs.setDayAllowed(entry.packageName, checked, weekend)
+                } else {
+                    prefs.setAppAllowed(entry.packageName, checked)
+                }
+                // A disallowed app cannot be opened, so it must not keep a hidden lock.
+                if (!checked) prefs.setAppProtected(entry.packageName, false)
                 policy.applyPolicy()
+                renderProtectionRow(row, entry, installed)
+                renderPolicyLog()
             }
 
+            renderProtectionRow(row, entry, installed)
             if (prefs.allowAllApps) row.alpha = 0.55f
             appsContainer.addView(row)
         }
+    }
+
+    // ---------------------------------------------------------------- kiosk schedule
+    private fun renderSchedule() {
+        syncingScheduleSwitch = true
+        scheduleSwitch.isChecked = prefs.scheduleEnabled
+        syncingScheduleSwitch = false
+        // Only replace the text when it is not already what is stored, so an unsaved edit survives
+        // a resume of this screen.
+        if (scheduleWindowsInput.text?.toString().orEmpty() != prefs.scheduleWindows) {
+            scheduleWindowsInput.setText(prefs.scheduleWindows)
+        }
+
+        val on = prefs.scheduleEnabled
+        allowListDayGroup.visibility = if (on) View.VISIBLE else View.GONE
+        allowListScopeHint.visibility = if (on) View.VISIBLE else View.GONE
+        if (on) {
+            allowListDayGroup.check(
+                if (editingWeekendList) R.id.allowListWeekends else R.id.allowListWeekdays
+            )
+        }
+
+        scheduleHint.text = when (val parsed = prefs.scheduleWindowsParsed()) {
+            is ScheduleParse.Invalid -> getString(R.string.schedule_invalid_fmt, parsed.lineNumber)
+            is ScheduleParse.Parsed -> when {
+                !on -> getString(R.string.schedule_state_off)
+                parsed.windows.isEmpty() -> getString(R.string.schedule_state_empty)
+                prefs.isKioskActiveNow() -> getString(R.string.schedule_state_kiosk)
+                else -> getString(R.string.schedule_state_open)
+            }
+        }
+    }
+
+    private fun setScheduleEnabled(enabled: Boolean) {
+        if (syncingScheduleSwitch || prefs.scheduleEnabled == enabled) return
+        prefs.scheduleEnabled = enabled
+        // The first schedule reuses the list the admin already curated instead of starting empty.
+        if (enabled) prefs.seedDayListsFromLegacyAllowlist()
+        prefs.logPolicy(getString(if (enabled) R.string.log_schedule_on else R.string.log_schedule_off))
+        policy.applyPolicy()
+        ScheduleController.refresh(this)
+        renderSchedule()
+        renderKioskState()
+        if (loadedApps.isEmpty()) renderAllowList() else renderAllowListRows(loadedApps)
+        renderPolicyLog()
+    }
+
+    private fun saveSchedule() {
+        prefs.scheduleWindows = scheduleWindowsInput.text?.toString().orEmpty()
+        prefs.logPolicy(getString(R.string.log_schedule_saved))
+        policy.applyPolicy()
+        ScheduleController.refresh(this)
+        renderSchedule()
+        renderPolicyLog()
+        toast(getString(R.string.schedule_saved))
+    }
+
+    // -------------------------------------------------- per-app password gate
+    private fun renderAppPin() {
+        val set = prefs.hasAppPin()
+        appPinState.setText(if (set) R.string.app_pin_state_set else R.string.app_pin_state_unset)
+        appPinButton.setText(
+            if (set) R.string.app_pin_change_action else R.string.app_pin_set_action
+        )
+        clearAppPinButton.visibility = if (set) View.VISIBLE else View.GONE
+    }
+
+    /**
+     * The "Require Password" switch only means something for an allowed app, so it is
+     * hidden otherwise. Turning it on without a password first asks the admin for one,
+     * because a lock with no password would make the app impossible to open.
+     */
+    private fun renderProtectionRow(row: View, entry: AppEntry, installed: List<AppEntry>) {
+        val container = row.findViewById<View>(R.id.requirePasswordRow)
+        val lockSwitch = row.findViewById<SwitchMaterial>(R.id.requirePasswordSwitch)
+        // Being on either day list is enough for the lock row, even if that list is not the one
+        // being edited or not the one today's window uses.
+        val allowed = prefs.isAllowlistedAnywhere(entry.packageName)
+        container.visibility = if (allowed) View.VISIBLE else View.GONE
+        lockSwitch.isEnabled = allowed
+
+        lockSwitch.setOnCheckedChangeListener(null)
+        lockSwitch.isChecked = prefs.protectedPackages().contains(entry.packageName)
+        lockSwitch.setOnCheckedChangeListener { button, checked ->
+            if (!checked) {
+                prefs.setAppProtected(entry.packageName, false)
+                renderPolicyLog()
+                return@setOnCheckedChangeListener
+            }
+            if (!prefs.hasAppPin()) {
+                // Stay unlocked until a password exists, then apply the lock on save.
+                button.isChecked = false
+                toast(getString(R.string.app_pin_required_toast))
+                promptForAppPin {
+                    prefs.setAppProtected(entry.packageName, true)
+                    prefs.logPolicy(getString(R.string.log_app_protected_fmt, entry.label))
+                    renderPolicyLog()
+                    renderAllowListRows(installed)
+                }
+                return@setOnCheckedChangeListener
+            }
+            prefs.setAppProtected(entry.packageName, true)
+            prefs.logPolicy(getString(R.string.log_app_protected_fmt, entry.label))
+            renderPolicyLog()
+        }
+    }
+
+    private fun promptForAppPin(onSaved: () -> Unit = {}) {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            filters = arrayOf(InputFilter.LengthFilter(KioskPreferences.MAX_PIN_LENGTH))
+            setHint(R.string.app_pin_hint)
+            textAlignment = View.TEXT_ALIGNMENT_VIEW_START
+            setPadding(dp(24), dp(12), dp(24), dp(4))
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.app_pin_dialog_title)
+            .setMessage(R.string.app_pin_admin_desc)
+            .setView(input)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.save) { _, _ ->
+                val pin = input.text?.toString().orEmpty()
+                if (pin.length !in KioskPreferences.MIN_PIN_LENGTH..KioskPreferences.MAX_PIN_LENGTH ||
+                    pin.isBlank()
+                ) {
+                    toast(getString(R.string.passcode_length_error))
+                    return@setPositiveButton
+                }
+                prefs.setAppPin(pin)
+                prefs.logPolicy(getString(R.string.log_app_pin_set))
+                renderAppPin()
+                if (loadedApps.isEmpty()) renderAllowList() else renderAllowListRows(loadedApps)
+                renderPolicyLog()
+                toast(getString(R.string.app_pin_saved))
+                onSaved()
+            }
+            .show()
+    }
+
+    private fun confirmClearAppPin() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.app_pin_clear_confirm_title)
+            .setMessage(R.string.app_pin_clear_confirm_body)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.app_pin_clear_action) { _, _ ->
+                prefs.clearAppPin()
+                prefs.logPolicy(getString(R.string.log_app_pin_cleared))
+                renderAppPin()
+                if (loadedApps.isEmpty()) renderAllowList() else renderAllowListRows(loadedApps)
+                renderPolicyLog()
+                toast(getString(R.string.app_pin_cleared))
+            }
+            .show()
+    }
+
+    // --------------------------------------------------------- custom lock screen
+    private fun renderLockScreen() {
+        syncingLockScreenSwitch = true
+        lockScreenSwitch.isChecked = prefs.customLockScreen
+        syncingLockScreenSwitch = false
+        if (lockNoteInput.text?.toString().orEmpty() != prefs.lockScreenNote) {
+            lockNoteInput.setText(prefs.lockScreenNote)
+        }
+        val picks = prefs.quickLaunchPackages()
+        lockQuickLaunchDetail.text = if (picks.isEmpty()) {
+            getString(R.string.lock_screen_quick_launch_empty)
+        } else {
+            getString(R.string.lock_screen_quick_launch_detail_fmt, picks.size)
+        }
+    }
+
+    private fun setCustomLockScreen(enabled: Boolean) {
+        prefs.customLockScreen = enabled
+        if (enabled) {
+            // A custom lock screen plus Android's own would double-lock, so Android is asked
+            // to skip its keyguard. A device with a lock password refuses, and the hint says so.
+            prefs.keyguardDisabled = true
+            prefs.logPolicy(getString(R.string.log_lock_screen_on))
+            policy.applyPolicy()
+            renderLocks()
+        } else {
+            prefs.lockScreenPending = false
+            prefs.logPolicy(getString(R.string.log_lock_screen_off))
+        }
+        renderLockScreen()
+        renderPolicyLog()
+        toast(
+            getString(
+                if (enabled) R.string.lock_screen_enabled_toast else R.string.lock_screen_disabled_toast
+            )
+        )
+    }
+
+    private fun saveLockScreenNote() {
+        prefs.lockScreenNote = lockNoteInput.text?.toString().orEmpty()
+        prefs.logPolicy(getString(R.string.log_lock_screen_note))
+        renderLockScreen()
+        renderPolicyLog()
+        toast(getString(R.string.lock_screen_note_saved))
+    }
+
+    /** Chooses the dock apps from the allowlist; only allowed apps may be shortcuts. */
+    private fun chooseQuickLaunchApps() {
+        val candidates = loadedApps.filter { prefs.isAllowed(it.packageName) }
+        if (candidates.isEmpty()) {
+            if (loadedApps.isEmpty()) {
+                appRepo.launchableAsync { installed ->
+                    if (isFinishing || isDestroyed) return@launchableAsync
+                    loadedApps = installed
+                    chooseQuickLaunchApps()
+                }
+            } else {
+                toast(getString(R.string.lock_screen_quick_launch_none))
+            }
+            return
+        }
+
+        val saved = prefs.quickLaunchPackages().toSet()
+        val checked = BooleanArray(candidates.size) { candidates[it].packageName in saved }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.lock_screen_quick_launch_title)
+            .setMultiChoiceItems(
+                candidates.map { it.label }.toTypedArray(),
+                checked
+            ) { _, which, isChecked -> checked[which] = isChecked }
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.save) { _, _ ->
+                val picks = candidates
+                    .filterIndexed { index, _ -> checked[index] }
+                    .map { it.packageName }
+                prefs.setQuickLaunchPackages(picks)
+                prefs.logPolicy(getString(R.string.log_lock_screen_shortcuts_fmt, picks.size))
+                renderLockScreen()
+                renderPolicyLog()
+                toast(getString(R.string.lock_screen_quick_launch_saved_fmt, picks.size))
+            }
+            .show()
+    }
+
+    private fun previewLockScreen() {
+        if (!prefs.customLockScreen) {
+            toast(getString(R.string.lock_screen_unavailable))
+            return
+        }
+        startActivity(
+            Intent(this, LockScreenActivity::class.java)
+                .putExtra(LockScreenActivity.EXTRA_PREVIEW, true)
+        )
     }
 
     // -------------------------------------------------------------------- browser

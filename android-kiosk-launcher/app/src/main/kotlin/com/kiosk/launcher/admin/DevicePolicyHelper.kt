@@ -18,6 +18,9 @@ import android.provider.Settings
 import com.kiosk.launcher.R
 import com.kiosk.launcher.data.InstalledAppsRepository
 import com.kiosk.launcher.data.KioskPreferences
+import com.kiosk.launcher.recovery.KioskWatchdog
+import com.kiosk.launcher.recovery.RecoveryPolicy
+import com.kiosk.launcher.schedule.ScheduleAlarm
 import com.kiosk.launcher.ui.KioskLauncherActivity
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
@@ -49,6 +52,19 @@ class DevicePolicyHelper(context: Context) {
     enum class OwnershipRelease { NOT_OWNER, RELEASED, FAILED }
 
     fun applyPolicy() {
+        // Keeps the window's alarm in step with its deadline, including on a cold start long
+        // after it was granted. Done before the owner check: the deadline is recorded state,
+        // not policy, so a preview install still closes its own window.
+        AdminWindowExpiry.sync(appContext, prefs)
+        // One place arms or disarms the crash watchdog: enabling the kiosk arms it, switching it
+        // off disarms it, and a cold start or boot re-arms it.
+        KioskWatchdog.sync(
+            appContext,
+            watch = RecoveryPolicy.shouldWatch(prefs.kioskEnabled, isDefaultLauncher)
+        )
+        // Arms the boundary alarm on the next schedule flip, and cancels it when the schedule is
+        // off. Doing it here is what covers boot and an update, which lose every alarm.
+        ScheduleAlarm.sync(appContext)
         if (!isDeviceOwner) return
         systemResolver.invalidateCache()
 
@@ -59,7 +75,8 @@ class DevicePolicyHelper(context: Context) {
             PolicyGate.decide(
                 kioskEnabled = prefs.kioskEnabled,
                 isDefaultLauncher = isDefaultLauncher,
-                anotherLauncherOwnsHome = anotherLauncherOwnsHome
+                anotherLauncherOwnsHome = anotherLauncherOwnsHome,
+                scheduleKioskActive = prefs.isWithinKioskHours()
             )
         ) {
             PolicyGate.Action.ENFORCE -> enforcePolicy()
@@ -406,7 +423,7 @@ class DevicePolicyHelper(context: Context) {
             ownPackage = appContext.packageName,
             panicLocked = prefs.isPanicLocked(),
             allowAllApps = prefs.allowAllApps,
-            allowedPackages = prefs.allowedPackages(),
+            allowedPackages = prefs.allowedPackagesNow(),
             launchablePackages = launchable,
             callingPackages = callingPackages(),
             essentialSystemPackages = essentialSystemPackages(),
@@ -488,10 +505,21 @@ class DevicePolicyHelper(context: Context) {
      */
     fun enterLockTask(activity: Activity): Boolean {
         val alreadyLocked = isInLockTaskMode()
+        val withinKioskHours = prefs.isWithinKioskHours()
+
+        // Only an activity can leave lock task, so a device that is out of its kiosk hours is
+        // released the moment the launcher resumes instead of staying pinned as a normal phone.
+        if (alreadyLocked && !withinKioskHours) {
+            runCatching { activity.stopLockTask() }
+            if (isDeviceOwner) runCatching { dpm.setLockTaskPackages(admin, lockTaskPackages()) }
+            return false
+        }
+
         val shouldStart = LockTaskPolicy.shouldStartDuringUpdate(
             isDeviceOwner = isDeviceOwner,
             isDefaultLauncher = isDefaultLauncher,
             temporaryAdminUnlockActive = prefs.isAdminTemporarilyUnlocked(),
+            scheduleKioskActive = withinKioskHours,
             inLockTaskMode = alreadyLocked,
             installingUpdate = prefs.isInstallingUpdate()
         )

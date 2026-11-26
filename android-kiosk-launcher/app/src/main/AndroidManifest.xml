@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Legacy keyguard flags for the custom lock screen on Android 7.x-8.0. -->
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- In-app self-updates: hands the downloaded APK to the package installer. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
@@ -135,6 +137,19 @@
             android:name=".ui.DiagnosticsActivity"
             android:exported="false" />
 
+        <!--
+            Custom lock screen. singleTask keeps one instance while the screen cycles;
+            the window flags are applied in code so the surface also appears over a
+            keyguard Android refused to disable (a device with a lock password).
+        -->
+        <activity
+            android:name=".ui.LockScreenActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|keyboardHidden|uiMode"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.IroncladOS.LockScreen" />
+
         <receiver
             android:name=".admin.KioskDeviceAdminReceiver"
             android:exported="true"
@@ -146,6 +161,21 @@
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
             </intent-filter>
         </receiver>
+
+        <!-- Ends an expired temporary admin window while the launcher is not on screen. -->
+        <receiver
+            android:name=".receiver.AdminWindowReceiver"
+            android:exported="false" />
+
+        <!-- Liveness check: restores the kiosk after a crash or a process death. -->
+        <receiver
+            android:name=".recovery.KioskWatchdogReceiver"
+            android:exported="false" />
+
+        <!-- Schedule boundary: flips the device between kiosk and normal phone. -->
+        <receiver
+            android:name=".schedule.ScheduleReceiver"
+            android:exported="false" />
 
         <receiver
             android:name=".receiver.BootCompletedReceiver"

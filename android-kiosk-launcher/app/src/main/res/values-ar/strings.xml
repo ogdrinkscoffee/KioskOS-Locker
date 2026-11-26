@@ -31,7 +31,6 @@
     <string name="action_focus">التركيز</string>
     <string name="action_admin">الإدارة</string>
     <string name="action_panic">طوارئ</string>
-    <string name="action_home">الرئيسية</string>
     <string name="app_not_allowed_fmt">تطبيق %1$s مش مسموح</string>
     <string name="cannot_open_app_fmt">معرفناش نفتح %1$s</string>
     <string name="panic_banner_fmt">قفل الطوارئ شغال (فاضل %1$d د) · التطبيقات اللي مش أساسية مقفولة</string>
@@ -50,6 +49,15 @@
     <string name="pin_error_locked_fmt">محاولات غلط كتير. مقفول لمدة %1$d ث.</string>
     <string name="pin_error_length">رمز المرور لازم يكون من 4 لـ 50 حرف ومش فاضي.</string>
     <string name="pin_helper_default">الرمز الافتراضي 1234 لحد ما تغيّره من الإدارة.</string>
+
+    <!-- Per-app password protection -->
+    <string name="app_pin_title_fmt">افتح %1$s</string>
+    <string name="app_pin_label">باسورد التطبيق (من 4 لـ 50 حرف)</string>
+    <string name="app_pin_hint">باسورد التطبيق…</string>
+    <string name="app_pin_helper">اسأل المشرف بتاعك لو مش عارف الباسورد ده.</string>
+    <string name="require_password">محتاج باسورد</string>
+    <string name="app_locked_badge">محمي بباسورد</string>
+    <string name="app_locked_content_desc_fmt">%1$s — محتاج باسورد</string>
 
     <!-- Admin Settings -->
     <string name="admin_title">الإدارة</string>
@@ -101,6 +109,24 @@
     <string name="new_passcode_hint">رمز جديد (4–50 حرف)</string>
     <string name="passcode_updated">رمز مرور الإدارة اتحدّث</string>
     <string name="passcode_length_error">الرمز لازم يكون من 4 لـ 50 حرف من غير فراغ</string>
+
+    <string name="eyebrow_app_password">باسورد دخول التطبيقات</string>
+    <string name="app_pin_admin_title">باسورد دخول التطبيقات (4–50 حرف)</string>
+    <string name="app_pin_admin_desc">بيتطلب قبل ما يفتح أي تطبيق عليه «محتاج باسورد». بيتخزن مشفّر (SHA-256 بملح) ومش بيتخزن نص عادي، وبعيد خالص عن رمز مرور الإدارة.</string>
+    <string name="app_pin_state_set">متظبّط — التطبيقات المحمية بتسأل على الباسورد ده.</string>
+    <string name="app_pin_state_unset">لسه مش متظبّط — التطبيقات المحمية بتفتح على طول لحد ما تختار باسورد.</string>
+    <string name="app_pin_set_action">ظبّط باسورد</string>
+    <string name="app_pin_change_action">غيّر الباسورد</string>
+    <string name="app_pin_clear_action">شيل الباسورد</string>
+    <string name="app_pin_clear_confirm_title">تشيل باسورد دخول التطبيقات؟</string>
+    <string name="app_pin_clear_confirm_body">التطبيقات اللي عليها «محتاج باسورد» هتفتح من غير سؤال لحد ما تحط باسورد جديد.</string>
+    <string name="app_pin_dialog_title">باسورد دخول التطبيقات</string>
+    <string name="app_pin_saved">باسورد دخول التطبيقات اتظبّط</string>
+    <string name="app_pin_cleared">باسورد دخول التطبيقات اتشال</string>
+    <string name="app_pin_required_toast">ظبّط باسورد التطبيقات الأول</string>
+    <string name="log_app_pin_set">باسورد دخول التطبيقات اتغيّر</string>
+    <string name="log_app_pin_cleared">باسورد دخول التطبيقات اتشال</string>
+    <string name="log_app_protected_fmt">%1$s بقى محتاج باسورد التطبيق</string>
     <string name="clear_panic_lock">شيل قفل الطوارئ</string>
     <string name="panic_cleared">قفل الطوارئ اتشال</string>
     <string name="open_system_settings">افتح إعدادات النظام</string>
@@ -176,6 +202,38 @@
     <string name="log_guard_disabled">حارس النوافذ اتقفل</string>
     <string name="log_browser_allowlist_fmt">قائمة المتصفح: %1$d نطاق، %2$d كلمة</string>
     <string name="log_passcode_changed">رمز مرور الإدارة اتغيّر</string>
+
+    <!-- Custom lock screen -->
+    <string name="lock_swipe_hint">اسحب لفوق عشان تفتح</string>
+    <string name="lock_battery_label">البطارية</string>
+    <string name="lock_battery_charging">بيتشحن</string>
+    <string name="lock_battery_discharging">على البطارية</string>
+    <string name="lock_battery_unknown">—</string>
+    <string name="lock_note_label">رسالة</string>
+    <string name="lock_quick_launch_label">فتح سريع</string>
+
+    <string name="eyebrow_lock_screen">شاشة قفل مخصصة</string>
+    <string name="lock_screen_desc">ساعة على الشاشة كلها، ومنطقة ودجات، وشريط فتح سريع بياخدوا مكان شاشة قفل أندرويد.</string>
+    <string name="lock_screen_toggle">استخدم شاشة قفل مخصصة</string>
+    <string name="lock_screen_hint">لما تشغّلها، Ironclad OS بيطلب من أندرويد يتخطى شاشة القفل بتاعته. مالك الجهاز من غير باسورد قفل بيتخطاها خالص؛ غير كده أندرويد بيحتفظ بشاشة القفل وIronclad OS بيظهر فوقها.</string>
+    <string name="lock_screen_note_label">رسالة شاشة القفل</string>
+    <string name="lock_screen_note_hint">بتظهر في منطقة الودجات في شاشة القفل</string>
+    <string name="lock_screen_save_note">احفظ الرسالة</string>
+    <string name="lock_screen_note_saved">رسالة شاشة القفل اتحفظت</string>
+    <string name="lock_screen_quick_launch">تطبيقات الفتح السريع</string>
+    <string name="lock_screen_quick_launch_title">الفتح السريع في شاشة القفل</string>
+    <string name="lock_screen_quick_launch_empty">مفيش حاجة مختارة</string>
+    <string name="lock_screen_quick_launch_detail_fmt">%1$d مختار · بيظهروا تحت في شاشة القفل</string>
+    <string name="lock_screen_quick_launch_none">اسمح بكام تطبيق الأول، وبعدين اختار أيقونات الفتح السريع.</string>
+    <string name="lock_screen_quick_launch_saved_fmt">%1$d تطبيق فتح سريع اتحفظوا</string>
+    <string name="lock_screen_preview">عاين شاشة القفل</string>
+    <string name="lock_screen_enabled_toast">شاشة القفل المخصصة شغالة — دوس زرار الباور عشان تشوفها</string>
+    <string name="lock_screen_disabled_toast">شاشة القفل المخصصة اتقفلت</string>
+    <string name="lock_screen_unavailable">شغّل شاشة القفل المخصصة الأول</string>
+    <string name="log_lock_screen_on">شاشة القفل المخصصة اشتغلت</string>
+    <string name="log_lock_screen_off">شاشة القفل المخصصة اتقفلت</string>
+    <string name="log_lock_screen_note">رسالة شاشة القفل اتحدّثت</string>
+    <string name="log_lock_screen_shortcuts_fmt">الفتح السريع في شاشة القفل: %1$d تطبيق</string>
 
     <!-- Kiosk Browser -->
     <string name="browser_title">متصفح الكشك</string>
@@ -392,4 +450,22 @@
     <string name="update_feed_save">احفظ الرابط</string>
     <string name="update_feed_saved">رابط التحديث المخصص اتحفظ</string>
     <string name="update_feed_cleared">رجعنا لمصدر التحديث التلقائي الرسمي</string>
+    <!-- Kiosk schedule -->
+    <string name="eyebrow_schedule">مواعيد الكشك</string>
+    <string name="schedule_desc">الكشك بيشتغل جوه المواعيد دي بس، وبرّه المواعيد الجهاز بيبقى تليفون عادي. سطر لكل ميعاد، مثال: Mon-Fri 08:00-15:00 أو 20:00-07:00.</string>
+    <string name="schedule_toggle">فعّل جدول المواعيد</string>
+    <string name="schedule_windows_hint">Mon-Fri 08:00-15:00</string>
+    <string name="schedule_save">احفظ المواعيد</string>
+    <string name="schedule_saved">المواعيد اتحفظت</string>
+    <string name="schedule_state_off">الجدول مقفول — الكشك شغال طول الوقت.</string>
+    <string name="schedule_state_empty">مفيش مواعيد لسه — الكشك هيفضل شغال طول الوقت.</string>
+    <string name="schedule_state_kiosk">الكشك شغال دلوقتي.</string>
+    <string name="schedule_state_open">الجهاز تليفون عادي دلوقتي.</string>
+    <string name="schedule_invalid_fmt">السطر %1$d مش ميعاد صحيح — صلّحه واحفظ تاني.</string>
+    <string name="log_schedule_on">جدول المواعيد اتشغّل</string>
+    <string name="log_schedule_off">جدول المواعيد اتقفل</string>
+    <string name="log_schedule_saved">مواعيد الكشك اتحدّثت</string>
+    <string name="allowlist_weekdays">أيام الأسبوع</string>
+    <string name="allowlist_weekends">الويك إند</string>
+    <string name="allowlist_scope_desc">القوايم دي بتشتغل جوه مواعيد الكشك.</string>
 </resources>

@@ -36,6 +36,9 @@ class BootCompletedReceiver : BroadcastReceiver() {
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 )
             }
+            // The lock screen is drawn by the kiosk activity when it resumes, so a reboot
+            // only records that one is owed; no second activity start is needed here.
+            if (prefs.customLockScreen) prefs.lockScreenPending = true
         }
     }
 }

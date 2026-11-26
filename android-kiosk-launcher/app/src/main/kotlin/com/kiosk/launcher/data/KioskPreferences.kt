@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.SharedPreferences
 import org.json.JSONArray
 import org.json.JSONObject
+import com.kiosk.launcher.schedule.KioskSchedule
+import com.kiosk.launcher.schedule.KioskWindow
+import com.kiosk.launcher.schedule.ScheduleParse
 import java.security.SecureRandom
 import java.util.Calendar
 
@@ -77,6 +80,87 @@ class KioskPreferences(context: Context) {
     }
 
     private fun digest(pin: String, salt: ByteArray): String = PinHash.digest(pin, salt)
+
+    // --------------------------------------- app access password (per-app lock)
+    /**
+     * Password asked before a protected app opens. Hashed with the same salted SHA-256
+     * as the admin passcode ([PinHash]) and never written in plain text, so a copied
+     * preferences file cannot reveal it.
+     */
+    fun hasAppPin(): Boolean = prefs.contains(KEY_APP_PIN_HASH)
+
+    fun setAppPin(pin: String) {
+        val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
+        prefs.edit()
+            .putString(KEY_APP_PIN_SALT, PinHash.toHex(salt))
+            .putString(KEY_APP_PIN_HASH, digest(pin, salt))
+            .putInt(KEY_FAILED_APP_PIN, 0)
+            .putLong(KEY_APP_PIN_LOCKED_UNTIL, 0L)
+            .apply()
+    }
+
+    fun clearAppPin() {
+        prefs.edit()
+            .remove(KEY_APP_PIN_HASH)
+            .remove(KEY_APP_PIN_SALT)
+            .putInt(KEY_FAILED_APP_PIN, 0)
+            .putLong(KEY_APP_PIN_LOCKED_UNTIL, 0L)
+            .apply()
+    }
+
+    fun checkAppPin(pin: String): Boolean {
+        if (pin.length < MIN_PIN_LENGTH || pin.length > MAX_PIN_LENGTH || pin.isBlank()) return false
+        val stored = prefs.getString(KEY_APP_PIN_HASH, null) ?: return false
+        val salt = PinHash.hexToBytes(prefs.getString(KEY_APP_PIN_SALT, "") ?: "")
+        return digest(pin, salt) == stored
+    }
+
+    fun appPinLockoutRemainingSeconds(nowMs: Long = System.currentTimeMillis()): Int {
+        val diff = prefs.getLong(KEY_APP_PIN_LOCKED_UNTIL, 0L) - nowMs
+        return if (diff > 0L) ((diff + 999L) / 1000L).toInt() else 0
+    }
+
+    /**
+     * Same 5-attempt / 30 second rule as the admin passcode, but counted separately: a
+     * child guessing at an app PIN must not lock the admin out of Admin settings.
+     */
+    fun recordFailedAppPinAttempt(nowMs: Long = System.currentTimeMillis()): Int {
+        val next = prefs.getInt(KEY_FAILED_APP_PIN, 0) + 1
+        if (next >= MAX_FAILED_PIN_ATTEMPTS) {
+            prefs.edit()
+                .putInt(KEY_FAILED_APP_PIN, 0)
+                .putLong(KEY_APP_PIN_LOCKED_UNTIL, nowMs + PIN_LOCKOUT_MS)
+                .apply()
+            return (PIN_LOCKOUT_MS / 1000L).toInt()
+        }
+        prefs.edit().putInt(KEY_FAILED_APP_PIN, next).apply()
+        return 0
+    }
+
+    fun resetAppPinFailures() {
+        prefs.edit()
+            .putInt(KEY_FAILED_APP_PIN, 0)
+            .putLong(KEY_APP_PIN_LOCKED_UNTIL, 0L)
+            .apply()
+    }
+
+    /** Packages the admin marked "Require Password", independent of the password itself. */
+    fun protectedPackages(): Set<String> =
+        prefs.getStringSet(KEY_PROTECTED_PACKAGES, emptySet())?.toSet() ?: emptySet()
+
+    fun setAppProtected(packageName: String, protected: Boolean) {
+        val next = protectedPackages().toMutableSet()
+        if (protected) next.add(packageName) else next.remove(packageName)
+        prefs.edit().putStringSet(KEY_PROTECTED_PACKAGES, next).apply()
+    }
+
+    /**
+     * True when launching [packageName] must ask for the app password. The password
+     * existing is part of the rule: clearing it disables every lock at once instead of
+     * leaving allowed apps permanently unopenable.
+     */
+    fun isAppProtected(packageName: String): Boolean =
+        hasAppPin() && protectedPackages().contains(packageName)
 
     // ---------------------------------------------------------------------- mode
     var kioskMode: String
@@ -318,8 +402,144 @@ class KioskPreferences(context: Context) {
         prefs.edit().putStringSet(KEY_ALLOWED, next).apply()
     }
 
-    fun isAllowed(packageName: String): Boolean =
-        allowAllApps || allowedPackages().contains(packageName)
+    /**
+     * Everything the grid, the lock screen dock and the launch gate ask before an app opens.
+     * With a schedule on, an app is allowed outside the kiosk windows regardless of the lists,
+     * because the device is a normal phone then. An unreadable schedule keeps the kiosk strict
+     * (see [isWithinKioskHours]) rather than quietly turning the restrictions off.
+     */
+    fun isAllowed(packageName: String, nowMs: Long = System.currentTimeMillis()): Boolean {
+        if (allowAllApps) return true
+        if (!scheduleEnabled) return allowedPackages().contains(packageName)
+        if (!isWithinKioskHours(nowMs)) return true
+        return allowedPackagesForDay(KioskSchedule.isWeekend(nowMs)).contains(packageName)
+    }
+
+    // ------------------------------------------------------------------ schedule
+    /** Master switch for time-based kiosk mode; off keeps the plain single allowlist. */
+    var scheduleEnabled: Boolean
+        get() = bool(KEY_SCHEDULE_ENABLED, false)
+        set(value) = setBool(KEY_SCHEDULE_ENABLED, value)
+
+    /** The schedule text exactly as the admin typed it, one window per line. */
+    var scheduleWindows: String
+        get() = prefs.getString(KEY_SCHEDULE_WINDOWS, "") ?: ""
+        set(value) { prefs.edit().putString(KEY_SCHEDULE_WINDOWS, value.trim()).apply() }
+
+    fun scheduleWindowsParsed(): ScheduleParse = KioskSchedule.parse(scheduleWindows)
+
+    private fun parsedWindows(): List<KioskWindow>? =
+        (scheduleWindowsParsed() as? ScheduleParse.Parsed)?.windows
+
+    /**
+     * True when kiosk mode may be enforced right now.
+     *
+     * A schedule with no windows, or one the parser cannot read, counts as kiosk time: a typo must
+     * not hand a pinned device back as a normal phone. Outside a real window it is false, which is
+     * what turns the device into a normal phone.
+     */
+    fun isWithinKioskHours(nowMs: Long = System.currentTimeMillis()): Boolean {
+        if (!scheduleEnabled) return true
+        val windows = parsedWindows() ?: return true
+        if (windows.isEmpty()) return true
+        return KioskSchedule.isKioskTime(windows, nowMs)
+    }
+
+    /** True when the kiosk is both opted in and inside its scheduled hours. */
+    fun isKioskActiveNow(nowMs: Long = System.currentTimeMillis()): Boolean =
+        kioskEnabled == true && isWithinKioskHours(nowMs)
+
+    fun weekdayPackages(): Set<String> =
+        prefs.getStringSet(KEY_WEEKDAY_ALLOWED, emptySet())?.toSet() ?: emptySet()
+
+    fun weekendPackages(): Set<String> =
+        prefs.getStringSet(KEY_WEEKEND_ALLOWED, emptySet())?.toSet() ?: emptySet()
+
+    fun allowedPackagesForDay(weekend: Boolean): Set<String> =
+        if (weekend) weekendPackages() else weekdayPackages()
+
+    fun setDayAllowed(packageName: String, allowed: Boolean, weekend: Boolean) {
+        val next = allowedPackagesForDay(weekend).toMutableSet()
+        if (allowed) next.add(packageName) else next.remove(packageName)
+        prefs.edit()
+            .putStringSet(if (weekend) KEY_WEEKEND_ALLOWED else KEY_WEEKDAY_ALLOWED, next)
+            .apply()
+    }
+
+    fun isDayAllowed(packageName: String, weekend: Boolean): Boolean =
+        allowedPackagesForDay(weekend).contains(packageName)
+
+    /** The list that applies right now; lock task packages must follow it, not the legacy set. */
+    fun allowedPackagesNow(nowMs: Long = System.currentTimeMillis()): Set<String> =
+        if (!scheduleEnabled) allowedPackages()
+        else allowedPackagesForDay(KioskSchedule.isWeekend(nowMs))
+
+    /** True when the app is on any list, which is what the per-app password row keys off. */
+    fun isAllowlistedAnywhere(packageName: String): Boolean =
+        allowedPackages().contains(packageName) ||
+            weekdayPackages().contains(packageName) ||
+            weekendPackages().contains(packageName)
+
+    /**
+     * Seeds the weekday and weekend lists from the old single allowlist the first time a schedule
+     * is turned on, so enabling it never silently empties what the kiosk may run.
+     */
+    fun seedDayListsFromLegacyAllowlist() {
+        if (weekdayPackages().isNotEmpty() || weekendPackages().isNotEmpty()) return
+        val legacy = allowedPackages()
+        if (legacy.isEmpty()) return
+        prefs.edit()
+            .putStringSet(KEY_WEEKDAY_ALLOWED, legacy.toMutableSet())
+            .putStringSet(KEY_WEEKEND_ALLOWED, legacy.toMutableSet())
+            .apply()
+    }
+
+    /** Last kiosk state a schedule check applied, so a boundary is logged once, not per resume. */
+    var scheduleObservedActive: Boolean
+        get() = bool(KEY_SCHEDULE_OBSERVED, false)
+        set(value) = setBool(KEY_SCHEDULE_OBSERVED, value)
+
+    // ------------------------------------------------------- custom lock screen
+    var customLockScreen: Boolean
+        get() = bool(KEY_CUSTOM_LOCK_SCREEN, false)
+        set(value) = setBool(KEY_CUSTOM_LOCK_SCREEN, value)
+
+    /** Message shown in the lock screen widget area; blank hides the widget. */
+    var lockScreenNote: String
+        get() = prefs.getString(KEY_LOCK_SCREEN_NOTE, "") ?: ""
+        set(value) { prefs.edit().putString(KEY_LOCK_SCREEN_NOTE, value.trim()).apply() }
+
+    /** Admin-picked dock apps, kept in the order the admin saved them. */
+    fun quickLaunchPackages(): List<String> =
+        LockScreenShortcuts.decode(prefs.getString(KEY_LOCK_SCREEN_QUICK_LAUNCH, null))
+
+    fun setQuickLaunchPackages(packages: List<String>) {
+        prefs.edit()
+            .putString(KEY_LOCK_SCREEN_QUICK_LAUNCH, LockScreenShortcuts.encode(packages))
+            .apply()
+    }
+
+    /**
+     * Set while the screen is off, so a receiver that starts in a fresh process still
+     * knows the custom lock screen is owed. An unlock clears it.
+     */
+    var lockScreenPending: Boolean
+        get() = bool(KEY_LOCK_SCREEN_PENDING, false)
+        set(value) = setBool(KEY_LOCK_SCREEN_PENDING, value)
+
+    // ------------------------------------------------------------ watchdog liveness
+    /**
+     * True only while one of this app's own screens is in front. It is cleared when the last one
+     * pauses, so a value still set after the process is gone means the kiosk died on screen.
+     */
+    var kioskUiVisible: Boolean
+        get() = bool(KEY_KIOSK_UI_VISIBLE, false)
+        set(value) = setBool(KEY_KIOSK_UI_VISIBLE, value)
+
+    /** Refreshed by the application every 30 seconds; silence means the process is gone. */
+    var launcherHeartbeatMs: Long
+        get() = prefs.getLong(KEY_LAUNCHER_HEARTBEAT, 0L)
+        set(value) { prefs.edit().putLong(KEY_LAUNCHER_HEARTBEAT, value).apply() }
 
     // --------------------------------------------------------- uninstall blocks
     /**
@@ -447,6 +667,17 @@ class KioskPreferences(context: Context) {
         private const val KEY_PIN_SALT = "pin_salt"
         private const val KEY_FAILED_PIN = "failed_pin_attempts"
         private const val KEY_PIN_LOCKED_UNTIL = "pin_locked_until_ms"
+        private const val KEY_APP_PIN_HASH = "app_pin_hash"
+        private const val KEY_APP_PIN_SALT = "app_pin_salt"
+        private const val KEY_FAILED_APP_PIN = "failed_app_pin_attempts"
+        private const val KEY_APP_PIN_LOCKED_UNTIL = "app_pin_locked_until_ms"
+        private const val KEY_PROTECTED_PACKAGES = "protected_packages"
+        private const val KEY_CUSTOM_LOCK_SCREEN = "custom_lock_screen"
+        private const val KEY_LOCK_SCREEN_NOTE = "lock_screen_note"
+        private const val KEY_LOCK_SCREEN_QUICK_LAUNCH = "lock_screen_quick_launch"
+        private const val KEY_LOCK_SCREEN_PENDING = "lock_screen_pending"
+        private const val KEY_KIOSK_UI_VISIBLE = "kiosk_ui_visible"
+        private const val KEY_LAUNCHER_HEARTBEAT = "launcher_heartbeat_ms"
         private const val KEY_MODE = "kiosk_mode"
         private const val KEY_ALLOW_ALL = "allow_all_apps"
         private const val KEY_ALLOWED = "allowed_packages"
@@ -469,6 +700,11 @@ class KioskPreferences(context: Context) {
         private const val KEY_HOME_LAUNCHER_DECLINED = "home_launcher_declined"
         private const val KEY_UNINSTALL_BLOCKED = "uninstall_blocked_packages"
         private const val KEY_UNINSTALL_RELEASE_SWEPT = "uninstall_release_swept"
+        private const val KEY_SCHEDULE_ENABLED = "schedule_enabled"
+        private const val KEY_SCHEDULE_WINDOWS = "schedule_windows"
+        private const val KEY_WEEKDAY_ALLOWED = "weekday_allowed_packages"
+        private const val KEY_WEEKEND_ALLOWED = "weekend_allowed_packages"
+        private const val KEY_SCHEDULE_OBSERVED = "schedule_observed_active"
         private const val KEY_BLOCK_UNSUPPORTED_BROWSERS = "block_unsupported_browsers"
         private const val KEY_BLOCK_SHORT_FEEDS = "block_short_form_feeds"
         private const val KEY_PANIC_LOCK_UNTIL = "panic_lock_until_ms"

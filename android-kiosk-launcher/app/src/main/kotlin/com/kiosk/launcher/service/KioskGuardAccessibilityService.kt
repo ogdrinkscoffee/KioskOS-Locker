@@ -32,7 +32,8 @@ class KioskGuardAccessibilityService : AccessibilityService() {
         // not in charge, so it must not keep bouncing the user's own launcher, Settings
         // and the Google apps they opened back to a grid they were not using.
         val helper = policy ?: DevicePolicyHelper(this).also { policy = it }
-        if (store.kioskEnabled != true || !helper.isDefaultLauncher) return
+        // Out of the scheduled hours the device is a normal phone, so the guard stands down too.
+        if (!store.isKioskActiveNow() || !helper.isDefaultLauncher) return
 
         val packageName = event.packageName?.toString() ?: return
         if (packageName == this.packageName) return

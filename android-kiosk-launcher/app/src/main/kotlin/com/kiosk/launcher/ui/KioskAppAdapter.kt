@@ -9,8 +9,10 @@ import androidx.recyclerview.widget.RecyclerView
 import com.kiosk.launcher.R
 import com.kiosk.launcher.data.AppEntry
 
-class KioskAppAdapter(private val onClick: (AppEntry) -> Unit) :
-    RecyclerView.Adapter<KioskAppAdapter.AppViewHolder>() {
+class KioskAppAdapter(
+    private val isLocked: (String) -> Boolean,
+    private val onClick: (AppEntry) -> Unit
+) : RecyclerView.Adapter<KioskAppAdapter.AppViewHolder>() {
 
     private val items = mutableListOf<AppEntry>()
 
@@ -30,13 +32,21 @@ class KioskAppAdapter(private val onClick: (AppEntry) -> Unit) :
 
     override fun onBindViewHolder(holder: AppViewHolder, position: Int) {
         val entry = items[position]
+        val locked = isLocked(entry.packageName)
         holder.label.text = entry.label
         holder.icon.setImageDrawable(entry.icon)
+        holder.lockBadge.visibility = if (locked) View.VISIBLE else View.GONE
+        holder.itemView.contentDescription = if (locked) {
+            holder.itemView.context.getString(R.string.app_locked_content_desc_fmt, entry.label)
+        } else {
+            entry.label
+        }
         holder.itemView.setOnClickListener { onClick(entry) }
     }
 
     class AppViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val icon: ImageView = view.findViewById(R.id.appIcon)
         val label: TextView = view.findViewById(R.id.appLabel)
+        val lockBadge: ImageView = view.findViewById(R.id.appLockBadge)
     }
 }

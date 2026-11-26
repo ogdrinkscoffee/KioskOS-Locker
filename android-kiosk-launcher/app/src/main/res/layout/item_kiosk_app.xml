@@ -9,11 +9,28 @@
     android:orientation="vertical"
     android:padding="6dp">
 
-    <ImageView
-        android:id="@+id/appIcon"
+    <FrameLayout
         android:layout_width="46dp"
-        android:layout_height="46dp"
-        android:importantForAccessibility="no" />
+        android:layout_height="46dp">
+
+        <ImageView
+            android:id="@+id/appIcon"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:importantForAccessibility="no" />
+
+        <!-- Shown only for apps marked "Require Password" in Admin. -->
+        <ImageView
+            android:id="@+id/appLockBadge"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_gravity="bottom|end"
+            android:background="@drawable/bg_lock_badge"
+            android:contentDescription="@string/app_locked_badge"
+            android:padding="3dp"
+            android:src="@drawable/ic_lock_badge"
+            android:visibility="gone" />
+    </FrameLayout>
 
     <TextView
         android:id="@+id/appLabel"

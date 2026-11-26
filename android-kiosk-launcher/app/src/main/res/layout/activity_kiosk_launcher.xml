@@ -79,13 +79,6 @@
             android:textColor="@color/text_secondary"
             android:textSize="11sp" />
 
-        <!-- Explicit route back to the kiosk grid from any allowed app. -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/homeButton"
-            style="@style/Widget.IroncladOS.Button.Text"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/action_home" />
     </LinearLayout>
 
     <!-- In-app update available -->
