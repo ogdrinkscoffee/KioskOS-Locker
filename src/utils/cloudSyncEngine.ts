@@ -18,7 +18,14 @@ import {
   RichNote,
   SelfImprovementState,
   TaskItem,
+  createInitialSelfImprovementState,
 } from './selfImprovementEngine';
+import {
+  parseSelfImprovementPayload,
+  parseStoredKioskPayload,
+  sanitizeRichHtml,
+  stripControlChars,
+} from './validation';
 
 export type SyncSourceTag = 'mobile_app' | 'web_simulator' | 'pc_web';
 
@@ -85,13 +92,10 @@ export function sanitizeFirestoreId(raw: string, fallback = 'primary-device'): s
 
 export function generatePinSalt(byteLength = 16): string {
   const bytes = new Uint8Array(byteLength);
-  if (typeof globalThis.crypto?.getRandomValues === 'function') {
-    globalThis.crypto.getRandomValues(bytes);
-  } else {
-    for (let i = 0; i < bytes.length; i += 1) {
-      bytes[i] = Math.floor(Math.random() * 256);
-    }
+  if (typeof globalThis.crypto?.getRandomValues !== 'function') {
+    throw new Error('Cryptographically secure random number generator is unavailable.');
   }
+  globalThis.crypto.getRandomValues(bytes);
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
@@ -270,20 +274,24 @@ export function buildGrowthSyncPayload(params: {
   source: SyncSourceTag;
 }): CloudGrowthSnapshot {
   const { growth, ownerId, profileId = 'main', source } = params;
+  const validated = parseSelfImprovementPayload(growth, createInitialSelfImprovementState());
   return {
     ownerId: sanitizeFirestoreId(ownerId, 'user'),
     profileId: sanitizeFirestoreId(profileId, 'main'),
-    cleanStreakDays: Math.max(0, Math.min(36500, Math.floor(growth.cleanStreakDays))),
-    longestCleanStreakDays: Math.max(0, Math.min(36500, Math.floor(growth.longestCleanStreakDays))),
-    lastCleanCheckInDate: (growth.lastCleanCheckInDate ?? '').slice(0, 20),
-    cleanCheckInDates: clampStringList(growth.cleanCheckInDates, 400, 20),
-    urgeVictories: Math.max(0, Math.min(1_000_000, Math.floor(growth.urgeVictories))),
-    whyIStarted: growth.whyIStarted.slice(0, 2000),
-    focusSessions: growth.focusSessions.slice(0, 200),
-    habits: growth.habits.slice(0, 80),
-    tasks: growth.tasks.slice(0, 150),
-    goals: growth.goals.slice(0, 50),
-    notes: growth.notes.slice(0, 100),
+    cleanStreakDays: Math.max(0, Math.min(36500, Math.floor(validated.cleanStreakDays))),
+    longestCleanStreakDays: Math.max(0, Math.min(36500, Math.floor(validated.longestCleanStreakDays))),
+    lastCleanCheckInDate: (validated.lastCleanCheckInDate ?? '').slice(0, 20),
+    cleanCheckInDates: clampStringList(validated.cleanCheckInDates, 400, 20),
+    urgeVictories: Math.max(0, Math.min(1_000_000, Math.floor(validated.urgeVictories))),
+    whyIStarted: stripControlChars(validated.whyIStarted).slice(0, 2000),
+    focusSessions: validated.focusSessions.slice(0, 200),
+    habits: validated.habits.slice(0, 80),
+    tasks: validated.tasks.slice(0, 150),
+    goals: validated.goals.slice(0, 50),
+    notes: validated.notes.slice(0, 100).map((n) => ({
+      ...n,
+      htmlContent: sanitizeRichHtml(n.htmlContent),
+    })),
     lastUpdatedSource: source,
   };
 }
@@ -293,36 +301,27 @@ export function applyRemoteDeviceToKioskState(
   remote: CloudDeviceSnapshot,
   optionalNewPlainPin?: string
 ): KioskState {
-  return {
-    ...localState,
-    adminPin: optionalNewPlainPin ? optionalNewPlainPin : localState.adminPin,
-    kioskMode: remote.kioskMode,
-    singleAppPackage: remote.singleAppPackage ? remote.singleAppPackage : null,
-    kioskTitle: remote.kioskTitle,
-    allowedPackages: [...(remote.allowedPackages ?? localState.allowedPackages)],
-    allowedDomains: [...(remote.allowedDomains ?? localState.allowedDomains)],
-    adminRestrictions: remote.adminRestrictions
-      ? {
-          ...DEFAULT_ADMIN_RESTRICTIONS,
-          ...remote.adminRestrictions,
-        }
-      : localState.adminRestrictions,
-    hardwareLocks: { ...(remote.hardwareLocks ?? localState.hardwareLocks) },
-    blockerShields: {
-      ...(remote.blockerShields ?? localState.blockerShields),
-      inAppBrowserWhitelist: [...(remote.blockerShields?.inAppBrowserWhitelist ?? localState.blockerShields.inAppBrowserWhitelist)],
-      blockedKeywords: [...(remote.blockerShields?.blockedKeywords ?? localState.blockerShields.blockedKeywords)],
+  const validatedRemote = parseStoredKioskPayload(
+    {
+      ...localState,
+      ...remote,
+      adminPin: optionalNewPlainPin ? optionalNewPlainPin : localState.adminPin,
+      singleAppPackage: remote.singleAppPackage ? remote.singleAppPackage : null,
+      activeScreen: localState.activeScreen,
+      lockTaskActive: localState.lockTaskActive,
+      adminUnlocked: localState.adminUnlocked,
+      isDeviceOwner: localState.isDeviceOwner,
+      events: localState.events,
+      customApps: localState.customApps,
+      browserCurrentUrl: localState.browserCurrentUrl,
+      browserBlockedUrl: localState.browserBlockedUrl,
+      pinGateTarget: localState.pinGateTarget,
     },
-    appTimeLimits: { ...(remote.appTimeLimits ?? localState.appTimeLimits) },
-    appUsageSeconds: { ...(remote.appUsageSeconds ?? localState.appUsageSeconds) },
-    downtimeSchedule: { ...(remote.downtimeSchedule ?? localState.downtimeSchedule) },
-    focusBlockUntilMs: remote.focusBlockUntilMs ?? localState.focusBlockUntilMs,
-    panicLockUntilMs: remote.panicLockUntilMs ?? localState.panicLockUntilMs,
-    panicCount: remote.panicCount ?? localState.panicCount,
-    blockedAttemptsToday: remote.blockedAttemptsToday ?? localState.blockedAttemptsToday,
-    tamperWarningsCount: remote.tamperWarningsCount ?? localState.tamperWarningsCount,
-    tamperEscalationTier: remote.tamperEscalationTier ?? localState.tamperEscalationTier,
-    pinLockedUntilMs: remote.pinLockedUntilMs ?? localState.pinLockedUntilMs,
+    localState
+  );
+
+  return {
+    ...validatedRemote,
     blockedNotice:
       remote.lastModifiedBy === 'pc_web'
         ? 'Applied password-authorized Admin Settings update from PC Web Remote.'
@@ -334,18 +333,5 @@ export function applyRemoteGrowthToLocalState(
   localGrowth: SelfImprovementState,
   remote: CloudGrowthSnapshot
 ): SelfImprovementState {
-  return {
-    ...localGrowth,
-    cleanStreakDays: remote.cleanStreakDays ?? localGrowth.cleanStreakDays,
-    longestCleanStreakDays: remote.longestCleanStreakDays ?? localGrowth.longestCleanStreakDays,
-    lastCleanCheckInDate: remote.lastCleanCheckInDate || null,
-    cleanCheckInDates: [...(remote.cleanCheckInDates ?? [])],
-    urgeVictories: remote.urgeVictories ?? localGrowth.urgeVictories,
-    whyIStarted: remote.whyIStarted ?? localGrowth.whyIStarted,
-    focusSessions: [...(remote.focusSessions ?? [])],
-    habits: [...(remote.habits ?? [])],
-    tasks: [...(remote.tasks ?? [])],
-    goals: [...(remote.goals ?? [])],
-    notes: [...(remote.notes ?? [])],
-  };
+  return parseSelfImprovementPayload(remote, localGrowth);
 }

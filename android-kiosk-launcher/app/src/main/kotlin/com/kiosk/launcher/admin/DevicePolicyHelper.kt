@@ -199,10 +199,16 @@ class DevicePolicyHelper(context: Context) {
         val unlocked = prefs.isAdminTemporarilyUnlocked()
         val features = LockTaskFeatures.compute(
             statusBarLocked = prefs.statusBarLocked && !unlocked,
-            keyguardDisabled = prefs.keyguardDisabled,
+            keyguardDisabled = prefs.keyguardDisabled || (prefs.customLockScreenEnabled && !unlocked),
             blockActivityStartInTask = prefs.isPanicLocked()
         )
         runCatching { dpm.setLockTaskFeatures(admin, features) }
+    }
+
+    /** Used by [KioskLockScreenActivity] to prevent status-bar pull-down while locked. */
+    fun setTemporaryStatusBarDisabled(disabled: Boolean) {
+        if (!isDeviceOwner) return
+        runCatching { dpm.setStatusBarDisabled(admin, disabled) }
     }
 
     /**
@@ -381,7 +387,8 @@ class DevicePolicyHelper(context: Context) {
             screenCaptureDisabled = prefs.screenCaptureDisabled,
             blockUnsupportedBrowsers = prefs.blockUnsupportedBrowsers,
             stayAwake = prefs.stayAwake,
-            temporaryAdminUnlockActive = prefs.isAdminTemporarilyUnlocked()
+            temporaryAdminUnlockActive = prefs.isAdminTemporarilyUnlocked(),
+            customLockScreenEnabled = prefs.customLockScreenEnabled
         )
     )
 

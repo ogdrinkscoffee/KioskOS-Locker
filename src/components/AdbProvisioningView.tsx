@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, Copy, Terminal } from 'lucide-react';
 import { useI18n } from '../i18n/LocaleProvider';
 
@@ -71,22 +71,46 @@ const MATRIX: { requirement: string; implementation: string }[] = [
 export const AdbProvisioningView: React.FC = () => {
   const { tr } = useI18n();
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState<string | null>(null);
+  const copyTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current !== null) {
+        window.clearTimeout(copyTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleCopy = async (id: string, command: string) => {
+    setCopyError(null);
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      setCopyError(tr('Clipboard access is unavailable in this browser. Copy the command manually.'));
+      return;
+    }
     try {
       await navigator.clipboard.writeText(command);
       setCopiedId(id);
-      setTimeout(() => setCopiedId((prev) => (prev === id ? null : prev)), 1800);
+      if (copyTimerRef.current !== null) {
+        window.clearTimeout(copyTimerRef.current);
+      }
+      copyTimerRef.current = window.setTimeout(
+        () => setCopiedId((prev) => (prev === id ? null : prev)),
+        1800
+      );
     } catch {
-      // Clipboard blocked; ignore silently
+      setCopyError(tr('Clipboard permission denied. Select and copy the command manually.'));
     }
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <section aria-labelledby="adb-provisioning-heading" className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{tr("Provision a device")}</h2>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{"\n          "}{tr("Four steps after downloading IroncladOS.apk to lock down a phone running")}{' '}
+        <h2 id="adb-provisioning-heading" className="text-lg font-semibold text-slate-900 dark:text-white">
+          {tr("Provision a device")}
+        </h2>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          {tr("Four steps after downloading IroncladOS.apk to lock down a phone running")}{' '}
           <span className="font-mono text-[13px] text-slate-800 dark:text-slate-200">
             com.kiosk.launcher
           </span>
@@ -94,9 +118,22 @@ export const AdbProvisioningView: React.FC = () => {
         </p>
       </div>
 
+      {copyError && (
+        <p
+          role="alert"
+          className="rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-xs font-medium text-amber-900 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-200"
+        >
+          {copyError}
+        </p>
+      )}
+
+      <div aria-live="polite" className="sr-only">
+        {copiedId ? tr('Copied command to clipboard') : ''}
+      </div>
+
       <ol className="surface divide-y divide-slate-200/80 dark:divide-white/10">
         {STEPS.map((step, index) => (
-          <li key={step.id} className="px-5 py-4">
+          <li key={step.id} className="px-4 py-4 sm:px-5">
             <div className="flex items-start gap-3">
               <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold tabular-nums text-slate-600 dark:bg-white/10 dark:text-slate-300">
                 {index + 1}
@@ -108,16 +145,16 @@ export const AdbProvisioningView: React.FC = () => {
                 <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                   {tr(step.hint)}
                 </p>
-                <div className="mt-2.5 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 dark:border-white/10 dark:bg-black/40">
+                <div className="mt-2.5 flex items-center gap-2 overflow-hidden rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 dark:border-white/10 dark:bg-black/40">
                   <Terminal className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
                   <code className="min-w-0 flex-1 truncate text-[11px] text-slate-800 dark:text-slate-200">
                     {step.command}
                   </code>
                   <button
                     type="button"
-                    onClick={() => handleCopy(step.id, step.command)}
+                    onClick={() => void handleCopy(step.id, step.command)}
                     aria-label={`${tr('Copy command for')} ${tr(step.title)}`}
-                    className="shrink-0 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-200/70 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-white"
+                    className="inline-flex min-h-[32px] min-w-[32px] shrink-0 items-center justify-center rounded-md p-1 text-slate-500 transition-colors hover:bg-slate-200/70 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
                   >
                     {copiedId === step.id ? (
                       <Check className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
@@ -132,8 +169,10 @@ export const AdbProvisioningView: React.FC = () => {
         ))}
       </ol>
 
-      <details className="surface group px-5 py-4">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[13px] font-semibold text-slate-900 dark:text-white">{"\n          "}{tr("Verification matrix")}{"\n          "}<ChevronDown
+      <details className="surface group px-4 py-4 sm:px-5">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[13px] font-semibold text-slate-900 dark:text-white">
+          {tr("Verification matrix")}
+          <ChevronDown
             className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180"
             aria-hidden="true"
           />
@@ -144,11 +183,11 @@ export const AdbProvisioningView: React.FC = () => {
               <dt className="text-xs font-medium text-slate-900 dark:text-slate-100">
                 {tr(row.requirement)}
               </dt>
-              <dd className="text-xs text-slate-500 dark:text-slate-400">{tr(row.implementation)}</dd>
+              <dd className="text-xs text-slate-500 dark:text-slate-400 break-words">{tr(row.implementation)}</dd>
             </div>
           ))}
         </dl>
       </details>
-    </div>
+    </section>
   );
 };

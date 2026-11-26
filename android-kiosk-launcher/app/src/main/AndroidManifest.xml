@@ -8,6 +8,9 @@
     <!-- Legacy keyguard flags for the custom lock screen on Android 7.x-8.0. -->
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <!-- In-app self-updates: hands the downloaded APK to the package installer. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission
@@ -136,6 +139,13 @@
         <activity
             android:name=".ui.DiagnosticsActivity"
             android:exported="false" />
+        <activity
+            android:name=".ui.KioskLockScreenActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true" />
 
         <!--
             Custom lock screen. singleTask keeps one instance while the screen cycles;
@@ -185,6 +195,23 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name=".receiver.ScreenLockReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.USER_PRESENT" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".service.ScreenLockService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Custom kiosk lock screen guard" />
+        </service>
 
         <service
             android:name=".service.KioskGuardAccessibilityService"

@@ -92,4 +92,8 @@ test('device and growth sync payloads satisfy every required key in firebase-blu
   assert.equal(rulesContent.includes('affirmations'), false);
   assert.match(rulesContent, /isValidAdminRestrictions/);
   assert.match(rulesContent, /'adminRestrictions'/);
+  assert.match(rulesContent, /isMapListBounded/);
+  assert.match(rulesContent, /isValidNotesList/);
+  assert.match(rulesContent, /isValidNoteEntry/);
+  assert.match(rulesContent, /arr\[arr\.size\(\) - 1\]/);
 });

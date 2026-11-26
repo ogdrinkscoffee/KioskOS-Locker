@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check,
   Cloud,
@@ -43,6 +43,13 @@ import {
 import { CloudDeviceSnapshot, verifyAdminPasscodeHash } from '../utils/cloudSyncEngine';
 import { User, firebaseConfig } from '../firebase';
 import { useI18n } from '../i18n/LocaleProvider';
+import {
+  adminPinValueSchema,
+  downtimeHoursSchema,
+  kioskTitleSchema,
+} from '../utils/validation';
+import { DEFAULT_PAGE_SIZE, paginateItems } from '../utils/pagination';
+import { TurnstileChallenge } from './TurnstileChallenge';
 
 interface PcRemoteWorkspaceProps {
   user: User | null;
@@ -51,16 +58,21 @@ interface PcRemoteWorkspaceProps {
   isOnline: boolean;
   cloudConnected: boolean;
   syncBusy: boolean;
+  devicesLoading?: boolean;
   lastSyncedAt: string | null;
   pendingOfflineSync: boolean;
   syncError: string | null;
   syncedDevices: CloudDeviceSnapshot[];
+  hasMoreDevices?: boolean;
+  loadingMoreDevices?: boolean;
+  onLoadMoreDevices?: () => void;
+  onRetrySync?: () => void;
   selectedDeviceId: string;
   remoteDevice: CloudDeviceSnapshot | null;
   localKioskState: KioskState;
   selfImprovement: SelfImprovementState;
   onSelectDeviceId: (deviceId: string) => void;
-  onSignInGoogle: () => Promise<void>;
+  onSignInGoogle: (challenge: { captchaToken: string; website: string }) => Promise<boolean>;
   onSignOutGoogle: () => Promise<void>;
   onSyncNow: () => Promise<void>;
   onRemoteUpdateSettings: (
@@ -120,10 +132,15 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
   isOnline,
   cloudConnected,
   syncBusy,
+  devicesLoading = false,
   lastSyncedAt,
   pendingOfflineSync,
   syncError,
   syncedDevices,
+  hasMoreDevices = false,
+  loadingMoreDevices = false,
+  onLoadMoreDevices,
+  onRetrySync,
   selectedDeviceId,
   remoteDevice,
   localKioskState,
@@ -141,11 +158,22 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
   const { tr, pluralDays } = useI18n();
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [remoteAdminUnlocked, setRemoteAdminUnlocked] = useState(false);
+  const [remoteUnlockBusy, setRemoteUnlockBusy] = useState(false);
+  const [remoteSavingBusy, setRemoteSavingBusy] = useState(false);
   const [failedVerifyCount, setFailedVerifyCount] = useState(0);
   const [remoteVerifyCooldownUntil, setRemoteVerifyCooldownUntil] = useState(0);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState<string | null>(null);
+  const copyTimerRef = useRef<number | null>(null);
+  const remoteSavingRef = useRef(false);
+  const remoteUnlockBusyRef = useRef(false);
+  const [appsPage, setAppsPage] = useState(1);
+  const [signInCaptchaToken, setSignInCaptchaToken] = useState<string | null>(null);
+  const [signInHoneypot, setSignInHoneypot] = useState('');
+  const [signInTurnstileResetKey, setSignInTurnstileResetKey] = useState(0);
+  const [signInBusy, setSignInBusy] = useState(false);
 
   const [newPinDraft, setNewPinDraft] = useState('');
   const [confirmPinDraft, setConfirmPinDraft] = useState('');
@@ -211,20 +239,46 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
   const shieldsCount = SHIELD_TOGGLES.filter(
     (s) => effectiveKioskForReadout.blockerShields[s.key]
   ).length;
-  const allInstalledApps = getAllInstalledApps(effectiveKioskForReadout).filter(
-    (a) => !a.isSystemRestricted
+  const allInstalledApps = useMemo(
+    () => getAllInstalledApps(effectiveKioskForReadout).filter((a) => !a.isSystemRestricted),
+    [effectiveKioskForReadout]
+  );
+  const appsPagination = useMemo(
+    () => paginateItems(allInstalledApps, appsPage, DEFAULT_PAGE_SIZE),
+    [allInstalledApps, appsPage]
   );
 
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current !== null) {
+        window.clearTimeout(copyTimerRef.current);
+      }
+    };
+  }, []);
+
   const copyText = (key: string, value: string) => {
-    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-      void navigator.clipboard.writeText(value).catch(() => {});
-      setCopiedKey(key);
-      window.setTimeout(() => setCopiedKey(null), 1800);
+    setCopyError(null);
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      setCopyError(tr('Clipboard access unavailable. Copy the credential manually.'));
+      return;
     }
+    void navigator.clipboard
+      .writeText(value)
+      .then(() => {
+        setCopiedKey(key);
+        if (copyTimerRef.current !== null) {
+          window.clearTimeout(copyTimerRef.current);
+        }
+        copyTimerRef.current = window.setTimeout(() => setCopiedKey(null), 1800);
+      })
+      .catch(() => {
+        setCopyError(tr('Clipboard permission denied. Copy the credential manually.'));
+      });
   };
 
   const handleUnlockRemoteAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (remoteUnlockBusyRef.current) return;
     const now = Date.now();
     if (remoteVerifyCooldownUntil > now) {
       const secs = Math.ceil((remoteVerifyCooldownUntil - now) / 1000);
@@ -233,38 +287,47 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
     }
 
     if (!remoteDevice) {
-      setPasswordError(tr('No synced mobile device record found yet. Click Sync Device Now first.'));
+      setPasswordError(tr('No synced mobile device record found yet. Click Sync Now first.'));
       return;
     }
 
-    const ok = await verifyAdminPasscodeHash(
-      adminPasswordInput,
-      remoteDevice.adminPinSalt,
-      remoteDevice.adminPinHash
-    );
+    remoteUnlockBusyRef.current = true;
+    setRemoteUnlockBusy(true);
+    try {
+      const ok = await verifyAdminPasscodeHash(
+        adminPasswordInput,
+        remoteDevice.adminPinSalt,
+        remoteDevice.adminPinHash
+      );
 
-    if (ok) {
-      setRemoteAdminUnlocked(true);
-      setFailedVerifyCount(0);
-      setRemoteVerifyCooldownUntil(0);
-      setPasswordError(null);
-      setAdminPasswordInput('');
-      setTitleDraft(remoteDevice.kioskTitle);
-      setActionFeedback({
-        type: 'ok',
-        text: tr('Admin Password verified. Remote settings unlocked for troubleshooting.'),
-      });
-    } else {
-      const nextFails = failedVerifyCount + 1;
-      if (nextFails >= 5) {
+      if (ok) {
+        setRemoteAdminUnlocked(true);
         setFailedVerifyCount(0);
-        setRemoteVerifyCooldownUntil(now + 30_000);
-        setPasswordError(tr('Too many failed attempts. Remote Admin Gate locked for 30s.'));
+        setRemoteVerifyCooldownUntil(0);
+        setPasswordError(null);
+        setAdminPasswordInput('');
+        setTitleDraft(remoteDevice.kioskTitle);
+        setActionFeedback({
+          type: 'ok',
+          text: tr('Admin Password verified. Remote settings unlocked for troubleshooting.'),
+        });
       } else {
-        setFailedVerifyCount(nextFails);
-        setPasswordError(tr('Incorrect Admin Password ({n}/5 attempts).', { n: nextFails }));
+        const nextFails = failedVerifyCount + 1;
+        if (nextFails >= 5) {
+          setFailedVerifyCount(0);
+          setRemoteVerifyCooldownUntil(now + 30_000);
+          setPasswordError(tr('Too many failed attempts. Remote Admin Gate locked for 30s.'));
+        } else {
+          setFailedVerifyCount(nextFails);
+          setPasswordError(tr('Incorrect Admin Password ({n}/5 attempts).', { n: nextFails }));
+        }
+        setAdminPasswordInput('');
       }
-      setAdminPasswordInput('');
+    } catch {
+      setPasswordError(tr('Unable to verify Admin Password right now. Please try again.'));
+    } finally {
+      remoteUnlockBusyRef.current = false;
+      setRemoteUnlockBusy(false);
     }
   };
 
@@ -273,11 +336,24 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
     successMsg: string,
     options?: { clearPinLockout?: boolean; newPlainPin?: string }
   ) => {
-    const res = await onRemoteUpdateSettings(updater, options);
-    if (res.ok) {
-      setActionFeedback({ type: 'ok', text: successMsg });
-    } else {
-      setActionFeedback({ type: 'error', text: res.error ?? tr("Failed to apply remote update.") });
+    if (remoteSavingRef.current) return;
+    remoteSavingRef.current = true;
+    setRemoteSavingBusy(true);
+    try {
+      const res = await onRemoteUpdateSettings(updater, options);
+      if (res.ok) {
+        setActionFeedback({ type: 'ok', text: successMsg });
+      } else {
+        setActionFeedback({ type: 'error', text: res.error ?? tr("Failed to apply remote update.") });
+      }
+    } catch (err) {
+      setActionFeedback({
+        type: 'error',
+        text: err instanceof Error ? err.message : tr("Failed to apply remote update."),
+      });
+    } finally {
+      remoteSavingRef.current = false;
+      setRemoteSavingBusy(false);
     }
   };
 
@@ -337,21 +413,48 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                 </button>
               </>
             ) : (
-              <button
-                type="button"
-                data-testid="pc-google-signin-button"
-                disabled={authLoading}
-                onClick={() => void onSignInGoogle()}
-                className="min-h-[40px] max-w-full px-3.5 sm:px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center gap-2 whitespace-nowrap"
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (authLoading || signInBusy || !signInCaptchaToken) return;
+                  setSignInBusy(true);
+                  try {
+                    await onSignInGoogle({
+                      captchaToken: signInCaptchaToken,
+                      website: signInHoneypot,
+                    });
+                  } finally {
+                    setSignInBusy(false);
+                    setSignInCaptchaToken(null);
+                    setSignInTurnstileResetKey((k) => k + 1);
+                  }
+                }}
+                className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto"
               >
-                <LogIn className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                <span className="sm:hidden">
-                  {authLoading ? tr("Checking...") : tr("Sign In with Google")}
-                </span>
-                <span className="hidden sm:inline">
-                  {authLoading ? tr("Checking Account...") : tr("Create Account / Sign In with Google")}
-                </span>
-              </button>
+                <TurnstileChallenge
+                  honeypot={signInHoneypot}
+                  onHoneypotChange={setSignInHoneypot}
+                  onTokenChange={setSignInCaptchaToken}
+                  resetCounter={signInTurnstileResetKey}
+                  compact
+                />
+                <button
+                  type="submit"
+                  data-testid="pc-google-signin-button"
+                  disabled={authLoading || signInBusy || !signInCaptchaToken}
+                  className="min-h-[40px] max-w-full px-3.5 sm:px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold inline-flex items-center gap-2 whitespace-nowrap"
+                >
+                  <LogIn className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  <span className="sm:hidden">
+                    {authLoading || signInBusy ? tr("Checking...") : tr("Sign In with Google")}
+                  </span>
+                  <span className="hidden sm:inline">
+                    {authLoading || signInBusy
+                      ? tr("Checking Account...")
+                      : tr("Create Account / Sign In with Google")}
+                  </span>
+                </button>
+              </form>
             )}
           </div>
         </div>
@@ -384,8 +487,10 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
           )}
 
           {user && syncedDevices.length > 0 && (
-            <div className="flex items-center gap-2">
-              <label htmlFor="pc-device-select" className="text-xs text-slate-600 dark:text-slate-400">{"\n                "}{tr("Device:")}{"\n              "}</label>
+            <div className="flex max-w-full flex-wrap items-center gap-2 min-w-0">
+              <label htmlFor="pc-device-select" className="text-xs text-slate-600 dark:text-slate-400">
+                {tr("Device:")}
+              </label>
               <select
                 id="pc-device-select"
                 value={selectedDeviceId}
@@ -393,7 +498,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                   setRemoteAdminUnlocked(false);
                   onSelectDeviceId(e.target.value);
                 }}
-                className="h-8 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-medium text-slate-800 dark:text-slate-100"
+                className="h-8 max-w-full min-w-0 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-medium text-slate-800 dark:text-slate-100"
               >
                 {syncedDevices.map((d) => (
                   <option key={d.deviceId} value={d.deviceId}>
@@ -401,6 +506,16 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                   </option>
                 ))}
               </select>
+              {hasMoreDevices && onLoadMoreDevices && (
+                <button
+                  type="button"
+                  disabled={loadingMoreDevices || !isOnline}
+                  onClick={onLoadMoreDevices}
+                  className="h-8 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 text-xs font-medium text-slate-700 dark:text-slate-200 whitespace-nowrap"
+                >
+                  {loadingMoreDevices ? tr("Loading...") : tr("Load More")}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -408,10 +523,22 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
         {(authError || syncError) && (
           <div
             role="alert"
-            className="mt-3 p-3 rounded-lg bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 text-xs text-red-900 dark:text-red-200 flex items-start gap-2"
+            className="mt-3 p-3 rounded-lg bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 text-xs text-red-900 dark:text-red-200 flex flex-wrap items-center justify-between gap-2"
           >
-            <ShieldAlert className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" aria-hidden="true" />
-            <span>{authError ?? syncError}</span>
+            <div className="flex items-start gap-2 min-w-0">
+              <ShieldAlert className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" aria-hidden="true" />
+              <span className="break-words">{authError ?? syncError}</span>
+            </div>
+            {syncError && onRetrySync && isOnline && (
+              <button
+                type="button"
+                disabled={syncBusy || devicesLoading}
+                onClick={onRetrySync}
+                className="px-2.5 py-1 rounded-md border border-red-300 dark:border-red-700 bg-white dark:bg-red-950 hover:bg-red-100 dark:hover:bg-red-900 text-[11px] font-semibold text-red-800 dark:text-red-200 whitespace-nowrap disabled:opacity-50"
+              >
+                {tr("Retry Sync")}
+              </button>
+            )}
           </div>
         )}
       </section>
@@ -486,17 +613,60 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 inline-flex items-center gap-2">
                   <Smartphone className="w-4 h-4 text-sky-600 dark:text-sky-400" aria-hidden="true" />
-                  <span>{"\n                    "}{tr("Phone Status:")}{" "}{remoteDevice?.deviceLabel ?? tr("Simulator Device")}
+                  <span>
+                    {tr("Phone Status:")}{" "}{remoteDevice?.deviceLabel ?? tr("Simulator Device")}
                   </span>
                 </h3>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{"\n                  "}{tr("Live Device Owner telemetry synced under your account. View-only status requires no Admin Password.")}{"\n                "}</p>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                  {tr("Live Device Owner telemetry synced under your account. View-only status requires no Admin Password.")}
+                </p>
               </div>
               <span className="text-xs font-mono text-slate-500 dark:text-slate-400 tabular-nums">
                 {remoteDevice
                   ? tr('Last write: {src}', { src: remoteDevice.lastModifiedBy })
-                  : tr("Initializing first cloud sync...")}
+                  : devicesLoading
+                  ? tr("Loading cloud telemetry...")
+                  : tr("Showing local device preview")}
               </span>
             </div>
+
+            {devicesLoading && !remoteDevice ? (
+              <div
+                aria-busy="true"
+                aria-label={tr("Loading cloud device telemetry")}
+                className="grid grid-cols-2 lg:grid-cols-4 gap-3"
+              >
+                {[0, 1, 2, 3].map((idx) => (
+                  <div
+                    key={idx}
+                    className="p-3.5 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 animate-pulse space-y-2"
+                  >
+                    <div className="h-3 w-24 rounded bg-slate-200 dark:bg-slate-700" />
+                    <div className="h-4 w-20 rounded bg-slate-200 dark:bg-slate-700" />
+                    <div className="h-3 w-28 rounded bg-slate-200 dark:bg-slate-700" />
+                  </div>
+                ))}
+              </div>
+            ) : !remoteDevice ? (
+              <div className="p-4 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/50 flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0 space-y-0.5">
+                  <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    {tr("No cloud snapshot found for this device yet")}
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                    {tr("Local settings remain active below. Push your current device snapshot to unlock remote editing.")}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={syncBusy || !isOnline}
+                  onClick={() => void onSyncNow()}
+                  className="min-h-[36px] px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-xs font-semibold whitespace-nowrap"
+                >
+                  {syncBusy ? tr("Syncing...") : tr("Sync This Device Now")}
+                </button>
+              </div>
+            ) : null}
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700">
@@ -698,9 +868,12 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                   </div>
                   <button
                     type="submit"
+                    disabled={remoteUnlockBusy || !remoteDevice}
                     data-testid="pc-admin-unlock-button"
-                    className="h-10 px-4 rounded-lg bg-slate-900 dark:bg-sky-600 hover:bg-slate-800 dark:hover:bg-sky-500 text-white text-xs font-semibold whitespace-nowrap shrink-0"
-                  >{"\n                    "}{tr("Unlock Settings")}{"\n                  "}</button>
+                    className="h-10 px-4 rounded-lg bg-slate-900 dark:bg-sky-600 hover:bg-slate-800 dark:hover:bg-sky-500 disabled:opacity-50 text-white text-xs font-semibold whitespace-nowrap shrink-0"
+                  >
+                    {remoteUnlockBusy ? tr("Verifying...") : tr("Unlock Settings")}
+                  </button>
                 </div>
                 {passwordError && (
                   <p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">
@@ -734,6 +907,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
+                      disabled={remoteSavingBusy}
                       data-testid="pc-clear-panic-button"
                       onClick={() =>
                         void applySettingAction(
@@ -741,24 +915,26 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                           tr('Cleared Emergency Panic Lock remotely.')
                         )
                       }
-                      className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap"
+                      className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 text-xs font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap"
                     >
                       {tr("Clear Panic Lock")}{" "}{panicMinsLeft > 0 ? tr('({m}m)', { m: panicMinsLeft }) : ''}
                     </button>
                     <button
                       type="button"
+                      disabled={remoteSavingBusy}
                       onClick={() =>
                         void applySettingAction(
                           (curr) => ({ ...curr, focusBlockUntilMs: 0 }),
                           tr('Ended Freedom Focus Lock remotely.')
                         )
                       }
-                      className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap"
+                      className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 text-xs font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap"
                     >
                       {tr("End Focus Lock")}{" "}{focusMinsLeft > 0 ? tr('({m}m)', { m: focusMinsLeft }) : ''}
                     </button>
                     <button
                       type="button"
+                      disabled={remoteSavingBusy}
                       onClick={() =>
                         void applySettingAction(
                           (curr) => ({
@@ -771,7 +947,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                           { clearPinLockout: true }
                         )
                       }
-                      className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap"
+                      className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 text-xs font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap"
                     >
                       {tr("Clear Tamper Lockout")}
                     </button>
@@ -793,13 +969,15 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                         <button
                           key={mode.id}
                           type="button"
+                          disabled={remoteSavingBusy}
+                          aria-pressed={effectiveKioskForReadout.kioskMode === mode.id}
                           onClick={() =>
                             void applySettingAction(
                               (curr) => ({ ...curr, kioskMode: mode.id }),
                               tr('Switched remote kiosk boot mode to {mode}.', { mode: tr(mode.label) })
                             )
                           }
-                          className={`px-3 py-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap ${
+                          className={`px-3 py-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap disabled:opacity-50 ${
                             effectiveKioskForReadout.kioskMode === mode.id
                               ? 'bg-sky-600 border-sky-600 text-white'
                               : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
@@ -814,7 +992,17 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
-                      const clean = titleDraft.trim() || tr("Kiosk Home");
+                      if (remoteSavingBusy) return;
+                      const parsed = kioskTitleSchema.safeParse({ title: titleDraft });
+                      if (!parsed.success) {
+                        setActionFeedback({
+                          type: 'error',
+                          text: tr(parsed.error.issues[0]?.message ?? 'Title cannot be empty.'),
+                        });
+                        return;
+                      }
+                      const clean = parsed.data.title;
+                      setTitleDraft(clean);
                       void applySettingAction(
                         (curr) => ({ ...curr, kioskTitle: clean }),
                         tr('Updated phone Kiosk Header Title to "{title}".', { title: clean })
@@ -822,20 +1010,26 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                     }}
                     className="p-4 rounded-lg border border-slate-200 dark:border-slate-800 space-y-2.5"
                   >
-                    <label htmlFor="pc-kiosk-title" className="block text-xs font-bold text-slate-900 dark:text-slate-100">{"\n                      "}{tr("Kiosk Dashboard Header Title")}{"\n                    "}</label>
+                    <label htmlFor="pc-kiosk-title" className="block text-xs font-bold text-slate-900 dark:text-slate-100">
+                      {tr("Kiosk Dashboard Header Title")}
+                    </label>
                     <div className="flex items-center gap-2">
                       <input
                         id="pc-kiosk-title"
                         type="text"
                         maxLength={80}
+                        disabled={remoteSavingBusy}
                         value={titleDraft}
                         onChange={(e) => setTitleDraft(e.target.value)}
-                        className="flex-1 h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-xs"
+                        className="flex-1 min-w-0 h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-xs disabled:opacity-50"
                       />
                       <button
                         type="submit"
-                        className="h-9 px-3 rounded-lg bg-slate-900 dark:bg-sky-600 hover:bg-slate-800 dark:hover:bg-sky-500 text-white text-xs font-semibold whitespace-nowrap"
-                      >{"\n                        "}{tr("Save")}{"\n                      "}</button>
+                        disabled={remoteSavingBusy}
+                        className="h-9 px-3 rounded-lg bg-slate-900 dark:bg-sky-600 hover:bg-slate-800 dark:hover:bg-sky-500 disabled:opacity-50 text-white text-xs font-semibold whitespace-nowrap shrink-0"
+                      >
+                        {remoteSavingBusy ? tr("Saving...") : tr("Save")}
+                      </button>
                     </div>
                   </form>
                 </div>
@@ -855,6 +1049,8 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                         <button
                           key={dns.id}
                           type="button"
+                          disabled={remoteSavingBusy}
+                          aria-pressed={effectiveKioskForReadout.blockerShields.familyDnsMode === dns.id}
                           onClick={() => {
                             if (dns.id === 'off' && strictMinsLeft > 0) {
                               setActionFeedback({
@@ -874,7 +1070,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                               tr('Set Family DNS mode to {dns}.', { dns: tr(dns.label) })
                             );
                           }}
-                          className={`px-2.5 py-1 rounded-lg border text-xs font-semibold whitespace-nowrap ${
+                          className={`px-2.5 py-1 rounded-lg border text-xs font-semibold whitespace-nowrap disabled:opacity-50 ${
                             effectiveKioskForReadout.blockerShields.familyDnsMode === dns.id
                               ? 'bg-slate-900 dark:bg-sky-600 border-slate-900 dark:border-sky-500 text-white'
                               : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
@@ -1049,8 +1245,18 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    const start = Math.max(0, Math.min(23, Number.parseInt(downtimeStartDraft, 10) || 0));
-                    const end = Math.max(0, Math.min(23, Number.parseInt(downtimeEndDraft, 10) || 0));
+                    const parsed = downtimeHoursSchema.safeParse({
+                      startHour: downtimeStartDraft,
+                      endHour: downtimeEndDraft,
+                    });
+                    if (!parsed.success) {
+                      setActionFeedback({
+                        type: 'error',
+                        text: tr(parsed.error.issues[0]?.message ?? 'Enter valid hours (0–23).'),
+                      });
+                      return;
+                    }
+                    const { startHour: start, endHour: end } = parsed.data;
                     setDowntimeStartDraft(String(start));
                     setDowntimeEndDraft(String(end));
                     void applySettingAction(
@@ -1173,11 +1379,16 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
 
                 {/* Allowed Apps & Per-App Limits */}
                 <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-800 space-y-2.5">
-                  <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                    {tr("Allowed Apps & Daily Time Caps")}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                      {tr("Allowed Apps & Daily Time Caps")}
+                    </div>
+                    <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 tabular-nums">
+                      {appsPagination.totalItems} {tr("apps")}
+                    </span>
                   </div>
                   <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {allInstalledApps.map((app) => {
+                    {appsPagination.items.map((app) => {
                       const allowed = effectiveKioskForReadout.allowedPackages.includes(app.packageName);
                       const limitMins = effectiveKioskForReadout.appTimeLimits[app.packageName] ?? 0;
                       const remSec = getAppRemainingSeconds(effectiveKioskForReadout, app.packageName);
@@ -1227,6 +1438,10 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                             </select>
                             <button
                               type="button"
+                              role="switch"
+                              aria-checked={allowed}
+                              aria-label={tr('Allow {label} on kiosk home', { label: app.label })}
+                              disabled={remoteSavingBusy}
                               onClick={() =>
                                 void applySettingAction(
                                   (curr) => ({
@@ -1241,7 +1456,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                                   })
                                 )
                               }
-                              className={`min-w-[74px] h-8 px-2.5 rounded-lg border text-xs font-semibold whitespace-nowrap ${
+                              className={`min-w-[74px] h-8 px-2.5 rounded-lg border text-xs font-semibold whitespace-nowrap disabled:opacity-50 ${
                                 allowed
                                   ? 'bg-sky-600 border-sky-600 text-white'
                                   : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300'
@@ -1254,24 +1469,48 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                       );
                     })}
                   </div>
+                  {appsPagination.totalPages > 1 && (
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
+                      <button
+                        type="button"
+                        disabled={!appsPagination.hasPrev}
+                        onClick={() => setAppsPage(appsPagination.page - 1)}
+                        className="px-2.5 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 disabled:opacity-40"
+                      >
+                        {tr("Previous")}
+                      </button>
+                      <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+                        {tr('Page {p} of {total}', { p: appsPagination.page, total: appsPagination.totalPages })}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={!appsPagination.hasNext}
+                        onClick={() => setAppsPage(appsPagination.page + 1)}
+                        className="px-2.5 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 disabled:opacity-40"
+                      >
+                        {tr("Next")}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Change Admin Password Remotely */}
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    if (newPinDraft.length < 4 || newPinDraft.length > MAX_ADMIN_PIN_LENGTH || newPinDraft.trim().length === 0) {
+                    const parsedPin = adminPinValueSchema.safeParse(newPinDraft);
+                    if (!parsedPin.success) {
                       setActionFeedback({
                         type: 'error',
-                        text: tr('New Admin Password must be 4 to 50 non-blank characters.'),
+                        text: tr(parsedPin.error.issues[0]?.message ?? 'New Admin Password must be 4 to 50 non-blank characters.'),
                       });
                       return;
                     }
-                    if (newPinDraft !== confirmPinDraft) {
+                    if (parsedPin.data !== confirmPinDraft) {
                       setActionFeedback({ type: 'error', text: tr('New password confirmation does not match.') });
                       return;
                     }
-                    const nextPin = newPinDraft;
+                    const nextPin = parsedPin.data;
                     setNewPinDraft('');
                     setConfirmPinDraft('');
                     void applySettingAction(
@@ -1288,25 +1527,30 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <input
                       type="password"
+                      aria-label={tr("New Admin Password")}
+                      disabled={remoteSavingBusy}
                       maxLength={MAX_ADMIN_PIN_LENGTH}
                       value={newPinDraft}
                       onChange={(e) => setNewPinDraft(e.target.value)}
                       placeholder={tr("New password (4–50 chars)")}
-                      className="h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 font-mono text-xs"
+                      className="h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 font-mono text-xs disabled:opacity-50"
                     />
                     <input
                       type="password"
+                      aria-label={tr("Confirm new Admin Password")}
+                      disabled={remoteSavingBusy}
                       maxLength={MAX_ADMIN_PIN_LENGTH}
                       value={confirmPinDraft}
                       onChange={(e) => setConfirmPinDraft(e.target.value)}
                       placeholder={tr("Confirm password")}
-                      className="h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 font-mono text-xs"
+                      className="h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 font-mono text-xs disabled:opacity-50"
                     />
                     <button
                       type="submit"
-                      className="h-9 px-4 rounded-lg bg-slate-900 dark:bg-sky-600 hover:bg-slate-800 dark:hover:bg-sky-500 text-white text-xs font-semibold whitespace-nowrap"
+                      disabled={remoteSavingBusy}
+                      className="h-9 px-4 rounded-lg bg-slate-900 dark:bg-sky-600 hover:bg-slate-800 dark:hover:bg-sky-500 disabled:opacity-50 text-white text-xs font-semibold whitespace-nowrap"
                     >
-                      {tr("Save New Password")}
+                      {remoteSavingBusy ? tr("Saving...") : tr("Save New Password")}
                     </button>
                   </div>
                 </form>
@@ -1316,14 +1560,24 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
 
           {/* Section 4: Pair Physical Android APK */}
           <section className="surface p-5 space-y-3">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="text-sm font-bold text-slate-900 dark:text-slate-100 inline-flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                 <span>{tr("Android APK Cloud Sync Credentials (Optional Pairing)")}</span>
               </div>
               <span className="text-xs text-slate-500 dark:text-slate-400">{tr("Offline-First REST Sync")}</span>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400">{"\n              "}{tr("In your Android Kiosk Launcher, open")}{" "}<strong>{tr("Admin Settings → PC Cloud Sync")}</strong>{" "}{tr("to link your physical phone using this Firebase Project & Database. Your phone continues working identically when offline.")}{"\n            "}</p>
+            <p className="text-xs text-slate-600 dark:text-slate-400">
+              {tr("In your Android Kiosk Launcher, open")}{" "}<strong>{tr("Admin Settings → PC Cloud Sync")}</strong>{" "}{tr("to link your physical phone using this Firebase Project & Database. Your phone continues working identically when offline.")}
+            </p>
+            {copyError && (
+              <p role="alert" className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                {copyError}
+              </p>
+            )}
+            <div aria-live="polite" className="sr-only">
+              {copiedKey ? tr("Copied credential to clipboard") : ''}
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
               {[
                 { key: 'uid', label: 'Account UID', val: user.uid, display: user.uid },
@@ -1359,6 +1613,7 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                   <button
                     type="button"
                     disabled={!item.val}
+                    aria-label={tr('Copy {label}', { label: tr(item.label) })}
                     onClick={() => copyText(item.key, item.val)}
                     className="px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 text-[11px] font-medium text-slate-700 dark:text-slate-200 inline-flex items-center gap-1 shrink-0"
                   >

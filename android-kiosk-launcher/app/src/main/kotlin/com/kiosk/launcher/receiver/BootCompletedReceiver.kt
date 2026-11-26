@@ -5,7 +5,9 @@ import android.content.Context
 import android.content.Intent
 import com.kiosk.launcher.admin.DevicePolicyHelper
 import com.kiosk.launcher.data.KioskPreferences
+import com.kiosk.launcher.service.ScreenLockService
 import com.kiosk.launcher.ui.KioskLauncherActivity
+import com.kiosk.launcher.ui.KioskLockScreenActivity
 
 class BootCompletedReceiver : BroadcastReceiver() {
 
@@ -25,6 +27,7 @@ class BootCompletedReceiver : BroadcastReceiver() {
         // devices that still deliver it early.
         val policy = DevicePolicyHelper(context)
         runCatching { policy.applyPolicy() }
+        runCatching { ScreenLockService.sync(context) }
 
         // Bring the kiosk back to the front after a reboot or update, but only when the
         // kiosk is enabled and owns Home: an un-opted or turned-off install must not
@@ -36,9 +39,9 @@ class BootCompletedReceiver : BroadcastReceiver() {
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 )
             }
-            // The lock screen is drawn by the kiosk activity when it resumes, so a reboot
-            // only records that one is owed; no second activity start is needed here.
-            if (prefs.customLockScreen) prefs.lockScreenPending = true
+            if (runCatching { ScreenLockReceiver.shouldTrigger(context) }.getOrDefault(false)) {
+                KioskLockScreenActivity.launch(context)
+            }
         }
     }
 }

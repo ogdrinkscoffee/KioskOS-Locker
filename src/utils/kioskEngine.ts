@@ -63,6 +63,10 @@ export interface SimulatedAndroidApp {
   description: string;
 }
 
+export interface AllowedAppConfig {
+  passwordProtected: boolean;
+}
+
 export type KioskScreen =
   | 'home'
   | 'app_lock_task'
@@ -120,6 +124,7 @@ export interface KioskState {
   browserBlockedUrl: string | null;
   customApps: SimulatedAndroidApp[];
   allowedPackages: string[];
+  allowedApps: Record<string, AllowedAppConfig>;
   adminUnlocked: boolean;
   activeScreen: KioskScreen;
   activeAppPackage: string | null;
@@ -397,6 +402,13 @@ export function createInitialKioskState(): KioskState {
       'com.enterprise.checkin',
       'com.enterprise.scanner',
     ],
+    allowedApps: {
+      [SELF_IMPROVEMENT_PACKAGE]: { passwordProtected: false },
+      [KIOSK_BROWSER_PACKAGE]: { passwordProtected: false },
+      'com.enterprise.pos': { passwordProtected: false },
+      'com.enterprise.checkin': { passwordProtected: false },
+      'com.enterprise.scanner': { passwordProtected: false },
+    },
     adminUnlocked: false,
     activeScreen: 'home',
     activeAppPackage: null,
@@ -586,6 +598,24 @@ export function getVisibleHomeApps(state: KioskState): SimulatedAndroidApp[] {
   );
 }
 
+export function syncAllowedAppsMap(
+  packages: string[],
+  existing?: Record<string, AllowedAppConfig>
+): Record<string, AllowedAppConfig> {
+  const next: Record<string, AllowedAppConfig> = {};
+  for (const pkg of packages) {
+    next[pkg] = {
+      passwordProtected: Boolean(existing?.[pkg]?.passwordProtected),
+    };
+  }
+  return next;
+}
+
+export function isAppPasswordProtected(state: KioskState, packageName: string): boolean {
+  if (!state.allowedPackages.includes(packageName)) return false;
+  return Boolean(state.allowedApps?.[packageName]?.passwordProtected);
+}
+
 /**
  * Allows any printable passcode (letters, digits, symbols, interior spaces)
  * between 4 and 50 characters inclusive. Rejects blank strings or ISO control chars.
@@ -611,17 +641,22 @@ export function isValidPackageName(packageName: string): boolean {
 export function extractHost(rawUrl: string): string {
   const trimmed = rawUrl.trim();
   if (!trimmed) return '';
+  const explicitScheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(trimmed);
+  if (explicitScheme) {
+    const scheme = explicitScheme[1].toLowerCase();
+    if (scheme !== 'http' && scheme !== 'https') {
+      return '';
+    }
+  }
   const withScheme = trimmed.includes('://') ? trimmed : `https://${trimmed}`;
   try {
     const parsed = new URL(withScheme);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return '';
+    }
     return parsed.hostname.toLowerCase().replace(/^www\./, '');
   } catch {
-    return withScheme
-      .replace(/^[a-z]+:\/\//i, '')
-      .split('/')[0]
-      .split(':')[0]
-      .toLowerCase()
-      .replace(/^www\./, '');
+    return '';
   }
 }
 
@@ -661,9 +696,20 @@ export function isUrlAllowedInKioskBrowser(
   blockedKeywords: string[] = DEFAULT_BLOCKED_KEYWORDS,
   blockShortFormFeeds = true
 ): { allowed: boolean; host: string; reason?: string } {
+  const explicitScheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(rawUrl.trim());
+  if (explicitScheme) {
+    const scheme = explicitScheme[1].toLowerCase();
+    if (scheme !== 'http' && scheme !== 'https') {
+      return {
+        allowed: false,
+        host: '',
+        reason: `Blocked unsupported URI scheme (${scheme}:). Only http:// and https:// URLs are permitted.`,
+      };
+    }
+  }
   const host = extractHost(rawUrl);
   if (!host) {
-    return { allowed: false, host: '', reason: 'Enter a valid domain or URL.' };
+    return { allowed: false, host: '', reason: 'Enter a valid http:// or https:// domain or URL.' };
   }
   const blockedMatch = BLOCKED_DISTRACTION_DOMAINS.find(
     (blocked) => host === blocked || host.endsWith(`.${blocked}`)
@@ -944,10 +990,12 @@ export function addCustomApp(
     description: `Custom application (${trimmedPkg}) added by Admin and launched in LockTask mode.`,
   };
 
+  const nextAllowed = [...state.allowedPackages, trimmedPkg];
   const nextState: KioskState = {
     ...state,
     customApps: [...(state.customApps ?? []), newApp],
-    allowedPackages: [...state.allowedPackages, trimmedPkg],
+    allowedPackages: nextAllowed,
+    allowedApps: syncAllowedAppsMap(nextAllowed, state.allowedApps),
   };
 
   return {
@@ -1348,6 +1396,7 @@ export function toggleAllowedApp(
   const updated: KioskState = {
     ...state,
     allowedPackages: nextPackages,
+    allowedApps: syncAllowedAppsMap(nextPackages, state.allowedApps),
   };
 
   return {
@@ -1359,6 +1408,118 @@ export function toggleAllowedApp(
       'info',
       timestamp
     ),
+  };
+}
+
+export function toggleAppPasswordProtection(
+  state: KioskState,
+  packageName: string,
+  enabled?: boolean,
+  timestamp = '08:31:16'
+): KioskState {
+  if (RESTRICTED_SYSTEM_PACKAGES.has(packageName) || !state.allowedPackages.includes(packageName)) {
+    return state;
+  }
+
+  const currentProtected = Boolean(state.allowedApps?.[packageName]?.passwordProtected);
+  const nextProtected = enabled !== undefined ? enabled : !currentProtected;
+  const nextAllowedApps = {
+    ...syncAllowedAppsMap(state.allowedPackages, state.allowedApps),
+    [packageName]: { passwordProtected: nextProtected },
+  };
+
+  return {
+    ...state,
+    allowedApps: nextAllowedApps,
+    events: appendEvent(
+      state.events,
+      `KioskPreferences.setAppPasswordProtected("${packageName}", ${nextProtected})`,
+      `${nextProtected ? 'Enabled' : 'Disabled'} App Access PIN protection for ${packageName}.`,
+      nextProtected ? 'enforced' : 'info',
+      timestamp
+    ),
+  };
+}
+
+export function verifyAppAccessPin(
+  state: KioskState,
+  packageName: string,
+  candidatePin: string,
+  timestamp = '08:31:10',
+  nowMs = Date.now()
+): { nextState: KioskState; verified: boolean; lockedOutSeconds?: number } {
+  const remaining = getPinLockoutRemainingSeconds(state, nowMs);
+  if (remaining > 0) {
+    return {
+      verified: false,
+      lockedOutSeconds: remaining,
+      nextState: {
+        ...state,
+        events: appendEvent(
+          state.events,
+          `AppAccessGate.verifyPin("${packageName}", ****) -> LOCKED (${remaining}s)`,
+          `App Access PIN entry temporarily locked for ${remaining}s after repeated failed attempts.`,
+          'blocked',
+          timestamp
+        ),
+      },
+    };
+  }
+
+  if (candidatePin !== state.adminPin) {
+    const nextAttempts = (state.failedPinAttempts ?? 0) + 1;
+    const triggerLockout = nextAttempts >= MAX_FAILED_PIN_ATTEMPTS;
+    const lockedUntilMs = triggerLockout
+      ? Math.max(state.pinLockedUntilMs ?? 0, nowMs + PIN_LOCKOUT_DURATION_MS)
+      : state.pinLockedUntilMs ?? 0;
+
+    const failedBase: KioskState = {
+      ...state,
+      failedPinAttempts: triggerLockout ? 0 : nextAttempts,
+      pinLockedUntilMs: lockedUntilMs,
+      events: appendEvent(
+        state.events,
+        triggerLockout
+          ? `AppAccessGate.verifyPin("${packageName}", ****) -> LOCKOUT_30S`
+          : `AppAccessGate.verifyPin("${packageName}", ****) -> false (${nextAttempts}/${MAX_FAILED_PIN_ATTEMPTS})`,
+        triggerLockout
+          ? `Too many failed App Access PIN attempts for ${packageName}. Security cooldown active for 30 seconds.`
+          : `Rejected invalid App Access PIN attempt for ${packageName} (${nextAttempts}/${MAX_FAILED_PIN_ATTEMPTS}).`,
+        'blocked',
+        timestamp
+      ),
+    };
+
+    const afterTamper = recordBypassAttempt(
+      failedBase,
+      `Invalid App Access PIN (${packageName}, ${nextAttempts}/${MAX_FAILED_PIN_ATTEMPTS})`,
+      4,
+      timestamp,
+      nowMs
+    );
+    const totalLockRemaining = getPinLockoutRemainingSeconds(afterTamper, nowMs);
+
+    return {
+      verified: false,
+      lockedOutSeconds: totalLockRemaining > 0 ? totalLockRemaining : undefined,
+      nextState: afterTamper,
+    };
+  }
+
+  return {
+    verified: true,
+    nextState: {
+      ...state,
+      failedPinAttempts: 0,
+      pinLockedUntilMs: 0,
+      events: appendEvent(
+        state.events,
+        `AppAccessGate.verifyPin("${packageName}", ****) -> true`,
+        `Verified App Access PIN to launch ${packageName}.`,
+        'allowed',
+        timestamp
+      ),
+    },
   };
 }
 
@@ -1429,6 +1590,7 @@ export function setKioskOperationMode(
     kioskMode: mode,
     singleAppPackage: nextSinglePkg,
     allowedPackages: nextAllowed,
+    allowedApps: syncAllowedAppsMap(nextAllowed, state.allowedApps),
   };
 
   return {

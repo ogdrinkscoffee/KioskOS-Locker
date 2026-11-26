@@ -49,11 +49,17 @@ data class UpdateManifest(
 
         private fun resolveApkUrl(rawApkUrl: String, feedUrl: String?): String {
             if (rawApkUrl.isEmpty()) return ""
-            if (rawApkUrl.startsWith("https://") || rawApkUrl.startsWith("http://")) {
+            if (rawApkUrl.startsWith("http://", ignoreCase = true)) return ""
+            if (rawApkUrl.startsWith("https://", ignoreCase = true)) {
                 return rawApkUrl
             }
-            if (feedUrl.isNullOrBlank()) return rawApkUrl
-            return runCatching { URI(feedUrl).resolve(rawApkUrl).toString() }.getOrDefault(rawApkUrl)
+            if (feedUrl.isNullOrBlank() || !feedUrl.startsWith("https://", ignoreCase = true)) {
+                return ""
+            }
+            return runCatching { URI(feedUrl).resolve(rawApkUrl).toString() }
+                .getOrDefault("")
+                .takeIf { it.startsWith("https://", ignoreCase = true) }
+                .orEmpty()
         }
 
         /** Accepts a feed URL or a directory URL and always yields the manifest location. */

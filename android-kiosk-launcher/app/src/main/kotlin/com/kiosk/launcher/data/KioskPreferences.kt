@@ -79,6 +79,62 @@ class KioskPreferences(context: Context) {
             .apply()
     }
 
+    // --------------------------------------------------- app access passcode
+    fun hasAppAccessPin(): Boolean = !prefs.getString(KEY_APP_PIN_HASH, null).isNullOrBlank()
+
+    fun setAppAccessPin(pin: String) {
+        val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
+        prefs.edit()
+            .putString(KEY_APP_PIN_SALT, PinHash.toHex(salt))
+            .putString(KEY_APP_PIN_HASH, digest(pin, salt))
+            .putInt(KEY_APP_PIN_FAILED, 0)
+            .putLong(KEY_APP_PIN_LOCKED_UNTIL, 0L)
+            .apply()
+    }
+
+    fun clearAppAccessPin() {
+        prefs.edit()
+            .remove(KEY_APP_PIN_SALT)
+            .remove(KEY_APP_PIN_HASH)
+            .putInt(KEY_APP_PIN_FAILED, 0)
+            .putLong(KEY_APP_PIN_LOCKED_UNTIL, 0L)
+            .apply()
+    }
+
+    fun checkAppAccessPin(pin: String): Boolean {
+        if (pin.length < MIN_PIN_LENGTH || pin.length > MAX_PIN_LENGTH || pin.isBlank()) return false
+        val stored = prefs.getString(KEY_APP_PIN_HASH, null) ?: return checkPin(pin)
+        val salt = PinHash.hexToBytes(prefs.getString(KEY_APP_PIN_SALT, "") ?: "")
+        return digest(pin, salt) == stored
+    }
+
+    fun appPinLockoutRemainingSeconds(nowMs: Long = System.currentTimeMillis()): Int {
+        val diff = prefs.getLong(KEY_APP_PIN_LOCKED_UNTIL, 0L) - nowMs
+        return if (diff > 0L) ((diff + 999L) / 1000L).toInt() else 0
+    }
+
+    fun recordFailedAppPinAttempt(nowMs: Long = System.currentTimeMillis()): Int {
+        val next = prefs.getInt(KEY_APP_PIN_FAILED, 0) + 1
+        if (next >= MAX_FAILED_PIN_ATTEMPTS) {
+            prefs.edit()
+                .putInt(KEY_APP_PIN_FAILED, 0)
+                .putLong(KEY_APP_PIN_LOCKED_UNTIL, nowMs + PIN_LOCKOUT_MS)
+                .apply()
+            tamperWarningsCount += 1
+            logPolicy("Repeated failed protected-app passcode attempts (30s lockout)")
+            return 30
+        }
+        prefs.edit().putInt(KEY_APP_PIN_FAILED, next).apply()
+        return 0
+    }
+
+    fun resetAppPinFailures() {
+        prefs.edit()
+            .putInt(KEY_APP_PIN_FAILED, 0)
+            .putLong(KEY_APP_PIN_LOCKED_UNTIL, 0L)
+            .apply()
+    }
+
     private fun digest(pin: String, salt: ByteArray): String = PinHash.digest(pin, salt)
 
     // --------------------------------------- app access password (per-app lock)
@@ -221,6 +277,27 @@ class KioskPreferences(context: Context) {
     var guardEnabled: Boolean
         get() = bool(KEY_GUARD, false)
         set(value) = setBool(KEY_GUARD, value)
+
+    // Custom lock screen replacement settings (opt-in)
+    var customLockScreenEnabled: Boolean
+        get() = bool(KEY_CUSTOM_LOCK_SCREEN, false)
+        set(value) = setBool(KEY_CUSTOM_LOCK_SCREEN, value)
+
+    var lockWidgetBattery: Boolean
+        get() = bool(KEY_LOCK_WIDGET_BATTERY, true)
+        set(value) = setBool(KEY_LOCK_WIDGET_BATTERY, value)
+
+    var lockWidgetStats: Boolean
+        get() = bool(KEY_LOCK_WIDGET_STATS, true)
+        set(value) = setBool(KEY_LOCK_WIDGET_STATS, value)
+
+    var lockWidgetNote: Boolean
+        get() = bool(KEY_LOCK_WIDGET_NOTE, true)
+        set(value) = setBool(KEY_LOCK_WIDGET_NOTE, value)
+
+    var lockScreenNote: String
+        get() = prefs.getString(KEY_LOCK_SCREEN_NOTE, "") ?: ""
+        set(value) { prefs.edit().putString(KEY_LOCK_SCREEN_NOTE, value.trim()).apply() }
 
     /**
      * Explicit record that this device was set up as a kiosk. Null only on installs that
@@ -541,6 +618,39 @@ class KioskPreferences(context: Context) {
         get() = prefs.getLong(KEY_LAUNCHER_HEARTBEAT, 0L)
         set(value) { prefs.edit().putLong(KEY_LAUNCHER_HEARTBEAT, value).apply() }
 
+    fun passwordProtectedPackages(): Set<String> =
+        prefs.getStringSet(KEY_APP_PASSWORD_PACKAGES, emptySet())?.toSet() ?: emptySet()
+
+    fun isAppPasswordRequired(packageName: String): Boolean =
+        com.kiosk.launcher.admin.AppPasswordPolicy.requiresPassword(
+            packageName,
+            passwordProtectedPackages()
+        )
+
+    fun setAppPasswordRequired(packageName: String, required: Boolean) {
+        val next = passwordProtectedPackages().toMutableSet()
+        if (required) next.add(packageName) else next.remove(packageName)
+        prefs.edit().putStringSet(KEY_APP_PASSWORD_PACKAGES, next).apply()
+    }
+
+    fun lockScreenQuickApps(): List<String> {
+        val raw = prefs.getString(KEY_LOCK_QUICK_APPS, null) ?: return emptyList()
+        return runCatching {
+            val array = JSONArray(raw)
+            (0 until array.length()).mapNotNull { i ->
+                array.optString(i)?.takeIf { it.isNotBlank() }
+            }.distinct()
+        }.getOrDefault(emptyList())
+    }
+
+    fun setLockScreenQuickApps(packages: List<String>) {
+        val array = JSONArray()
+        packages.distinct()
+            .take(com.kiosk.launcher.admin.AppPasswordPolicy.MAX_QUICK_LAUNCH_APPS)
+            .forEach { array.put(it) }
+        putRaw(KEY_LOCK_QUICK_APPS, array.toString())
+    }
+
     // --------------------------------------------------------- uninstall blocks
     /**
      * Packages this app currently holds an uninstall block on. Recording them is what
@@ -722,6 +832,17 @@ class KioskPreferences(context: Context) {
         private const val KEY_BEST = "best_streak"
         private const val KEY_LAST_CLEAN = "last_clean_day"
         private const val KEY_POLICY_LOG = "policy_log"
+        private const val KEY_APP_PIN_HASH = "app_pin_hash"
+        private const val KEY_APP_PIN_SALT = "app_pin_salt"
+        private const val KEY_APP_PIN_FAILED = "app_pin_failed_attempts"
+        private const val KEY_APP_PIN_LOCKED_UNTIL = "app_pin_locked_until_ms"
+        private const val KEY_APP_PASSWORD_PACKAGES = "app_password_packages"
+        private const val KEY_CUSTOM_LOCK_SCREEN = "custom_lock_screen_enabled"
+        private const val KEY_LOCK_WIDGET_BATTERY = "lock_widget_battery"
+        private const val KEY_LOCK_WIDGET_STATS = "lock_widget_stats"
+        private const val KEY_LOCK_WIDGET_NOTE = "lock_widget_note"
+        private const val KEY_LOCK_SCREEN_NOTE = "lock_screen_note"
+        private const val KEY_LOCK_QUICK_APPS = "lock_screen_quick_apps"
 
         private val DEFAULT_DOMAINS = setOf("wikipedia.org", "khanacademy.org")
         private val DEFAULT_BLOCKED_KEYWORDS = setOf("porn", "xxx", "nsfw", "onlyfans", "hentai", "xvideos", "xnxx")

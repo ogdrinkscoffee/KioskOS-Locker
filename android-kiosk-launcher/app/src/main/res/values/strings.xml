@@ -31,6 +31,7 @@
     <string name="action_focus">Focus</string>
     <string name="action_admin">Admin</string>
     <string name="action_panic">Panic</string>
+    <string name="action_home">Home</string>
     <string name="app_not_allowed_fmt">%1$s is not allowed</string>
     <string name="cannot_open_app_fmt">Cannot open %1$s</string>
     <string name="panic_banner_fmt">Emergency Panic Lock active (%1$dm left) · Non-essential apps locked</string>
@@ -49,15 +50,6 @@
     <string name="pin_error_locked_fmt">Too many failed attempts. Locked for %1$ds.</string>
     <string name="pin_error_length">Passcode must be 4 to 50 non-blank characters.</string>
     <string name="pin_helper_default">Default passcode is 1234 until you change it in Admin.</string>
-
-    <!-- Per-app password protection -->
-    <string name="app_pin_title_fmt">Unlock %1$s</string>
-    <string name="app_pin_label">App password (4–50 characters)</string>
-    <string name="app_pin_hint">App password…</string>
-    <string name="app_pin_helper">Ask your administrator if you do not know this password.</string>
-    <string name="require_password">Require Password</string>
-    <string name="app_locked_badge">Password protected</string>
-    <string name="app_locked_content_desc_fmt">%1$s — password required</string>
 
     <!-- Admin Settings -->
     <string name="admin_title">Admin</string>
@@ -109,24 +101,6 @@
     <string name="new_passcode_hint">New passcode (4–50 chars)</string>
     <string name="passcode_updated">Admin passcode updated</string>
     <string name="passcode_length_error">Passcode must be 4 to 50 non-blank characters</string>
-
-    <string name="eyebrow_app_password">App access password</string>
-    <string name="app_pin_admin_title">App access password (4–50 chars)</string>
-    <string name="app_pin_admin_desc">Asked before an app marked "Require Password" opens. Stored as a salted SHA-256 hash, never in plain text, and kept separate from the admin passcode.</string>
-    <string name="app_pin_state_set">Set — protected apps ask for this password.</string>
-    <string name="app_pin_state_unset">Not set yet — protected apps open without asking until you choose one.</string>
-    <string name="app_pin_set_action">Set password</string>
-    <string name="app_pin_change_action">Change password</string>
-    <string name="app_pin_clear_action">Clear password</string>
-    <string name="app_pin_clear_confirm_title">Clear the app access password?</string>
-    <string name="app_pin_clear_confirm_body">Apps marked "Require Password" open without asking until a new password is set.</string>
-    <string name="app_pin_dialog_title">App access password</string>
-    <string name="app_pin_saved">App access password set</string>
-    <string name="app_pin_cleared">App access password cleared</string>
-    <string name="app_pin_required_toast">Set an app access password first</string>
-    <string name="log_app_pin_set">App access password changed</string>
-    <string name="log_app_pin_cleared">App access password cleared</string>
-    <string name="log_app_protected_fmt">%1$s now requires the app password</string>
     <string name="clear_panic_lock">Clear Panic Lock</string>
     <string name="panic_cleared">Emergency Panic Lock cleared</string>
     <string name="open_system_settings">Open System Settings</string>
@@ -202,38 +176,6 @@
     <string name="log_guard_disabled">Window guard disabled</string>
     <string name="log_browser_allowlist_fmt">Browser allowlist: %1$d domain(s), %2$d keyword(s)</string>
     <string name="log_passcode_changed">Admin passcode changed</string>
-
-    <!-- Custom lock screen -->
-    <string name="lock_swipe_hint">Swipe up to unlock</string>
-    <string name="lock_battery_label">Battery</string>
-    <string name="lock_battery_charging">Charging</string>
-    <string name="lock_battery_discharging">On battery</string>
-    <string name="lock_battery_unknown">—</string>
-    <string name="lock_note_label">Message</string>
-    <string name="lock_quick_launch_label">Quick launch</string>
-
-    <string name="eyebrow_lock_screen">Custom lock screen</string>
-    <string name="lock_screen_desc">A full-screen clock, widget area and quick-launch dock that replaces the Android lock screen.</string>
-    <string name="lock_screen_toggle">Use custom lock screen</string>
-    <string name="lock_screen_hint">Turning this on also asks Android to skip its own lock screen. A device owner with no lock password skips it completely; otherwise Android keeps its lock screen and Ironclad OS appears on top of it.</string>
-    <string name="lock_screen_note_label">Lock screen message</string>
-    <string name="lock_screen_note_hint">Shown in the lock screen widget area</string>
-    <string name="lock_screen_save_note">Save message</string>
-    <string name="lock_screen_note_saved">Lock screen message saved</string>
-    <string name="lock_screen_quick_launch">Quick-launch apps</string>
-    <string name="lock_screen_quick_launch_title">Lock screen quick launch</string>
-    <string name="lock_screen_quick_launch_empty">None selected</string>
-    <string name="lock_screen_quick_launch_detail_fmt">%1$d selected · shown along the bottom of the lock screen</string>
-    <string name="lock_screen_quick_launch_none">Allow a few apps first, then pick quick-launch icons.</string>
-    <string name="lock_screen_quick_launch_saved_fmt">%1$d quick-launch app(s) saved</string>
-    <string name="lock_screen_preview">Preview lock screen</string>
-    <string name="lock_screen_enabled_toast">Custom lock screen on — press the power button to see it</string>
-    <string name="lock_screen_disabled_toast">Custom lock screen off</string>
-    <string name="lock_screen_unavailable">Turn the custom lock screen on first</string>
-    <string name="log_lock_screen_on">Custom lock screen enabled</string>
-    <string name="log_lock_screen_off">Custom lock screen disabled</string>
-    <string name="log_lock_screen_note">Lock screen message updated</string>
-    <string name="log_lock_screen_shortcuts_fmt">Lock screen quick launch: %1$d app(s)</string>
 
     <!-- Kiosk Browser -->
     <string name="browser_title">Kiosk browser</string>
@@ -451,22 +393,57 @@
     <string name="update_feed_saved">Custom update URL saved</string>
     <string name="update_feed_cleared">Using built-in automatic update source</string>
     <string name="update_default_feed" translatable="false">https://ais-pre-u5dgsx5axes4w2tjefjlrb-528486795455.europe-west1.run.app/downloads/latest.json</string>
-    <!-- Kiosk schedule -->
-    <string name="eyebrow_schedule">Kiosk schedule</string>
-    <string name="schedule_desc">The kiosk applies only inside these windows; outside them the device is a normal phone. One window per line, for example Mon-Fri 08:00-15:00 or 20:00-07:00.</string>
-    <string name="schedule_toggle">Use a schedule</string>
-    <string name="schedule_windows_hint">Mon-Fri 08:00-15:00</string>
-    <string name="schedule_save">Save schedule</string>
-    <string name="schedule_saved">Schedule saved</string>
-    <string name="schedule_state_off">Schedule off — the kiosk applies all the time.</string>
-    <string name="schedule_state_empty">No windows yet — the kiosk stays on all the time.</string>
-    <string name="schedule_state_kiosk">Kiosk mode is on right now.</string>
-    <string name="schedule_state_open">Normal phone right now.</string>
-    <string name="schedule_invalid_fmt">Line %1$d is not a valid window — fix it and save again.</string>
-    <string name="log_schedule_on">Schedule enabled</string>
-    <string name="log_schedule_off">Schedule disabled</string>
-    <string name="log_schedule_saved">Kiosk schedule saved</string>
-    <string name="allowlist_weekdays">Weekdays</string>
-    <string name="allowlist_weekends">Weekends</string>
-    <string name="allowlist_scope_desc">These lists apply inside the kiosk windows.</string>
+
+    <!-- Per-app password protection -->
+    <string name="require_password_short">Require Password</string>
+    <string name="app_pin_title_fmt">Unlock %1$s</string>
+    <string name="app_pin_helper_default">Uses your Admin passcode until a custom App Access passcode is set in Admin.</string>
+    <string name="app_pin_helper_custom">Enter the App Access passcode set by Admin.</string>
+    <string name="app_pin_section_title">App access passcode</string>
+    <string name="app_pin_status_default">Currently using Admin passcode</string>
+    <string name="app_pin_status_custom">Custom App Access passcode active</string>
+    <string name="app_pin_set_button">Set passcode</string>
+    <string name="app_pin_change_title">App access passcode</string>
+    <string name="app_pin_reset_default">Use Admin passcode</string>
+    <string name="app_pin_updated">App Access passcode updated</string>
+    <string name="app_pin_reset_done">Protected apps now use the Admin passcode</string>
+    <string name="log_app_pin_changed">App Access passcode updated</string>
+    <string name="log_app_pin_reset">App Access passcode reset to Admin passcode</string>
+
+    <!-- Custom lock screen -->
+    <string name="eyebrow_custom_lock_screen">Custom lock screen</string>
+    <string name="custom_lock_enable">Replace system lock screen</string>
+    <string name="custom_lock_enable_desc">Show a glassmorphism lock screen with clock, widgets, and quick-launch apps on wake.</string>
+    <string name="lock_widget_battery_title">Battery widget</string>
+    <string name="lock_widget_battery_desc">Display battery percentage and charging status</string>
+    <string name="lock_widget_stats_title">Streak &amp; focus widget</string>
+    <string name="lock_widget_stats_desc">Display clean streak, today\'s habits, and focus minutes</string>
+    <string name="lock_widget_note_title">Custom note widget</string>
+    <string name="lock_widget_note_desc">Display an admin reminder or recovery message on the lock screen</string>
+    <string name="lock_note_hint">Lock screen note (optional — defaults to Why I locked this device)</string>
+    <string name="lock_note_save">Save note</string>
+    <string name="lock_note_saved">Lock screen note saved</string>
+    <string name="lock_quick_apps_button">Quick-launch dock (%1$d)</string>
+    <string name="lock_quick_apps_title">Choose quick-launch apps (max %1$d)</string>
+    <string name="lock_quick_apps_empty">Allow at least one app first to pin it to the lock screen dock.</string>
+    <string name="lock_quick_apps_max_toast">You can pin up to %1$d quick-launch apps</string>
+    <string name="lock_quick_apps_saved_fmt">Saved %1$d quick-launch app(s)</string>
+    <string name="lock_preview_button">Preview lock screen</string>
+    <string name="lock_service_notification_title">Ironclad Lock Screen active</string>
+    <string name="lock_service_notification_text">Listening for screen wake events while kiosk mode is running.</string>
+    <string name="lock_pill_active">IRONCLAD LOCK</string>
+    <string name="lock_pill_panic">PANIC LOCKDOWN</string>
+    <string name="lock_battery_label">Battery</string>
+    <string name="lock_battery_charging_fmt">%1$d%% · Charging</string>
+    <string name="lock_battery_unplugged_fmt">%1$d%% · Ready</string>
+    <string name="lock_widget_streak_title">Recovery &amp; focus</string>
+    <string name="lock_widget_streak_value_fmt">%1$dd streak</string>
+    <string name="lock_widget_streak_detail_fmt">%1$d/%2$d habits · %3$dm focus</string>
+    <string name="lock_widget_note_title_card">Focus reminder</string>
+    <string name="lock_widget_note_default">Stay intentional. One clean decision at a time.</string>
+    <string name="lock_quick_dock_label">Quick launch</string>
+    <string name="lock_swipe_unlock_hint">Swipe up to unlock</string>
+    <string name="lock_unlock_button">Unlock</string>
+    <string name="log_custom_lock_enabled">Custom lock screen enabled</string>
+    <string name="log_custom_lock_disabled">Custom lock screen disabled</string>
 </resources>

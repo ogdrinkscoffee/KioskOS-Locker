@@ -45,7 +45,7 @@ const MODE_LABEL: Record<KioskState['kioskMode'], string> = {
 function Stat({ value, label }: { value: string; label: string }) {
   return (
     <div className="min-w-0">
-      <div className="stat-value">{value}</div>
+      <div className="stat-value tabular-nums">{value}</div>
       <div className="mt-0.5 truncate text-[11px] font-medium text-slate-500 dark:text-slate-400">
         {label}
       </div>

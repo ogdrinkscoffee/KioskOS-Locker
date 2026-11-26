@@ -30,6 +30,9 @@ import {
   filterNotes,
 } from '../utils/selfImprovementEngine';
 import { useI18n } from '../i18n/LocaleProvider';
+import { DEFAULT_PAGE_SIZE, paginateItems } from '../utils/pagination';
+import { TurnstileChallenge } from './TurnstileChallenge';
+import { escapeHtml, sanitizeRichHtml } from '../utils/validation';
 
 export interface DailyPromptContext {
   cleanStreakDays: number;
@@ -98,12 +101,36 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
   const [aiPrompt, setAiPrompt] = useState<AiDailyPrompt | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [honeypot, setHoneypot] = useState('');
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const [notesPage, setNotesPage] = useState(1);
   const editorRef = useRef<HTMLDivElement | null>(null);
+  const aiAbortRef = useRef<AbortController | null>(null);
+  const aiCooldownUntilRef = useRef<number>(0);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      aiAbortRef.current?.abort();
+    };
+  }, []);
 
   const visibleNotes = useMemo(
     () => filterNotes(notes, notebookFilter, searchQuery),
     [notes, notebookFilter, searchQuery]
   );
+
+  const notesPagination = useMemo(
+    () => paginateItems(visibleNotes, notesPage, DEFAULT_PAGE_SIZE),
+    [visibleNotes, notesPage]
+  );
+
+  useEffect(() => {
+    setNotesPage(1);
+  }, [notebookFilter, searchQuery]);
 
   const activeNote = useMemo(
     () => notes.find((n) => n.id === selectedNoteId) ?? visibleNotes[0] ?? notes[0] ?? null,
@@ -114,7 +141,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
   useEffect(() => {
     if (editorRef.current && activeNote) {
       if (editorRef.current.dataset.noteId !== activeNote.id) {
-        editorRef.current.innerHTML = activeNote.htmlContent;
+        editorRef.current.innerHTML = sanitizeRichHtml(activeNote.htmlContent);
         editorRef.current.dataset.noteId = activeNote.id;
       }
     }
@@ -122,7 +149,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
 
   const syncHtmlFromEditor = () => {
     if (!editorRef.current || !activeNote) return;
-    onUpdateNote(activeNote.id, { htmlContent: editorRef.current.innerHTML });
+    onUpdateNote(activeNote.id, { htmlContent: sanitizeRichHtml(editorRef.current.innerHTML) });
   };
 
   const runCommand = (command: string, value?: string) => {
@@ -134,12 +161,13 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
 
   const insertHtmlAtCursor = (html: string) => {
     if (!editorRef.current || !activeNote) return;
+    const safeHtml = sanitizeRichHtml(html);
     editorRef.current.focus();
     const sel = window.getSelection();
     if (sel && sel.rangeCount > 0 && editorRef.current.contains(sel.anchorNode)) {
-      document.execCommand('insertHTML', false, html);
+      document.execCommand('insertHTML', false, safeHtml);
     } else {
-      editorRef.current.innerHTML += html;
+      editorRef.current.innerHTML += safeHtml;
     }
     syncHtmlFromEditor();
   };
@@ -211,19 +239,54 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
     }
   };
 
-  const handleGenerateDailyPrompt = async () => {
+  const handleGenerateDailyPrompt = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (aiLoading) return;
+    if (honeypot.trim().length > 0) {
+      setAiError(tr('Automated submission rejected.'));
+      setTurnstileResetKey((k) => k + 1);
+      return;
+    }
+    if (!captchaToken) {
+      setAiError(tr('Please complete the Turnstile verification challenge first.'));
+      return;
+    }
+    const now = Date.now();
+    if (now < aiCooldownUntilRef.current) {
+      const waitSecs = Math.max(1, Math.ceil((aiCooldownUntilRef.current - now) / 1000));
+      setAiError(tr('Please wait {s}s before requesting another prompt.', { s: waitSecs }));
+      return;
+    }
+
+    aiAbortRef.current?.abort();
+    const controller = new AbortController();
+    aiAbortRef.current = controller;
+    const timeoutId = window.setTimeout(() => controller.abort(), 15_000);
+
     setAiLoading(true);
     setAiError(null);
     try {
       const response = await fetch('/api/notes/daily-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           ...promptContext,
           recentNoteTitles: notes.slice(0, 4).map((n) => n.title),
+          captchaToken,
+          website: honeypot,
         }),
       });
-      const data = (await response.json()) as Partial<AiDailyPrompt> & { error?: string };
+      const rawText = await response.text();
+      let data: Partial<AiDailyPrompt> & { error?: string } = {};
+      if (rawText) {
+        try {
+          data = JSON.parse(rawText) as Partial<AiDailyPrompt> & { error?: string };
+        } catch {
+          data = {};
+        }
+      }
+      if (!isMountedRef.current) return;
       if (!response.ok || !data.question) {
         setAiError(data.error ?? tr('Request failed ({status}).', { status: response.status }));
         return;
@@ -235,19 +298,27 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
         writingStarter: data.writingStarter ?? tr("Today I noticed that"),
       });
     } catch (err: unknown) {
-      setAiError(
-        err instanceof Error ? err.message : tr("Unable to reach AI Daily Prompt service.")
-      );
+      if (!isMountedRef.current) return;
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setAiError(tr('AI prompt request timed out or was cancelled.'));
+      } else {
+        setAiError(
+          err instanceof Error ? err.message : tr("Unable to reach AI Daily Prompt service.")
+        );
+      }
     } finally {
-      setAiLoading(false);
+      window.clearTimeout(timeoutId);
+      if (aiAbortRef.current === controller) {
+        aiAbortRef.current = null;
+      }
+      aiCooldownUntilRef.current = Date.now() + 2_000;
+      if (isMountedRef.current) {
+        setAiLoading(false);
+        setCaptchaToken(null);
+        setTurnstileResetKey((k) => k + 1);
+      }
     }
   };
-
-  const escapeHtml = (text: string) =>
-    text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
 
   const handleInsertPromptIntoNote = () => {
     if (!aiPrompt || !activeNote) return;
@@ -274,7 +345,10 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
         aria-label={tr("AI Daily Prompt")}
         className="surface p-4 sm:p-5 space-y-3"
       >
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <form
+          onSubmit={(e) => void handleGenerateDailyPrompt(e)}
+          className="flex flex-wrap items-center justify-between gap-3"
+        >
           <div>
             <div className="flex items-center gap-1.5 text-xs font-semibold text-sky-700 dark:text-sky-400">
               <Compass className="w-3.5 h-3.5" aria-hidden="true" />
@@ -285,20 +359,28 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
               <span className="font-mono tabular-nums">{promptContext.cleanStreakDays}d</span> {tr("clean streak, habit rate (")}<span dir="ltr">{promptContext.todayHabitPercent}%</span>) {tr("and active goals.")}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleGenerateDailyPrompt}
-            disabled={aiLoading}
-            className="min-h-[38px] px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-sky-600 dark:hover:bg-sky-500 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
-          >
-            {aiLoading ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
-            ) : (
-              <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
-            )}
-            <span>{aiLoading ? tr("Generating Prompt...") : aiPrompt ? tr("New AI Prompt") : tr("Suggest Daily Prompt")}</span>
-          </button>
-        </div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <TurnstileChallenge
+              honeypot={honeypot}
+              onHoneypotChange={setHoneypot}
+              onTokenChange={setCaptchaToken}
+              resetCounter={turnstileResetKey}
+              compact
+            />
+            <button
+              type="submit"
+              disabled={aiLoading || !captchaToken}
+              className="min-h-[38px] px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-sky-600 dark:hover:bg-sky-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
+            >
+              {aiLoading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+              )}
+              <span>{aiLoading ? tr("Generating Prompt...") : aiPrompt ? tr("New AI Prompt") : tr("Suggest Daily Prompt")}</span>
+            </button>
+          </div>
+        </form>
 
         {aiError && (
           <p role="alert" className="text-xs text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">
@@ -336,7 +418,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-[290px_1fr] gap-5 items-start">
       {/* Notes Sidebar */}
-      <aside className="surface p-4 space-y-3">
+      <aside className="surface p-4 space-y-3 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">{tr("Notebooks & Diary")}</h3>
           <button
@@ -390,6 +472,7 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
               <button
                 key={nb}
                 type="button"
+                aria-pressed={active}
                 onClick={() => setNotebookFilter(nb)}
                 className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
                   active
@@ -404,12 +487,42 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
         </div>
 
         <div className="space-y-1 max-h-[440px] overflow-y-auto pe-0.5">
-          {visibleNotes.length === 0 ? (
-            <p className="text-xs text-slate-500 dark:text-slate-400 py-4 text-center">
-              {tr("No notes in this view. Create a new note above.")}
-            </p>
+          {notesPagination.totalItems === 0 ? (
+            <div className="py-5 px-3 text-center space-y-2.5 rounded-lg border border-dashed border-slate-200 dark:border-slate-800">
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                {searchQuery.trim() || notebookFilter !== 'All'
+                  ? tr("No notes match your current filter.")
+                  : tr("No notes yet. Create your first reflection note.")}
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {(searchQuery.trim() || notebookFilter !== 'All') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setNotebookFilter('All');
+                    }}
+                    className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-[11px] font-medium text-slate-700 dark:text-slate-200"
+                  >
+                    {tr("Reset Filters")}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    onCreateNote(
+                      notebookFilter === 'All' ? 'Diary' : notebookFilter,
+                      tr('Untitled Note')
+                    )
+                  }
+                  className="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-[11px] font-semibold"
+                >
+                  {tr("Create Note")}
+                </button>
+              </div>
+            </div>
           ) : (
-            visibleNotes.map((note) => {
+            notesPagination.items.map((note) => {
               const selected = activeNote?.id === note.id;
               return (
                 <div
@@ -463,6 +576,29 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
             })
           )}
         </div>
+        {notesPagination.totalPages > 1 && (
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400">
+            <button
+              type="button"
+              disabled={!notesPagination.hasPrev}
+              onClick={() => setNotesPage((p) => Math.max(1, p - 1))}
+              className="px-2 py-1 rounded border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-800"
+            >
+              {tr('Previous')}
+            </button>
+            <span className="tabular-nums">
+              {tr('Page {p} of {total}', { p: notesPagination.page, total: notesPagination.totalPages })}
+            </span>
+            <button
+              type="button"
+              disabled={!notesPagination.hasNext}
+              onClick={() => setNotesPage((p) => p + 1)}
+              className="px-2 py-1 rounded border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-800"
+            >
+              {tr('Next')}
+            </button>
+          </div>
+        )}
       </aside>
 
       {/* Notion-Style Rich Editor */}
@@ -478,13 +614,16 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                 <input
                   id="active-note-title"
                   type="text"
+                  maxLength={160}
                   value={activeNote.title}
                   onChange={(e) => onUpdateNote(activeNote.id, { title: e.target.value })}
-                  className="flex-1 min-w-[200px] text-lg font-bold text-slate-900 dark:text-slate-100 bg-transparent border-b border-transparent focus:border-sky-500 focus:outline-none py-0.5"
+                  className="flex-1 min-w-0 sm:min-w-[200px] text-lg font-bold text-slate-900 dark:text-slate-100 bg-transparent border-b border-transparent focus:border-sky-500 rounded px-1 py-0.5"
                 />
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <label htmlFor="active-note-notebook" className="sr-only">{"\n                    "}{tr("Notebook")}{"\n                  "}</label>
+                  <label htmlFor="active-note-notebook" className="sr-only">
+                    {tr("Notebook")}
+                  </label>
                   <select
                     id="active-note-notebook"
                     value={activeNote.notebook}
@@ -504,7 +643,11 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
               </div>
 
               {/* Formatting Toolbar */}
-              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <div
+                role="toolbar"
+                aria-label={tr("Note formatting controls")}
+                className="flex flex-wrap items-center gap-1.5 pt-1"
+              >
                 {/* Font Type */}
                 <label htmlFor="editor-font-family" className="sr-only">{"\n                  "}{tr("Font type")}{"\n                "}</label>
                 <select

@@ -34,7 +34,31 @@ service cloud.firestore {
     function isStringListBounded(arr, maxLen) {
       return arr is list
         && arr.size() <= maxLen
-        && (arr.size() == 0 || (arr[0] is string && arr[0].size() <= 160));
+        && (arr.size() == 0
+          || (arr[0] is string && arr[0].size() <= 160
+            && arr[arr.size() - 1] is string && arr[arr.size() - 1].size() <= 160));
+    }
+
+    function isMapListBounded(arr, maxLen) {
+      return arr is list
+        && arr.size() <= maxLen
+        && (arr.size() == 0
+          || (arr[0] is map && arr[arr.size() - 1] is map));
+    }
+
+    function isValidNoteEntry(entry) {
+      return entry is map
+        && entry.keys().hasAll(['id', 'title', 'htmlContent'])
+        && entry.id is string && entry.id.size() >= 1 && entry.id.size() <= 80
+        && entry.title is string && entry.title.size() <= 160
+        && entry.htmlContent is string && entry.htmlContent.size() <= 50000;
+    }
+
+    function isValidNotesList(arr) {
+      return arr is list
+        && arr.size() <= 100
+        && (arr.size() == 0
+          || (isValidNoteEntry(arr[0]) && isValidNoteEntry(arr[arr.size() - 1])));
     }
 
     function isValidUserAccount(data, userId) {
@@ -202,11 +226,11 @@ service cloud.firestore {
         && isStringListBounded(data.cleanCheckInDates, 400)
         && data.urgeVictories is number && data.urgeVictories >= 0 && data.urgeVictories <= 1000000
         && data.whyIStarted is string && data.whyIStarted.size() <= 2000
-        && data.focusSessions is list && data.focusSessions.size() <= 200 && (data.focusSessions.size() == 0 || data.focusSessions[0] is map)
-        && data.habits is list && data.habits.size() <= 80 && (data.habits.size() == 0 || data.habits[0] is map)
-        && data.tasks is list && data.tasks.size() <= 150 && (data.tasks.size() == 0 || data.tasks[0] is map)
-        && data.goals is list && data.goals.size() <= 50 && (data.goals.size() == 0 || data.goals[0] is map)
-        && data.notes is list && data.notes.size() <= 100 && (data.notes.size() == 0 || data.notes[0] is map)
+        && isMapListBounded(data.focusSessions, 200)
+        && isMapListBounded(data.habits, 80)
+        && isMapListBounded(data.tasks, 150)
+        && isMapListBounded(data.goals, 50)
+        && isValidNotesList(data.notes)
         && data.lastUpdatedSource is string && data.lastUpdatedSource in ['mobile_app', 'web_simulator', 'pc_web']
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;

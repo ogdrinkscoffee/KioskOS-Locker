@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Activity,
   CheckCircle2,
@@ -42,6 +42,7 @@ import {
   isDowntimeActive,
 } from '../utils/kioskEngine';
 import { useI18n } from '../i18n/LocaleProvider';
+import { DEFAULT_PAGE_SIZE, paginateItems } from '../utils/pagination';
 
 interface PolicyInspectorPanelProps {
   state: KioskState;
@@ -225,6 +226,19 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
 
   const activeBlockerCount = BLOCKER_SHIELD_ROWS.filter((row) => shields[row.key]).length;
   const [policySection, setPolicySection] = useState<PolicySection>('device');
+  const [eventsPage, setEventsPage] = useState(1);
+  const cooldownRef = useRef<Record<string, number>>({});
+  const canTrigger = (key: string, cooldownMs = 400): boolean => {
+    const now = Date.now();
+    const last = cooldownRef.current[key] ?? 0;
+    if (now - last < cooldownMs) return false;
+    cooldownRef.current[key] = now;
+    return true;
+  };
+  const eventsPagination = useMemo(
+    () => paginateItems(state.events, eventsPage, DEFAULT_PAGE_SIZE),
+    [state.events, eventsPage]
+  );
 
   return (
     <div className="space-y-5">
@@ -303,14 +317,25 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
 
           <button
             type="button"
-            onClick={onSimulateReboot}
-            className="min-h-[44px] px-4 py-2.5 rounded-lg border border-slate-900 dark:border-slate-700 bg-slate-900 dark:bg-slate-800 text-white hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors flex items-center justify-between"
+            disabled={state.activeScreen === 'rebooting'}
+            onClick={() => {
+              if (!canTrigger('reboot', 500)) return;
+              onSimulateReboot();
+            }}
+            className="min-h-[44px] px-4 py-2.5 rounded-lg border border-slate-900 dark:border-slate-700 bg-slate-900 dark:bg-slate-800 text-white hover:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-between gap-2"
           >
-            <div className="text-start">
-              <div className="text-xs font-semibold">{tr("Simulate Device Reboot")}</div>
-              <div className="text-[11px] text-slate-300 dark:text-slate-400">{"\n                "}{tr("Fires LOCKED_BOOT_COMPLETED")}{"\n              "}</div>
+            <div className="text-start min-w-0">
+              <div className="text-xs font-semibold">
+                {state.activeScreen === 'rebooting' ? tr("Rebooting Device...") : tr("Simulate Device Reboot")}
+              </div>
+              <div className="text-[11px] text-slate-300 dark:text-slate-400">
+                {tr("Fires LOCKED_BOOT_COMPLETED")}
+              </div>
             </div>
-            <RefreshCw className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <RefreshCw
+              className={`w-4 h-4 shrink-0 ${state.activeScreen === 'rebooting' ? 'animate-spin' : ''}`}
+              aria-hidden="true"
+            />
           </button>
 
           <button
@@ -345,7 +370,7 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
             <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">{tr("Active Kiosk Boot Profile")}</div>
             <div className="text-[11px] text-slate-600 dark:text-slate-400">{"\n              "}{tr("Choose Multi-App Grid, Single-App Auto-Launch, or Locked Web Browser mode.")}{"\n            "}</div>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {(
               [
                 { id: 'multi_app', label: 'Multi-App' },
@@ -356,6 +381,7 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
               <button
                 key={opt.id}
                 type="button"
+                aria-pressed={state.kioskMode === opt.id}
                 onClick={() => onSetKioskMode(opt.id)}
                 className={`px-3 py-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap transition-colors ${
                   state.kioskMode === opt.id
@@ -432,13 +458,15 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
 
         {/* Private DNS & VPN Bypass Guard */}
         <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="font-mono text-xs font-semibold text-slate-900 dark:text-slate-100">
+          <div className="min-w-0">
+            <div className="font-mono text-xs font-semibold text-slate-900 dark:text-slate-100 break-all">
               dpm.setGlobalPrivateDnsModeSpecifiedHost() + DISALLOW_CONFIG_VPN
             </div>
-            <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{"\n              "}{tr("System-wide DoT filtering; prevents VPN bypass when active.")}{"\n            "}</div>
+            <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+              {tr("System-wide DoT filtering; prevents VPN bypass when active.")}
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {(
               [
                 { id: 'cloudflare', label: '1.1.1.3 Family' },
@@ -449,6 +477,7 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
               <button
                 key={opt.id}
                 type="button"
+                aria-pressed={shields.familyDnsMode === opt.id}
                 onClick={() => {
                   const res = onSetFamilyDnsMode(opt.id);
                   setBlockerAlert(res.ok ? null : res.error ?? null);
@@ -794,11 +823,11 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
           <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
             dpm.setLockTaskPackages(admin, arrayOf({lockTaskWhitelist.length}))
           </div>
-          <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-3 font-mono text-xs text-slate-800 dark:text-slate-200 space-y-1">
+          <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-3 font-mono text-xs text-slate-800 dark:text-slate-200 space-y-1 min-w-0">
             {lockTaskWhitelist.map((pkg) => (
-              <div key={pkg} className="flex items-center gap-2">
+              <div key={pkg} className="flex items-center gap-2 min-w-0">
                 <CheckCircle2 className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" aria-hidden="true" />
-                <span>{pkg}</span>
+                <span className="break-all min-w-0">{pkg}</span>
               </div>
             ))}
           </div>
@@ -912,20 +941,28 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
             <button
               type="button"
               onClick={() => {
+                if (!canTrigger('panic', 600)) return;
                 if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
                   void navigator.clipboard.writeText('').catch(() => {});
                 }
                 onTriggerPanic();
               }}
               className="px-2.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold whitespace-nowrap"
-            >{"\n              "}{tr("Trigger Emergency Panic")}{"\n            "}</button>
+            >
+              {tr("Trigger Emergency Panic")}
+            </button>
             {panicLockRemaining > 0 && (
               <button
                 type="button"
                 data-testid="clear-panic-lock-button"
-                onClick={onClearPanicLockdown}
+                onClick={() => {
+                  if (!canTrigger('clear_panic', 400)) return;
+                  onClearPanicLockdown();
+                }}
                 className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap"
-              >{"\n                "}{tr("Clear Panic Lock")}{"\n              "}</button>
+              >
+                {tr("Clear Panic Lock")}
+              </button>
             )}
           </div>
         </div>
@@ -934,28 +971,44 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={onSimulateRapidAdminToggles}
+              onClick={() => {
+                if (!canTrigger('rapid_toggles', 500)) return;
+                onSimulateRapidAdminToggles();
+              }}
               className="px-3 py-1.5 rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/60 hover:bg-red-100 dark:hover:bg-red-900/60 text-xs font-semibold text-red-900 dark:text-red-200 whitespace-nowrap"
-            >{"\n              "}{tr("Simulate Rapid Admin Toggles (4x)")}{"\n            "}</button>
+            >
+              {tr("Simulate Rapid Admin Toggles (4x)")}
+            </button>
             <button
               type="button"
-              onClick={onResetTamperDiagnostics}
+              onClick={() => {
+                if (!canTrigger('reset_tamper', 400)) return;
+                onResetTamperDiagnostics();
+              }}
               className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 whitespace-nowrap"
-            >{"\n              "}{tr("Reset Diagnostics")}{"\n            "}</button>
+            >
+              {tr("Reset Diagnostics")}
+            </button>
           </div>
-          <span className="text-[11px] text-slate-500 dark:text-slate-400">{"\n            "}{tr("Thresholds: ≥4 toggles / 15s → Warning · 40+ pts → +90s Lockout · 70+ pts → +300s & 30m Shield Lock")}{"\n          "}</span>
+          <span className="text-[11px] text-slate-500 dark:text-slate-400">
+            {tr("Thresholds: ≥4 toggles / 15s → Warning · 40+ pts → +90s Lockout · 70+ pts → +300s & 30m Shield Lock")}
+          </span>
         </div>
 
         {tamperEvents.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
-            <div className="text-[11px] font-semibold text-red-800 dark:text-red-300">{"\n              "}{tr("Recent Tamper Warning Entries (")}{tamperEvents.length})
+          <div
+            aria-live="polite"
+            className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-1.5"
+          >
+            <div className="text-[11px] font-semibold text-red-800 dark:text-red-300">
+              {tr("Recent Tamper Warning Entries (")}{tamperEvents.length})
             </div>
             {tamperEvents.slice(0, 3).map((evt) => (
               <div
                 key={evt.id}
                 className="p-2 rounded-lg bg-red-50/70 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-xs text-red-900 dark:text-red-200 flex items-start justify-between gap-2"
               >
-                <span className="font-medium">{tr(evt.detail)}</span>
+                <span className="font-medium min-w-0 break-words">{tr(evt.detail)}</span>
                 <span className="font-mono text-[11px] text-red-700 dark:text-red-400 shrink-0 tabular-nums">
                   {evt.timestamp}
                 </span>
@@ -973,51 +1026,80 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
         </div>
 
         <div className="divide-y divide-slate-100 dark:divide-slate-800 mt-1 max-h-[260px] overflow-y-auto">
-          {state.events.map((event) => {
-            const isTamper =
-              event.apiCall.includes('TamperDiagnostics') ||
-              event.detail.includes('Tamper Warning');
-            return (
-              <div
-                key={event.id}
-                className={`py-2.5 flex items-start justify-between gap-3 ${
-                  isTamper ? 'bg-red-50/50 dark:bg-red-950/40 px-2 -mx-2 rounded' : ''
-                }`}
-              >
-                <div className="min-w-0">
-                  <div
-                    className={`font-mono text-xs font-medium truncate ${
-                      isTamper ? 'text-red-900 dark:text-red-200 font-semibold' : 'text-slate-900 dark:text-slate-100'
-                    }`}
-                  >
-                    {event.apiCall}
+          {eventsPagination.totalItems === 0 ? (
+            <div className="py-6 text-center text-xs text-slate-500 dark:text-slate-400">
+              {tr("No policy execution events recorded yet. Interact with the kiosk simulator or toggle policies to inspect live Android DPM traces.")}
+            </div>
+          ) : (
+            eventsPagination.items.map((event) => {
+              const isTamper =
+                event.apiCall.includes('TamperDiagnostics') ||
+                event.detail.includes('Tamper Warning');
+              return (
+                <div
+                  key={event.id}
+                  className={`py-2.5 flex items-start justify-between gap-3 ${
+                    isTamper ? 'bg-red-50/50 dark:bg-red-950/40 px-2 -mx-2 rounded' : ''
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <div
+                      className={`font-mono text-xs font-medium truncate ${
+                        isTamper ? 'text-red-900 dark:text-red-200 font-semibold' : 'text-slate-900 dark:text-slate-100'
+                      }`}
+                    >
+                      {event.apiCall}
+                    </div>
+                    <div className={`text-xs mt-0.5 ${isTamper ? 'text-red-800 dark:text-red-300' : 'text-slate-600 dark:text-slate-400'}`}>
+                      {tr(event.detail)}
+                    </div>
                   </div>
-                  <div className={`text-xs mt-0.5 ${isTamper ? 'text-red-800 dark:text-red-300' : 'text-slate-600 dark:text-slate-400'}`}>
-                    {tr(event.detail)}
+                  <div className="text-end shrink-0">
+                    <div className="font-mono text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+                      {event.timestamp}
+                    </div>
+                    <div
+                      className={`text-[11px] font-semibold capitalize ${
+                        isTamper
+                          ? 'text-red-700 dark:text-red-400'
+                          : event.outcome === 'blocked'
+                          ? 'text-red-600 dark:text-red-400'
+                          : event.outcome === 'enforced'
+                          ? 'text-emerald-700 dark:text-emerald-400'
+                          : 'text-sky-700 dark:text-sky-400'
+                      }`}
+                    >
+                      {isTamper ? tr("Tamper Warning") : tr(event.outcome)}
+                    </div>
                   </div>
                 </div>
-                <div className="text-end shrink-0">
-                  <div className="font-mono text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
-                    {event.timestamp}
-                  </div>
-                  <div
-                    className={`text-[11px] font-semibold capitalize ${
-                      isTamper
-                        ? 'text-red-700 dark:text-red-400'
-                        : event.outcome === 'blocked'
-                        ? 'text-red-600 dark:text-red-400'
-                        : event.outcome === 'enforced'
-                        ? 'text-emerald-700 dark:text-emerald-400'
-                        : 'text-sky-700 dark:text-sky-400'
-                    }`}
-                  >
-                    {isTamper ? tr("Tamper Warning") : tr(event.outcome)}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
+        {eventsPagination.totalPages > 1 && (
+          <div className="pt-3 mt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
+            <button
+              type="button"
+              disabled={!eventsPagination.hasPrev}
+              onClick={() => setEventsPage(eventsPagination.page - 1)}
+              className="px-3 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 disabled:opacity-40"
+            >
+              {tr("Previous")}
+            </button>
+            <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+              {tr('Page {p} of {total}', { p: eventsPagination.page, total: eventsPagination.totalPages })}
+            </span>
+            <button
+              type="button"
+              disabled={!eventsPagination.hasNext}
+              onClick={() => setEventsPage(eventsPagination.page + 1)}
+              className="px-3 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 disabled:opacity-40"
+            >
+              {tr("Next")}
+            </button>
+          </div>
+        )}
       </section>
       </>)}
     </div>

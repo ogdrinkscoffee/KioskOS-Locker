@@ -24,7 +24,8 @@ object KioskRestrictions {
         val screenCaptureDisabled: Boolean,
         val blockUnsupportedBrowsers: Boolean,
         val stayAwake: Boolean,
-        val temporaryAdminUnlockActive: Boolean
+        val temporaryAdminUnlockActive: Boolean,
+        val customLockScreenEnabled: Boolean = false
     )
 
     data class EnforcedState(
@@ -85,7 +86,7 @@ object KioskRestrictions {
         return EnforcedState(
             userRestrictions = restrictions,
             statusBarDisabled = config.statusBarLocked && !unlocked,
-            keyguardDisabled = config.keyguardDisabled,
+            keyguardDisabled = config.keyguardDisabled || (config.customLockScreenEnabled && !unlocked),
             cameraDisabled = config.cameraDisabled,
             screenCaptureDisabled = config.screenCaptureDisabled && !unlocked,
             suspendUnsupportedBrowsers = config.blockUnsupportedBrowsers && !unlocked,

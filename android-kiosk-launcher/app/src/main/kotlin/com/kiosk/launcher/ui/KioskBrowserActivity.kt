@@ -3,11 +3,13 @@ package com.kiosk.launcher.ui
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.EditText
@@ -47,6 +49,14 @@ class KioskBrowserActivity : AppCompatActivity() {
             domStorageEnabled = true
             allowFileAccess = false
             allowContentAccess = false
+            @Suppress("DEPRECATION")
+            allowFileAccessFromFileURLs = false
+            @Suppress("DEPRECATION")
+            allowUniversalAccessFromFileURLs = false
+            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                safeBrowsingEnabled = true
+            }
         }
 
         webView.webViewClient = object : WebViewClient() {
@@ -92,7 +102,8 @@ class KioskBrowserActivity : AppCompatActivity() {
     private fun navigateFromBar() {
         val raw = urlInput.text?.toString()?.trim().orEmpty()
         if (raw.isEmpty()) return
-        val normalized = if (raw.startsWith("http://") || raw.startsWith("https://")) raw else "https://$raw"
+        val hasScheme = raw.contains("://") || Regex("^[a-zA-Z][a-zA-Z0-9+.-]*:").containsMatchIn(raw)
+        val normalized = if (hasScheme) raw else "https://$raw"
         val uri = Uri.parse(normalized)
         if (!decide(uri)) {
             banner.visibility = View.GONE
@@ -101,8 +112,24 @@ class KioskBrowserActivity : AppCompatActivity() {
     }
 
     private fun decide(uri: Uri): Boolean {
+        val scheme = uri.scheme?.lowercase()
+        if (scheme != "http" && scheme != "https") {
+            showBlocked(
+                getString(R.string.browser_blocked_banner_fmt, scheme ?: "unknown"),
+                getString(R.string.browser_blocked_toast_fmt, scheme ?: "unknown")
+            )
+            return true
+        }
+        if (!uri.userInfo.isNullOrEmpty()) {
+            val hostLabel = uri.host.orEmpty()
+            showBlocked(
+                getString(R.string.browser_blocked_banner_fmt, hostLabel),
+                getString(R.string.browser_blocked_toast_fmt, hostLabel)
+            )
+            return true
+        }
         val full = uri.toString().lowercase()
-        val host = uri.host?.lowercase() ?: return true
+        val host = uri.host?.lowercase()?.takeIf { it.isNotBlank() } ?: return true
 
         val matchedKeyword = prefs.blockedKeywords().firstOrNull { kw ->
             kw.isNotBlank() && full.contains(kw)

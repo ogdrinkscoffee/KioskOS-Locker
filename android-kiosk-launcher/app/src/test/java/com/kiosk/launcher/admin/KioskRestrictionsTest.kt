@@ -23,7 +23,8 @@ class KioskRestrictionsTest {
         usbLocked: Boolean = false,
         statusBarLocked: Boolean = false,
         screenCaptureDisabled: Boolean = false,
-        temporaryAdminUnlockActive: Boolean = false
+        temporaryAdminUnlockActive: Boolean = false,
+        customLockScreenEnabled: Boolean = false
     ) = KioskRestrictions.Config(
         disallowSafeBoot = true,
         disallowFactoryReset = true,
@@ -37,7 +38,8 @@ class KioskRestrictionsTest {
         screenCaptureDisabled = screenCaptureDisabled,
         blockUnsupportedBrowsers = true,
         stayAwake = false,
-        temporaryAdminUnlockActive = temporaryAdminUnlockActive
+        temporaryAdminUnlockActive = temporaryAdminUnlockActive,
+        customLockScreenEnabled = customLockScreenEnabled
     )
 
     @Test
@@ -62,6 +64,19 @@ class KioskRestrictionsTest {
         assertEquals(true, state.userRestrictions[UserManager.DISALLOW_FACTORY_RESET])
         assertEquals(true, state.userRestrictions[UserManager.DISALLOW_ADD_USER])
         assertTrue(state.suspendUnsupportedBrowsers)
+    }
+
+    @Test
+    fun customLockScreenDisablesSystemKeyguardUnlessTemporarilyUnlocked() {
+        val lockedState = KioskRestrictions.computeEnforced(
+            defaultConfig(customLockScreenEnabled = true, temporaryAdminUnlockActive = false)
+        )
+        assertTrue(lockedState.keyguardDisabled)
+
+        val unlockedState = KioskRestrictions.computeEnforced(
+            defaultConfig(customLockScreenEnabled = true, temporaryAdminUnlockActive = true)
+        )
+        assertFalse(unlockedState.keyguardDisabled)
     }
 
     @Test

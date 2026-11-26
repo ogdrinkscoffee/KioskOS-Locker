@@ -1,3 +1,5 @@
+import { sanitizeRichHtml, stripControlChars } from './validation';
+
 export type NoteFontFamily = 'sans' | 'serif' | 'mono';
 export type NoteFontSize = 'sm' | 'base' | 'lg' | 'xl';
 export type NoteNotebook = 'Diary' | 'Goals & Vision' | 'Urge Reflection' | 'Notes';
@@ -312,7 +314,7 @@ export function updateWhyIStarted(
 ): SelfImprovementState {
   return {
     ...state,
-    whyIStarted: text,
+    whyIStarted: stripControlChars(text).slice(0, 2000),
   };
 }
 
@@ -528,13 +530,14 @@ export function createNote(
   dateStr = formatIsoDate()
 ): { nextState: SelfImprovementState; createdNoteId: string } {
   const id = `note-${Date.now()}-${state.notes.length}`;
+  const cleanTitle = stripControlChars(title).trim().slice(0, 160) || 'Untitled Entry';
   const note: RichNote = {
     id,
-    title: title.trim() || 'Untitled Entry',
+    title: cleanTitle,
     notebook,
     fontFamily: 'sans',
     fontSize: 'base',
-    htmlContent,
+    htmlContent: sanitizeRichHtml(htmlContent),
     pinned: false,
     updatedAt: dateStr,
   };
@@ -553,13 +556,20 @@ export function updateNote(
   patch: Partial<Pick<RichNote, 'title' | 'notebook' | 'fontFamily' | 'fontSize' | 'htmlContent' | 'pinned'>>,
   dateStr = formatIsoDate()
 ): SelfImprovementState {
+  const safePatch: typeof patch = { ...patch };
+  if (typeof safePatch.title === 'string') {
+    safePatch.title = stripControlChars(safePatch.title).slice(0, 160);
+  }
+  if (typeof safePatch.htmlContent === 'string') {
+    safePatch.htmlContent = sanitizeRichHtml(safePatch.htmlContent);
+  }
   return {
     ...state,
     notes: state.notes.map((note) =>
       note.id === noteId
         ? {
             ...note,
-            ...patch,
+            ...safePatch,
             updatedAt: dateStr,
           }
         : note
@@ -597,6 +607,22 @@ export function buildLast30DaysProgress(
   const dates = getRecentDates(30, anchorDate);
   const cleanSet = new Set(state.cleanCheckInDates);
   const todayStr = dates[dates.length - 1];
+  const totalHabits = state.habits.length;
+  const completedCountByDate = new Map<string, number>();
+
+  if (totalHabits > 0) {
+    const windowDateSet = new Set(dates);
+    for (const habit of state.habits) {
+      const seenForHabit = new Set<string>();
+      for (const d of habit.completedDates) {
+        if (windowDateSet.has(d) && !seenForHabit.has(d)) {
+          seenForHabit.add(d);
+          completedCountByDate.set(d, (completedCountByDate.get(d) ?? 0) + 1);
+        }
+      }
+    }
+  }
+
   let runningStreak = 0;
 
   return dates.map((dateStr) => {
@@ -609,14 +635,16 @@ export function buildLast30DaysProgress(
       runningStreak = 0;
     }
 
-    const dailyHabit = getDailyHabitProgress(state.habits, dateStr);
+    const completedHabits = completedCountByDate.get(dateStr) ?? 0;
+    const habitCompletionRate =
+      totalHabits > 0 ? Math.round((completedHabits / totalHabits) * 100) : 0;
     return {
       date: dateStr,
       label: dateStr.slice(5),
       cleanStreakDay: dateStr === todayStr && state.cleanStreakDays === 0 ? 0 : runningStreak,
-      habitCompletionRate: dailyHabit.percent,
-      completedHabits: dailyHabit.completed,
-      totalHabits: dailyHabit.total,
+      habitCompletionRate,
+      completedHabits,
+      totalHabits,
     };
   });
 }

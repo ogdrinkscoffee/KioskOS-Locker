@@ -9,7 +9,6 @@ import android.os.BatteryManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.os.PowerManager
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
@@ -27,9 +26,8 @@ import com.kiosk.launcher.admin.DevicePolicyHelper
 import com.kiosk.launcher.data.AppEntry
 import com.kiosk.launcher.data.InstalledAppsRepository
 import com.kiosk.launcher.data.KioskPreferences
-import com.kiosk.launcher.receiver.LockScreenController
-import com.kiosk.launcher.schedule.ScheduleController
 import com.kiosk.launcher.selfimprovement.SelfImprovementRepository
+import com.kiosk.launcher.service.ScreenLockService
 import com.kiosk.launcher.update.UpdateManager
 import com.kiosk.launcher.update.UpdateManifest
 import java.text.SimpleDateFormat
@@ -43,7 +41,7 @@ class KioskLauncherActivity : AppCompatActivity() {
     private lateinit var apps: InstalledAppsRepository
     private lateinit var focus: SelfImprovementRepository
     private val adapter = KioskAppAdapter(
-        isLocked = { prefs.isAppProtected(it) },
+        isProtected = { pkg -> prefs.isAppPasswordRequired(pkg) },
         onClick = { open(it) }
     )
 
@@ -129,6 +127,11 @@ class KioskLauncherActivity : AppCompatActivity() {
         findViewById<View>(R.id.panicButton).setOnClickListener {
             panic()
         }
+        // A real Home affordance: from any kiosk app the system Home button now works,
+        // and this guarantees a one-tap route back to the grid even when it does not.
+        findViewById<View>(R.id.homeButton).setOnClickListener {
+            returnToHome()
+        }
         // Dismissing a new-build prompt keeps the launcher quiet about that version.
         findViewById<View>(R.id.updateButton).setOnClickListener {
             pendingUpdate?.let { manifest ->
@@ -140,68 +143,33 @@ class KioskLauncherActivity : AppCompatActivity() {
         }
     }
 
+    private fun returnToHome() {
+        // Bring the launcher (singleTask) back to the front instead of stacking copies.
+        startActivity(
+            Intent(this, KioskLauncherActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        )
+        // Re-assert kiosk before the app disappears, so a Home tap can't leave it unpinned.
+        policy.enterLockTask(this)
+    }
+
     override fun onResume() {
         super.onResume()
         // Returning to Kiosk Home always ends any temporary System Settings admin unlock window.
-        val expired = closeAdminWindow()
-        // Pin before the lock screen opens, so the kiosk is never unpinned underneath it.
-        policy.enterLockTask(this)
-        // A window boundary may have passed while a kiosk app was open in front of this screen.
-        ScheduleController.refresh(this)
-        // Before the grid is painted, so the kiosk home never flashes underneath the lock screen.
-        showLockScreenIfPending()
+        if (prefs.isAdminTemporarilyUnlocked()) {
+            prefs.endTemporaryAdminWindow()
+            policy.applyPolicy()
+        }
         syncSystemBars()
+        ScreenLockService.sync(this)
         renderAll()
-        if (expired) toast(getString(R.string.admin_window_closed))
-        // Backstop for the window's alarm, which fires even when this activity is stopped.
+        // Idempotent: only enters when this is a device owner kiosk with no admin
+        // unlock window open, and does nothing while lock task is already held.
+        policy.enterLockTask(this)
+        // The window must close on its own even if the admin never returns to Home, so a
+        // "5 minute" unlock cannot silently stay open for the rest of the session.
         scheduleUnlockExpiry()
         checkForUpdate()
-    }
-
-    /**
-     * The other half of the wake trigger: a device that never stopped this activity (a display
-     * timeout with the surface still resumed) still regains focus when the display comes back.
-     */
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) showLockScreenIfPending()
-    }
-
-    /**
-     * A Home press always lands on the grid. Single- and browser-mode auto-launch on the first
-     * paint, so the first Home press used to bounce straight back into the pinned app and read
-     * as a dead Home button; the resume that follows this call paints the grid instead.
-     */
-    override fun onNewIntent(intent: Intent?) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        hasAutoLaunchedMode = true
-    }
-
-    /**
-     * The lock screen's only trigger. This activity is on screen, so the start is a foreground
-     * start and no background-activity-start rule applies. The pending flag is durable, so a
-     * wake this process never saw (boot, an update) still locks on the first resume.
-     */
-    private fun showLockScreenIfPending() {
-        if (prefs.lockScreenPending) LockScreenController.onKioskVisible(this)
-    }
-
-    /**
-     * Ends the temporary admin window and re-applies the policy it relaxed. Returns true only
-     * when the window had already run out on its own, which is what the toast reports.
-     *
-     * A window that ran out while the admin was in system Settings has to be closed here too: the
-     * alarm closes it in the background, but on a device where the alarm never arrived the
-     * released status bar, uninstall blocks and lock task packages would stay released until the
-     * next cold start.
-     */
-    private fun closeAdminWindow(): Boolean {
-        if (prefs.adminUnlockedUntilMs == 0L) return false
-        val expired = !prefs.isAdminTemporarilyUnlocked()
-        prefs.endTemporaryAdminWindow()
-        policy.applyPolicy()
-        return expired
     }
 
     /** Re-applies policy when the admin unlock window runs out while the kiosk is open. */
@@ -235,23 +203,10 @@ class KioskLauncherActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        markLockScreenPendingIfDisplayOff()
         handler.removeCallbacks(clockTick)
         handler.removeCallbacks(unlockExpiryTick)
         batteryReceiver?.let { receiver -> runCatching { unregisterReceiver(receiver) } }
         batteryReceiver = null
-    }
-
-    /**
-     * The display going dark while the kiosk is frontmost always ends in this stop, even when the
-     * process is reclaimed before ACTION_SCREEN_OFF is delivered — the case where a lock screen
-     * was owed and never appeared. A stop that leaves the display on (an app, an update, the
-     * admin window) marks nothing.
-     */
-    private fun markLockScreenPendingIfDisplayOff() {
-        if (isChangingConfigurations || isFinishing || !prefs.customLockScreen) return
-        val power = getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return
-        if (!power.isInteractive) prefs.lockScreenPending = true
     }
 
     // -------------------------------------------------------------------- render
@@ -400,9 +355,26 @@ class KioskLauncherActivity : AppCompatActivity() {
     }
 
     // ------------------------------------------------------------------- actions
-    /** Panic lockdown, the allowlist and the app password all live in [AppLaunchGate]. */
     private fun open(entry: AppEntry) {
-        AppLaunchGate.open(this, entry, apps)
+        if (prefs.isPanicLocked()) {
+            toast(getString(R.string.panic_app_blocked))
+            return
+        }
+        if (!prefs.isAllowed(entry.packageName)) {
+            toast(getString(R.string.app_not_allowed_fmt, entry.label))
+            return
+        }
+        if (prefs.isAppPasswordRequired(entry.packageName)) {
+            PinGate.promptAppPassword(this, entry.label) { launchAllowedApp(entry) }
+            return
+        }
+        launchAllowedApp(entry)
+    }
+
+    private fun launchAllowedApp(entry: AppEntry) {
+        if (!apps.launch(entry.packageName)) {
+            toast(getString(R.string.cannot_open_app_fmt, entry.label))
+        }
     }
 
     private fun panic() {
@@ -435,11 +407,9 @@ class KioskLauncherActivity : AppCompatActivity() {
 
     private fun syncSystemBars() {
         val controller = WindowInsetsControllerCompat(window, window.decorView)
-        // The navigation bar is never hidden. Under lock task it is the only Home button
-        // SystemUI offers, and hiding it is the same dead-Home failure as the old
-        // LOCK_TASK_FEATURE_NONE setting: the operator taps where Home should be and nothing
-        // happens. Back and Recents cannot leave a pinned kiosk, so the bar is not a hole.
-        controller.show(WindowInsetsCompat.Type.navigationBars())
+        controller.hide(WindowInsetsCompat.Type.navigationBars())
+        controller.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         if (!prefs.statusBarLocked || prefs.isAdminTemporarilyUnlocked()) {
             controller.show(WindowInsetsCompat.Type.statusBars())
         } else {

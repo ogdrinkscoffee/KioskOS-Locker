@@ -1,12 +1,19 @@
 package com.kiosk.launcher.admin
 
+import android.content.ComponentName
 import android.content.Context
+import android.content.IntentFilter
+import android.content.pm.ActivityInfo
+import android.content.pm.ApplicationInfo
 import androidx.test.core.app.ApplicationProvider
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 /**
@@ -37,6 +44,53 @@ class SystemFeatureResolverTest {
         assertTrue(context.packageName in protectedPkgs)
         assertTrue("com.google.android.gms" in protectedPkgs)
         assertTrue(DevicePolicyHelper.PLAY_STORE_PACKAGE in protectedPkgs)
+    }
+
+    @Test
+    fun permissionControllerPackageNameResolvesSystemHandlerOnly() {
+        val shadowPm = shadowOf(context.packageManager)
+        val resolver = SystemFeatureResolver(context)
+
+        val userAppComponent = ComponentName("com.example.fakeperm", "com.example.fakeperm.GrantActivity")
+        shadowPm.addOrUpdateActivity(
+            ActivityInfo().apply {
+                packageName = userAppComponent.packageName
+                name = userAppComponent.className
+                applicationInfo = ApplicationInfo().apply {
+                    packageName = userAppComponent.packageName
+                    flags = 0
+                }
+            }
+        )
+        shadowPm.addIntentFilterForActivity(
+            userAppComponent,
+            IntentFilter("android.content.pm.action.REQUEST_PERMISSIONS").apply {
+                addCategory(android.content.Intent.CATEGORY_DEFAULT)
+            }
+        )
+        assertNull(resolver.permissionControllerPackageName)
+
+        val systemComponent = ComponentName("com.oem.permissioncontroller", "com.oem.permissioncontroller.GrantActivity")
+        shadowPm.addOrUpdateActivity(
+            ActivityInfo().apply {
+                packageName = systemComponent.packageName
+                name = systemComponent.className
+                applicationInfo = ApplicationInfo().apply {
+                    packageName = systemComponent.packageName
+                    flags = ApplicationInfo.FLAG_SYSTEM
+                }
+            }
+        )
+        shadowPm.addIntentFilterForActivity(
+            systemComponent,
+            IntentFilter("android.content.pm.action.REQUEST_PERMISSIONS").apply {
+                addCategory(android.content.Intent.CATEGORY_DEFAULT)
+            }
+        )
+
+        resolver.invalidateCache()
+        assertEquals("com.oem.permissioncontroller", resolver.permissionControllerPackageName)
+        assertTrue("com.oem.permissioncontroller" in resolver.essentialSystemPackages())
     }
 
     @Test

@@ -21,16 +21,22 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import {
+  DocumentData,
+  QueryDocumentSnapshot,
   Timestamp,
   collection,
   doc,
   getDoc,
+  getDocs,
+  limit,
   onSnapshot,
   query,
   serverTimestamp,
   setDoc,
+  startAfter,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 import { AndroidDeviceSimulator } from './components/AndroidDeviceSimulator';
 import { FeaturesView } from './components/FeaturesView';
@@ -39,14 +45,13 @@ import { SelfImprovementWorkspace } from './components/SelfImprovementWorkspace'
 import { AdbProvisioningView } from './components/AdbProvisioningView';
 import { PolicySummary } from './components/PolicySummary';
 import { PcRemoteWorkspace } from './components/PcRemoteWorkspace';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { useI18n } from './i18n/LocaleProvider';
 import { APK_META_VARS } from './generated/apkMeta';
 import {
-  OperationType,
   User,
   auth,
   db,
-  handleFirestoreError,
   onAuthStateChanged,
   signInWithGoogleAccount,
   signOutAccount,
@@ -65,10 +70,6 @@ import {
 } from './utils/cloudSyncEngine';
 import {
   BlockerShieldToggleKey,
-  DEFAULT_ADMIN_RESTRICTIONS,
-  DEFAULT_BLOCKER_SHIELDS,
-  DEFAULT_DOWNTIME_SCHEDULE,
-  DEFAULT_HARDWARE_LOCKS,
   DowntimeSchedule,
   FamilyDnsMode,
   HardwareLockPolicyKey,
@@ -102,6 +103,7 @@ import {
   testInAppBrowserAccess,
   toggleAdminRestriction,
   toggleAllowedApp,
+  toggleAppPasswordProtection,
   toggleBlockerShield,
   toggleDeviceOwnerMode,
   toggleHardwarePolicy,
@@ -112,6 +114,7 @@ import {
   updateDowntimeSchedule,
   updateInAppBrowserWhitelist,
   updateKioskTitle,
+  verifyAppAccessPin,
 } from './utils/kioskEngine';
 import {
   SelfImprovementState,
@@ -136,6 +139,7 @@ import {
   updateNote,
   updateWhyIStarted,
 } from './utils/selfImprovementEngine';
+import { parseSelfImprovementPayload, parseStoredKioskPayload } from './utils/validation';
 
 type WorkspaceTab = 'features' | 'simulator' | 'growth' | 'policy' | 'pc' | 'adb';
 type ThemeMode = 'light' | 'dark';
@@ -146,6 +150,8 @@ const PIN_SALT_STORAGE_KEY = 'kioskos_pin_salt_v1';
 const THEME_STORAGE_KEY = 'kioskos_theme_v1';
 const DEFAULT_DEVICE_ID = 'primary-kiosk';
 const DEFAULT_PROFILE_ID = 'main';
+const DEVICE_PAGE_SIZE = 20;
+const LOCAL_SAVE_DEBOUNCE_MS = 300;
 
 function loadInitialTheme(): ThemeMode {
   if (typeof window === 'undefined') return 'light';
@@ -196,88 +202,9 @@ function loadInitialState(): KioskState {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return createInitialKioskState();
-    const parsed = JSON.parse(raw) as Partial<KioskState>;
-    const base = createInitialKioskState();
-    const migratedAllowed = Array.isArray(parsed.allowedPackages)
-      ? parsed.allowedPackages
-      : base.allowedPackages;
-    const migratedState: KioskState = {
-      ...base,
-      ...parsed,
-      adminRestrictions: {
-        ...DEFAULT_ADMIN_RESTRICTIONS,
-        ...(parsed.adminRestrictions ?? {}),
-      },
-      hardwareLocks: {
-        ...DEFAULT_HARDWARE_LOCKS,
-        ...(parsed.hardwareLocks ?? {}),
-      },
-      blockerShields: {
-        ...DEFAULT_BLOCKER_SHIELDS,
-        ...(parsed.blockerShields ?? {}),
-        inAppBrowserWhitelist: Array.isArray(parsed.blockerShields?.inAppBrowserWhitelist)
-          ? parsed.blockerShields.inAppBrowserWhitelist
-          : DEFAULT_BLOCKER_SHIELDS.inAppBrowserWhitelist,
-        blockedKeywords: Array.isArray(parsed.blockerShields?.blockedKeywords)
-          ? parsed.blockerShields.blockedKeywords
-          : DEFAULT_BLOCKER_SHIELDS.blockedKeywords,
-      },
-      appTimeLimits:
-        parsed.appTimeLimits && typeof parsed.appTimeLimits === 'object'
-          ? parsed.appTimeLimits
-          : {},
-      appUsageSeconds:
-        parsed.appUsageSeconds && typeof parsed.appUsageSeconds === 'object'
-          ? parsed.appUsageSeconds
-          : {},
-      usageDateIso:
-        typeof parsed.usageDateIso === 'string' && parsed.usageDateIso.length === 10
-          ? parsed.usageDateIso
-          : base.usageDateIso,
-      downtimeSchedule: {
-        ...DEFAULT_DOWNTIME_SCHEDULE,
-        ...(parsed.downtimeSchedule ?? {}),
-      },
-      focusBlockUntilMs:
-        typeof parsed.focusBlockUntilMs === 'number' ? parsed.focusBlockUntilMs : 0,
-      panicLockUntilMs:
-        typeof parsed.panicLockUntilMs === 'number' ? parsed.panicLockUntilMs : 0,
-      panicCount: typeof parsed.panicCount === 'number' ? parsed.panicCount : 0,
-      lastClipboardWipedAt:
-        typeof parsed.lastClipboardWipedAt === 'string' || parsed.lastClipboardWipedAt === null
-          ? parsed.lastClipboardWipedAt
-          : null,
-      blockedAttemptsToday:
-        typeof parsed.blockedAttemptsToday === 'number' ? parsed.blockedAttemptsToday : 0,
-      allowedDomains:
-        Array.isArray(parsed.allowedDomains) && parsed.allowedDomains.length > 0
-          ? parsed.allowedDomains
-          : base.allowedDomains,
-      kioskMode: parsed.kioskMode ?? base.kioskMode,
-      singleAppPackage:
-        parsed.singleAppPackage !== undefined ? parsed.singleAppPackage : base.singleAppPackage,
-      kioskTitle: parsed.kioskTitle ?? base.kioskTitle,
-      failedPinAttempts: typeof parsed.failedPinAttempts === 'number' ? parsed.failedPinAttempts : 0,
-      pinLockedUntilMs: typeof parsed.pinLockedUntilMs === 'number' ? parsed.pinLockedUntilMs : 0,
-      distrustScore: typeof parsed.distrustScore === 'number' ? parsed.distrustScore : 0,
-      tamperEscalationTier:
-        parsed.tamperEscalationTier === 1 || parsed.tamperEscalationTier === 2
-          ? parsed.tamperEscalationTier
-          : 0,
-      adminToggleTimestampsMs: Array.isArray(parsed.adminToggleTimestampsMs)
-        ? parsed.adminToggleTimestampsMs
-        : [],
-      bypassAttemptTimestampsMs: Array.isArray(parsed.bypassAttemptTimestampsMs)
-        ? parsed.bypassAttemptTimestampsMs
-        : [],
-      tamperWarningsCount:
-        typeof parsed.tamperWarningsCount === 'number' ? parsed.tamperWarningsCount : 0,
-      allowedPackages: migratedAllowed,
-      customApps: Array.isArray(parsed.customApps) ? parsed.customApps : [],
-      activeScreen: parsed.activeScreen === 'rebooting' ? 'home' : parsed.activeScreen ?? 'home',
-      events: Array.isArray(parsed.events) && parsed.events.length > 0 ? parsed.events : base.events,
-    };
-    return ensureUsageDateCurrent(migratedState, getLocalDateIso());
+    const parsed: unknown = JSON.parse(raw);
+    const validatedState = parseStoredKioskPayload(parsed, createInitialKioskState());
+    return ensureUsageDateCurrent(validatedState, getLocalDateIso());
   } catch {
     return createInitialKioskState();
   }
@@ -290,27 +217,8 @@ function loadInitialSelfImprovement(): SelfImprovementState {
   try {
     const raw = window.localStorage.getItem(SI_STORAGE_KEY);
     if (!raw) return createInitialSelfImprovementState();
-    const parsed = JSON.parse(raw) as Partial<SelfImprovementState> & Record<string, unknown>;
-    const {
-      affirmations: _a,
-      activeAffirmationIndex: _ai,
-      lastAffirmationCommittedDate: _ac,
-      ...restParsed
-    } = parsed;
-    const base = createInitialSelfImprovementState();
-    return {
-      ...base,
-      ...(restParsed as Partial<SelfImprovementState>),
-      cleanCheckInDates:
-        Array.isArray(parsed.cleanCheckInDates) && parsed.cleanCheckInDates.length > 0
-          ? parsed.cleanCheckInDates
-          : base.cleanCheckInDates,
-      focusSessions: Array.isArray(parsed.focusSessions) ? parsed.focusSessions : base.focusSessions,
-      habits: Array.isArray(parsed.habits) ? parsed.habits : base.habits,
-      tasks: Array.isArray(parsed.tasks) ? parsed.tasks : base.tasks,
-      goals: Array.isArray(parsed.goals) ? parsed.goals : base.goals,
-      notes: Array.isArray(parsed.notes) ? parsed.notes : base.notes,
-    };
+    const parsed: unknown = JSON.parse(raw);
+    return parseSelfImprovementPayload(parsed, createInitialSelfImprovementState());
   } catch {
     return createInitialSelfImprovementState();
   }
@@ -341,12 +249,27 @@ export default function App() {
   const [pendingOfflineSync, setPendingOfflineSync] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [syncedDevices, setSyncedDevices] = useState<CloudDeviceSnapshot[]>([]);
+  const [devicesLoading, setDevicesLoading] = useState(false);
+  const [hasMoreDevices, setHasMoreDevices] = useState(false);
+  const [loadingMoreDevices, setLoadingMoreDevices] = useState(false);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>(DEFAULT_DEVICE_ID);
   const [pinSalt, setPinSalt] = useState<string>(getOrCreatePinSalt);
+  const [syncRetryNonce, setSyncRetryNonce] = useState(0);
+  const [heroImageError, setHeroImageError] = useState(false);
+  const [appIconError, setAppIconError] = useState(false);
 
   const applyingRemoteDeviceRef = useRef(false);
   const applyingRemoteGrowthRef = useRef(false);
   const hasEnsuredCloudProfileRef = useRef<string | null>(null);
+  const ensuredCloudDocsRef = useRef<Set<string>>(new Set());
+  const devicesCursorRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const syncInFlightRef = useRef(false);
+  const syncRetryAttemptRef = useRef(0);
+  const syncBackoffUntilRef = useRef(0);
+  const authActionBusyRef = useRef(false);
+  const authFailuresRef = useRef(0);
+  const authCooldownUntilRef = useRef(0);
+  const rebootTimerRef = useRef<number | null>(null);
   const stateRef = useRef(state);
   const selfImprovementRef = useRef(selfImprovement);
   const syncedDevicesRef = useRef(syncedDevices);
@@ -394,48 +317,99 @@ export default function App() {
   }, [langMenuOpen]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      // Ignore storage quota errors
-    }
+    const timer = window.setTimeout(() => {
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch {
+        // Ignore storage quota errors
+      }
+    }, LOCAL_SAVE_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
   }, [state]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(SI_STORAGE_KEY, JSON.stringify(selfImprovement));
-    } catch {
-      // Ignore storage quota errors
-    }
+    const timer = window.setTimeout(() => {
+      try {
+        window.localStorage.setItem(SI_STORAGE_KEY, JSON.stringify(selfImprovement));
+      } catch {
+        // Ignore storage quota errors
+      }
+    }, LOCAL_SAVE_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
   }, [selfImprovement]);
+
+  useEffect(() => {
+    const flushLocalStorage = () => {
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(stateRef.current));
+        window.localStorage.setItem(SI_STORAGE_KEY, JSON.stringify(selfImprovementRef.current));
+      } catch {
+        // Ignore storage quota errors
+      }
+    };
+    window.addEventListener('pagehide', flushLocalStorage);
+    return () => {
+      window.removeEventListener('pagehide', flushLocalStorage);
+      flushLocalStorage();
+    };
+  }, []);
 
   // Network listeners + startup Firestore check (non-blocking for offline mode)
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
+    let mounted = true;
+    const handleOnline = () => {
+      syncBackoffUntilRef.current = 0;
+      syncRetryAttemptRef.current = 0;
+      setIsOnline(true);
+    };
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    void testConnection().then((ok) => setCloudConnected(ok));
+    void testConnection()
+      .then((ok) => {
+        if (mounted) setCloudConnected(ok);
+      })
+      .catch(() => {
+        if (mounted) setCloudConnected(false);
+      });
     return () => {
+      mounted = false;
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      if (rebootTimerRef.current !== null) {
+        window.clearTimeout(rebootTimerRef.current);
+      }
     };
   }, []);
 
   // Auth listener (optional account; mobile works 100% signed out)
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (nextUser) => {
-      setUser(nextUser);
-      setAuthLoading(false);
-      if (!nextUser) {
-        setSyncedDevices([]);
-        hasEnsuredCloudProfileRef.current = null;
-        lastDeviceDigestRef.current = null;
-        lastGrowthDigestRef.current = null;
+    const unsub = onAuthStateChanged(
+      auth,
+      (nextUser) => {
+        setUser(nextUser);
+        setAuthLoading(false);
+        if (!nextUser) {
+          setSyncedDevices([]);
+          setDevicesLoading(false);
+          setHasMoreDevices(false);
+          setSyncError(null);
+          devicesCursorRef.current = null;
+          hasEnsuredCloudProfileRef.current = null;
+          ensuredCloudDocsRef.current.clear();
+          lastDeviceDigestRef.current = null;
+          lastGrowthDigestRef.current = null;
+          syncRetryAttemptRef.current = 0;
+          syncBackoffUntilRef.current = 0;
+        }
+      },
+      (err) => {
+        setAuthLoading(false);
+        setAuthError(err instanceof Error ? err.message : tr('Authentication listener failed.'));
       }
-    });
+    );
     return () => unsub();
-  }, []);
+  }, [tr]);
 
   const pushLocalToCloud = useCallback(
     async (
@@ -446,8 +420,18 @@ export default function App() {
       overrideSalt?: string,
       forcePush = false
     ) => {
+      if (!targetUser.emailVerified) {
+        setSyncError(tr('Verify your account email to enable cloud sync. Local mode stays active.'));
+        return;
+      }
       if (!navigator.onLine) {
         setPendingOfflineSync(true);
+        return;
+      }
+      if (syncInFlightRef.current) {
+        return;
+      }
+      if (!forcePush && Date.now() < syncBackoffUntilRef.current) {
         return;
       }
 
@@ -487,6 +471,7 @@ export default function App() {
         return;
       }
 
+      syncInFlightRef.current = true;
       setSyncBusy(true);
       setSyncError(null);
       try {
@@ -511,70 +496,115 @@ export default function App() {
             });
           }
           hasEnsuredCloudProfileRef.current = targetUser.uid;
+          ensuredCloudDocsRef.current.add(userPath);
         }
 
-        if (deviceChanged) {
-          const deviceRef = doc(db, 'users', targetUser.uid, 'devices', selectedDeviceId);
-          const devSnap = await getDoc(deviceRef);
-          if (!devSnap.exists()) {
-            await setDoc(deviceRef, {
-              ...devicePayload,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            });
-          } else {
-            const { ownerId: _o, deviceId: _d, ...updatable } = devicePayload;
-            await updateDoc(deviceRef, {
-              ...updatable,
-              updatedAt: serverTimestamp(),
-            });
+        const deviceRef = doc(db, 'users', targetUser.uid, 'devices', selectedDeviceId);
+        const growthRef = doc(db, 'users', targetUser.uid, 'growth', DEFAULT_PROFILE_ID);
+
+        // Fetch existence metadata in parallel only for docs not yet known to exist in this session
+        const [devExists, growthExists] = await Promise.all([
+          !deviceChanged
+            ? Promise.resolve(false)
+            : ensuredCloudDocsRef.current.has(devicePath)
+            ? Promise.resolve(true)
+            : getDoc(deviceRef).then((snap) => snap.exists()),
+          !growthChanged
+            ? Promise.resolve(false)
+            : ensuredCloudDocsRef.current.has(growthPath)
+            ? Promise.resolve(true)
+            : getDoc(growthRef).then((snap) => snap.exists()),
+        ]);
+
+        if (deviceChanged || growthChanged) {
+          const batch = writeBatch(db);
+          if (deviceChanged) {
+            if (!devExists) {
+              batch.set(deviceRef, {
+                ...devicePayload,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              });
+            } else {
+              const { ownerId: _o, deviceId: _d, ...updatable } = devicePayload;
+              batch.update(deviceRef, {
+                ...updatable,
+                updatedAt: serverTimestamp(),
+              });
+            }
           }
-          lastDeviceDigestRef.current = nextDeviceDigest;
-        }
-
-        if (growthChanged) {
-          const growthRef = doc(db, 'users', targetUser.uid, 'growth', DEFAULT_PROFILE_ID);
-          const growthSnap = await getDoc(growthRef);
-          if (!growthSnap.exists()) {
-            await setDoc(growthRef, {
-              ...growthPayload,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            });
-          } else {
-            const { ownerId: _go, profileId: _gp, ...updatableGrowth } = growthPayload;
-            await updateDoc(growthRef, {
-              ...updatableGrowth,
-              updatedAt: serverTimestamp(),
-            });
+          if (growthChanged) {
+            if (!growthExists) {
+              batch.set(growthRef, {
+                ...growthPayload,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              });
+            } else {
+              const { ownerId: _go, profileId: _gp, ...updatableGrowth } = growthPayload;
+              batch.update(growthRef, {
+                ...updatableGrowth,
+                updatedAt: serverTimestamp(),
+              });
+            }
           }
-          lastGrowthDigestRef.current = nextGrowthDigest;
+          await batch.commit();
+          if (deviceChanged) {
+            ensuredCloudDocsRef.current.add(devicePath);
+            lastDeviceDigestRef.current = nextDeviceDigest;
+          }
+          if (growthChanged) {
+            ensuredCloudDocsRef.current.add(growthPath);
+            lastGrowthDigestRef.current = nextGrowthDigest;
+          }
         }
 
+        syncRetryAttemptRef.current = 0;
+        syncBackoffUntilRef.current = 0;
         setPendingOfflineSync(false);
         setCloudConnected(true);
         setLastSyncedAt(formatClockNow());
       } catch (err) {
         if (isNetworkUnavailableError(err)) {
+          const attempt = Math.min(5, syncRetryAttemptRef.current);
+          syncRetryAttemptRef.current = attempt + 1;
+          syncBackoffUntilRef.current = Date.now() + Math.min(60_000, 2_000 * 2 ** attempt);
           setPendingOfflineSync(true);
           setSyncError(tr('Offline or Firestore unreachable — changes remain saved locally and will sync later.'));
         } else {
-          setSyncError(err instanceof Error ? err.message : tr('Sync failed.'));
-          handleFirestoreError(err, OperationType.WRITE, `${userPath} / ${devicePath} / ${growthPath}`);
+          setSyncError(
+            err instanceof Error
+              ? err.message
+              : tr('Cloud sync failed. Local data remains saved safely.')
+          );
         }
       } finally {
+        syncInFlightRef.current = false;
         setSyncBusy(false);
       }
     },
     [pinSalt, selectedDeviceId, computeDeviceDigest, computeGrowthDigest, tr]
   );
 
-  // Attach real-time Firestore listeners ONLY when authenticated
+  // Attach bounded single-doc Firestore listeners + cursor-paginated device list (20/page)
   useEffect(() => {
     if (!user) return;
+    if (!user.emailVerified) {
+      setSyncError(tr('Verify your account email to enable cloud sync. Local mode stays active.'));
+      return;
+    }
     let cancelled = false;
     lastDeviceDigestRef.current = null;
     lastGrowthDigestRef.current = null;
+    devicesCursorRef.current = null;
+    setDevicesLoading(true);
+    setSyncError(null);
+
+    const toDeviceSnapshot = (raw: CloudDeviceSnapshot): CloudDeviceSnapshot => ({
+      ...raw,
+      createdAt: raw.createdAt instanceof Timestamp ? raw.createdAt.toMillis() : raw.createdAt,
+      updatedAt: raw.updatedAt instanceof Timestamp ? raw.updatedAt.toMillis() : raw.updatedAt,
+    });
 
     const initAndSubscribe = async () => {
       try {
@@ -591,13 +621,31 @@ export default function App() {
           });
         }
         hasEnsuredCloudProfileRef.current = user.uid;
+        ensuredCloudDocsRef.current.add(`users/${user.uid}`);
 
         const devRef = doc(db, 'users', user.uid, 'devices', selectedDeviceId);
-        const devSnap = await getDoc(devRef);
+        const growthRef = doc(db, 'users', user.uid, 'growth', DEFAULT_PROFILE_ID);
+        const devicesPageQuery = query(
+          collection(db, 'users', user.uid, 'devices'),
+          where('ownerId', '==', user.uid),
+          limit(DEVICE_PAGE_SIZE)
+        );
+
+        const [devSnap, gSnap, devicesPageSnap] = await Promise.all([
+          getDoc(devRef),
+          getDoc(growthRef),
+          getDocs(devicesPageQuery),
+        ]);
+
+        const batch = writeBatch(db);
+        let batchHasWrites = false;
+        let seededDevicePayload: Omit<CloudDeviceSnapshot, 'createdAt' | 'updatedAt'> | null = null;
+        let seededGrowthPayload: Omit<CloudGrowthSnapshot, 'createdAt' | 'updatedAt'> | null = null;
+
         if (!devSnap.exists()) {
           const currentState = stateRef.current;
           const pinHash = await hashPinWithSalt(currentState.adminPin, pinSalt);
-          const payload = buildDeviceSyncPayload({
+          seededDevicePayload = buildDeviceSyncPayload({
             state: currentState,
             ownerId: user.uid,
             deviceId: selectedDeviceId,
@@ -605,65 +653,94 @@ export default function App() {
             adminPinHash: pinHash,
             source: 'web_simulator',
           });
-          await setDoc(devRef, {
-            ...payload,
+          batch.set(devRef, {
+            ...seededDevicePayload,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           });
-          lastDeviceDigestRef.current = computeDeviceDigest(payload);
+          batchHasWrites = true;
         }
 
-        const growthRef = doc(db, 'users', user.uid, 'growth', DEFAULT_PROFILE_ID);
-        const gSnap = await getDoc(growthRef);
         if (!gSnap.exists()) {
-          const payload = buildGrowthSyncPayload({
+          seededGrowthPayload = buildGrowthSyncPayload({
             growth: selfImprovementRef.current,
             ownerId: user.uid,
             profileId: DEFAULT_PROFILE_ID,
             source: 'web_simulator',
           });
-          await setDoc(growthRef, {
-            ...payload,
+          batch.set(growthRef, {
+            ...seededGrowthPayload,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           });
-          lastGrowthDigestRef.current = computeGrowthDigest(payload);
+          batchHasWrites = true;
         }
+
+        if (batchHasWrites) {
+          await batch.commit();
+        }
+        ensuredCloudDocsRef.current.add(`users/${user.uid}/devices/${selectedDeviceId}`);
+        ensuredCloudDocsRef.current.add(`users/${user.uid}/growth/${DEFAULT_PROFILE_ID}`);
+        if (seededDevicePayload) {
+          lastDeviceDigestRef.current = computeDeviceDigest(seededDevicePayload);
+        }
+        if (seededGrowthPayload) {
+          lastGrowthDigestRef.current = computeGrowthDigest(seededGrowthPayload);
+        }
+
         if (!cancelled) {
+          const initialDocs = devicesPageSnap.docs.map((d) =>
+            toDeviceSnapshot(d.data() as CloudDeviceSnapshot)
+          );
+          devicesCursorRef.current =
+            devicesPageSnap.docs[devicesPageSnap.docs.length - 1] ?? null;
+          setHasMoreDevices(devicesPageSnap.docs.length === DEVICE_PAGE_SIZE);
+          setSyncedDevices(initialDocs);
           setCloudConnected(true);
+          setSyncError(null);
           setLastSyncedAt(formatClockNow());
         }
       } catch (err) {
-        if (isNetworkUnavailableError(err)) {
-          setPendingOfflineSync(true);
-        } else {
-          handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}`);
+        if (!cancelled) {
+          if (isNetworkUnavailableError(err)) {
+            setPendingOfflineSync(true);
+            setSyncError(
+              tr('Offline or Firestore unreachable — local mode remains active and will sync when online.')
+            );
+          } else {
+            setCloudConnected(false);
+            setSyncError(
+              err instanceof Error
+                ? err.message
+                : tr('Could not load cloud device sync. Local mode stays active.')
+            );
+          }
+        }
+      } finally {
+        if (!cancelled) {
+          setDevicesLoading(false);
         }
       }
     };
 
     void initAndSubscribe();
 
-    const devicesQuery = query(
-      collection(db, 'users', user.uid, 'devices'),
-      where('ownerId', '==', user.uid)
-    );
-
-    const unsubDevices = onSnapshot(
-      devicesQuery,
+    // Listen ONLY to the active selected device document instead of subscribing to the whole collection
+    const unsubSelectedDevice = onSnapshot(
+      doc(db, 'users', user.uid, 'devices', selectedDeviceId),
       (snapshot) => {
-        const docs = snapshot.docs.map((d) => {
-          const raw = d.data() as CloudDeviceSnapshot;
-          return {
-            ...raw,
-            createdAt: raw.createdAt instanceof Timestamp ? raw.createdAt.toMillis() : raw.createdAt,
-            updatedAt: raw.updatedAt instanceof Timestamp ? raw.updatedAt.toMillis() : raw.updatedAt,
-          };
-        });
-        setSyncedDevices(docs);
+        if (!snapshot.exists()) return;
+        const matched = toDeviceSnapshot(snapshot.data() as CloudDeviceSnapshot);
+        ensuredCloudDocsRef.current.add(`users/${user.uid}/devices/${selectedDeviceId}`);
 
-        const matched = docs.find((d) => d.deviceId === selectedDeviceId) ?? docs[0];
-        if (matched && matched.lastModifiedBy === 'pc_web') {
+        setSyncedDevices((prev) => {
+          const exists = prev.some((d) => d.deviceId === matched.deviceId);
+          return exists
+            ? prev.map((d) => (d.deviceId === matched.deviceId ? matched : d))
+            : [matched, ...prev];
+        });
+
+        if (matched.lastModifiedBy === 'pc_web') {
           applyingRemoteDeviceRef.current = true;
           const nextState = applyRemoteDeviceToKioskState(stateRef.current, matched);
           const expectedPayload = buildDeviceSyncPayload({
@@ -679,15 +756,21 @@ export default function App() {
           });
           lastDeviceDigestRef.current = computeDeviceDigest(expectedPayload);
           setState(nextState);
-          queueMicrotask(() => {
+          window.setTimeout(() => {
             applyingRemoteDeviceRef.current = false;
-          });
+          }, 0);
         }
         setLastSyncedAt(formatClockNow());
       },
       (error) => {
-        if (!isNetworkUnavailableError(error)) {
-          handleFirestoreError(error, OperationType.LIST, `users/${user.uid}/devices`);
+        if (isNetworkUnavailableError(error)) {
+          setPendingOfflineSync(true);
+        } else {
+          setSyncError(
+            error instanceof Error
+              ? error.message
+              : tr('Cloud listener paused. Local data remains saved safely.')
+          );
         }
       }
     );
@@ -696,6 +779,7 @@ export default function App() {
       doc(db, 'users', user.uid, 'growth', DEFAULT_PROFILE_ID),
       (snapshot) => {
         if (!snapshot.exists()) return;
+        ensuredCloudDocsRef.current.add(`users/${user.uid}/growth/${DEFAULT_PROFILE_ID}`);
         const remote = snapshot.data() as CloudGrowthSnapshot;
         if (remote.lastUpdatedSource && remote.lastUpdatedSource !== 'web_simulator') {
           applyingRemoteGrowthRef.current = true;
@@ -708,29 +792,78 @@ export default function App() {
           });
           lastGrowthDigestRef.current = computeGrowthDigest(expectedGrowthPayload);
           setSelfImprovement(nextGrowth);
-          queueMicrotask(() => {
+          window.setTimeout(() => {
             applyingRemoteGrowthRef.current = false;
-          });
+          }, 0);
         }
       },
       (error) => {
-        if (!isNetworkUnavailableError(error)) {
-          handleFirestoreError(error, OperationType.GET, `users/${user.uid}/growth/${DEFAULT_PROFILE_ID}`);
+        if (isNetworkUnavailableError(error)) {
+          setPendingOfflineSync(true);
+        } else {
+          setSyncError(
+            error instanceof Error
+              ? error.message
+              : tr('Growth sync listener paused. Local data remains saved safely.')
+          );
         }
       }
     );
 
     return () => {
       cancelled = true;
-      unsubDevices();
+      unsubSelectedDevice();
       unsubGrowth();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, selectedDeviceId]);
+  }, [user, selectedDeviceId, syncRetryNonce]);
 
-  // Debounced auto-sync when local Kiosk or Growth state changes while signed in
+  const handleLoadMoreDevices = useCallback(async () => {
+    if (!user || !user.emailVerified || loadingMoreDevices || !hasMoreDevices || !devicesCursorRef.current) {
+      return;
+    }
+    setLoadingMoreDevices(true);
+    try {
+      const nextPageQuery = query(
+        collection(db, 'users', user.uid, 'devices'),
+        where('ownerId', '==', user.uid),
+        startAfter(devicesCursorRef.current),
+        limit(DEVICE_PAGE_SIZE)
+      );
+      const snap = await getDocs(nextPageQuery);
+      const moreDocs = snap.docs.map((d) => {
+        const raw = d.data() as CloudDeviceSnapshot;
+        return {
+          ...raw,
+          createdAt: raw.createdAt instanceof Timestamp ? raw.createdAt.toMillis() : raw.createdAt,
+          updatedAt: raw.updatedAt instanceof Timestamp ? raw.updatedAt.toMillis() : raw.updatedAt,
+        };
+      });
+      devicesCursorRef.current = snap.docs[snap.docs.length - 1] ?? null;
+      setHasMoreDevices(snap.docs.length === DEVICE_PAGE_SIZE);
+      if (moreDocs.length > 0) {
+        setSyncedDevices((prev) => {
+          const seen = new Set(prev.map((d) => d.deviceId));
+          return [...prev, ...moreDocs.filter((d) => !seen.has(d.deviceId))];
+        });
+      }
+    } catch (err) {
+      if (isNetworkUnavailableError(err)) {
+        setPendingOfflineSync(true);
+      } else {
+        setSyncError(
+          err instanceof Error ? err.message : tr('Failed to load additional synced devices.')
+        );
+      }
+    } finally {
+      setLoadingMoreDevices(false);
+    }
+  }, [user, loadingMoreDevices, hasMoreDevices, tr]);
+
+  // Debounced auto-sync when local Kiosk or Growth state changes while signed in & verified
   useEffect(() => {
-    if (!user || applyingRemoteDeviceRef.current || applyingRemoteGrowthRef.current) return;
+    if (!user || !user.emailVerified) return;
+    if (applyingRemoteDeviceRef.current || applyingRemoteGrowthRef.current) return;
     if (!isOnline) {
       setPendingOfflineSync(true);
       return;
@@ -742,26 +875,91 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, selfImprovement, user, isOnline]);
 
-  // Auto-flush queued offline changes when coming back online
+  // Flush queued offline changes only when transitioning online (not on failed retry loops)
   useEffect(() => {
-    if (user && isOnline && pendingOfflineSync) {
+    if (user && user.emailVerified && isOnline && pendingOfflineSync) {
       void pushLocalToCloud(user, stateRef.current, selfImprovementRef.current, 'web_simulator');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOnline, user, pendingOfflineSync]);
+  }, [isOnline, user]);
 
-  const handleSignInGoogle = async () => {
+  const handleSignInGoogle = async (challenge: {
+    captchaToken: string;
+    website: string;
+  }): Promise<boolean> => {
+    if (authActionBusyRef.current) return false;
+    if (challenge.website.trim().length > 0) {
+      setAuthError(tr('Automated submission rejected.'));
+      return false;
+    }
+    if (!challenge.captchaToken) {
+      setAuthError(tr('Please complete the Turnstile verification challenge first.'));
+      return false;
+    }
+    const now = Date.now();
+    if (now < authCooldownUntilRef.current) {
+      const waitSecs = Math.max(1, Math.ceil((authCooldownUntilRef.current - now) / 1000));
+      setAuthError(tr('Too many sign-in attempts. Wait {s}s and try again.', { s: waitSecs }));
+      return false;
+    }
+    authActionBusyRef.current = true;
     setAuthError(null);
     try {
+      const verifyResponse = await fetch('/api/auth/verify-turnstile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          captchaToken: challenge.captchaToken,
+          website: challenge.website,
+        }),
+      });
+      const rawText = await verifyResponse.text();
+      let verifyData: { ok?: boolean; error?: string } = {};
+      if (rawText) {
+        try {
+          verifyData = JSON.parse(rawText) as { ok?: boolean; error?: string };
+        } catch {
+          verifyData = {};
+        }
+      }
+      if (!verifyResponse.ok || !verifyData.ok) {
+        setAuthError(
+          verifyData.error ??
+            tr('Bot verification failed ({status}). Please try again.', {
+              status: verifyResponse.status,
+            })
+        );
+        return false;
+      }
+
       await signInWithGoogleAccount();
+      authFailuresRef.current = 0;
+      authCooldownUntilRef.current = 0;
+      return true;
     } catch (err) {
+      const nextFails = authFailuresRef.current + 1;
+      authFailuresRef.current = nextFails;
+      if (nextFails >= 3) {
+        authCooldownUntilRef.current = Date.now() + Math.min(60_000, 5_000 * 2 ** (nextFails - 3));
+      }
       setAuthError(err instanceof Error ? err.message : tr("Google Sign-In cancelled or blocked."));
+      return false;
+    } finally {
+      authActionBusyRef.current = false;
     }
   };
 
   const handleSignOutGoogle = async () => {
+    if (authActionBusyRef.current) return;
+    authActionBusyRef.current = true;
     setAuthError(null);
-    await signOutAccount();
+    try {
+      await signOutAccount();
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : tr('Failed to sign out.'));
+    } finally {
+      authActionBusyRef.current = false;
+    }
   };
 
   const handleRemoteUpdateSettings = async (
@@ -769,6 +967,9 @@ export default function App() {
     options?: { clearPinLockout?: boolean; newPlainPin?: string }
   ): Promise<{ ok: boolean; error?: string }> => {
     if (!user) return { ok: false, error: tr('Sign in first.') };
+    if (!user.emailVerified) {
+      return { ok: false, error: tr('Verify your account email before remote updates.') };
+    }
     if (!isOnline) {
       return { ok: false, error: tr('PC is offline — connect to push remote updates to your phone.') };
     }
@@ -826,16 +1027,17 @@ export default function App() {
         updatedAt: serverTimestamp(),
       });
       setLastSyncedAt(formatClockNow());
-      queueMicrotask(() => {
+      window.setTimeout(() => {
         applyingRemoteDeviceRef.current = false;
-      });
+      }, 0);
       return { ok: true };
     } catch (err) {
       applyingRemoteDeviceRef.current = false;
-      const msg = err instanceof Error ? err.message : tr('Failed to push remote update.');
-      if (!isNetworkUnavailableError(err)) {
-        handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}/devices/${selectedDeviceId}`);
-      }
+      const msg = isNetworkUnavailableError(err)
+        ? tr('Network unavailable — remote update could not reach your phone.')
+        : err instanceof Error
+        ? err.message
+        : tr('Failed to push remote update.');
       return { ok: false, error: msg };
     }
   };
@@ -881,6 +1083,25 @@ export default function App() {
   const handleToggleAllowedApp = useCallback((packageName: string) => {
     setState((prev) => toggleAllowedApp(prev, packageName, formatClockNow()));
   }, []);
+
+  const handleToggleAppPasswordProtection = useCallback((packageName: string) => {
+    setState((prev) => toggleAppPasswordProtection(prev, packageName, undefined, formatClockNow()));
+  }, []);
+
+  const handleVerifyAppAccessPin = useCallback(
+    (packageName: string, pin: string): { verified: boolean; lockedOutSeconds?: number } => {
+      const { nextState, verified, lockedOutSeconds } = verifyAppAccessPin(
+        stateRef.current,
+        packageName,
+        pin,
+        formatClockNow(),
+        Date.now()
+      );
+      setState(nextState);
+      return { verified, lockedOutSeconds };
+    },
+    []
+  );
 
   const handleAddCustomApp = useCallback(
     (label: string, packageName: string): { ok: boolean; error?: string } => {
@@ -1036,8 +1257,12 @@ export default function App() {
   }, []);
 
   const handleSimulateReboot = useCallback(() => {
+    if (rebootTimerRef.current !== null) {
+      window.clearTimeout(rebootTimerRef.current);
+    }
     setState((prev) => ({ ...prev, activeScreen: 'rebooting', blockedNotice: null }));
-    window.setTimeout(() => {
+    rebootTimerRef.current = window.setTimeout(() => {
+      rebootTimerRef.current = null;
       setState((prev) => simulateDeviceReboot(prev, formatClockNow()));
     }, 450);
   }, []);
@@ -1079,7 +1304,13 @@ export default function App() {
   );
 
   return (
-    <div className="flex min-h-screen flex-col text-slate-900 antialiased dark:text-slate-100">
+    <div className="flex min-h-screen flex-col overflow-x-hidden text-slate-900 antialiased dark:text-slate-100">
+      <a
+        href="#top"
+        className="sr-only focus:not-sr-only focus:fixed focus:start-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-sky-600 focus:px-3.5 focus:py-2 focus:text-xs focus:font-semibold focus:text-white focus:shadow-lg"
+      >
+        {tr('Skip to main content')}
+      </a>
       {/* 3-Zone Single-Line Top Bar Contract */}
       <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/85 backdrop-blur-md dark:border-white/10 dark:bg-[#070b11]/85">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 sm:h-16 sm:flex-nowrap sm:px-6 sm:py-0">
@@ -1091,13 +1322,18 @@ export default function App() {
             }}
             className="inline-flex shrink-0 items-center gap-2.5 whitespace-nowrap text-base font-semibold tracking-tight text-slate-900 dark:text-white"
           >
-            <img
-              src="/app-icon.svg"
-              alt=""
-              width={28}
-              height={28}
-              className="w-7 h-7 rounded-lg shrink-0"
-            />
+            {!appIconError ? (
+              <img
+                src="/app-icon.svg"
+                alt=""
+                width={28}
+                height={28}
+                onError={() => setAppIconError(true)}
+                className="w-7 h-7 rounded-lg shrink-0"
+              />
+            ) : (
+              <ShieldCheck className="w-6 h-6 text-sky-600 dark:text-sky-400 shrink-0" aria-hidden="true" />
+            )}
             <span>Ironclad OS</span>
           </a>
 
@@ -1276,18 +1512,26 @@ export default function App() {
               <li>{t('hero.bullet.bypass')}</li>
             </ul>
           </div>
-          <div className="relative hidden overflow-hidden rounded-2xl border border-slate-200/80 bg-[#0a1220] shadow-sm lg:block dark:border-white/10">
-            <img
-              src="/brand/ironclad-shield.jpg"
-              alt={t('hero.imageAlt')}
-              width={1024}
-              height={1024}
-              loading="eager"
-              className="h-full w-full object-cover"
-            />
-          </div>
+          {!heroImageError && (
+            <div className="relative hidden overflow-hidden rounded-2xl border border-slate-200/80 bg-[#0a1220] shadow-sm lg:block dark:border-white/10">
+              <img
+                src="/brand/ironclad-shield.jpg"
+                alt={t('hero.imageAlt')}
+                width={1024}
+                height={1024}
+                loading="eager"
+                onError={() => setHeroImageError(true)}
+                className="h-full w-full object-cover"
+              />
+            </div>
+          )}
         </section>
 
+        <ErrorBoundary
+          key={activeTab}
+          sectionName={tr('Active Workspace')}
+          onReset={() => setSyncRetryNonce((n) => n + 1)}
+        >
         {activeTab === 'features' && <FeaturesView />}
 
         {activeTab === 'simulator' && (
@@ -1307,6 +1551,8 @@ export default function App() {
               onSubmitPin={handleSubmitPin}
               onCancelPinGate={handleCancelPinGate}
               onToggleAllowedApp={handleToggleAllowedApp}
+              onToggleAppPasswordProtection={handleToggleAppPasswordProtection}
+              onVerifyAppAccessPin={handleVerifyAppAccessPin}
               onAddCustomApp={handleAddCustomApp}
               onUpdatePin={handleUpdatePin}
               onSetAdminUnlock={handleSetAdminUnlock}
@@ -1420,19 +1666,30 @@ export default function App() {
             isOnline={isOnline}
             cloudConnected={cloudConnected}
             syncBusy={syncBusy}
+            devicesLoading={devicesLoading}
             lastSyncedAt={lastSyncedAt}
             pendingOfflineSync={pendingOfflineSync}
             syncError={syncError}
             syncedDevices={syncedDevices}
+            hasMoreDevices={hasMoreDevices}
+            loadingMoreDevices={loadingMoreDevices}
             selectedDeviceId={selectedDeviceId}
             remoteDevice={syncedDevices.find((d) => d.deviceId === selectedDeviceId) ?? null}
             localKioskState={state}
             selfImprovement={selfImprovement}
             onSelectDeviceId={setSelectedDeviceId}
+            onLoadMoreDevices={handleLoadMoreDevices}
+            onRetrySync={() => setSyncRetryNonce((n) => n + 1)}
             onSignInGoogle={handleSignInGoogle}
             onSignOutGoogle={handleSignOutGoogle}
             onSyncNow={async () => {
-              if (user) await pushLocalToCloud(user, state, selfImprovement, 'web_simulator', undefined, true);
+              if (user) {
+                try {
+                  await pushLocalToCloud(user, state, selfImprovement, 'web_simulator', undefined, true);
+                } catch (err) {
+                  setSyncError(err instanceof Error ? err.message : tr('Sync failed.'));
+                }
+              }
             }}
             onRemoteUpdateSettings={handleRemoteUpdateSettings}
             onToggleHabitToday={(habitId) =>
@@ -1445,6 +1702,7 @@ export default function App() {
         )}
 
         {activeTab === 'adb' && <AdbProvisioningView />}
+        </ErrorBoundary>
       </main>
       <div className="mx-auto w-full max-w-6xl px-4 pb-8 sm:px-6">
         <div className="flex items-start gap-3 rounded-2xl border border-amber-300/70 bg-amber-50/80 p-4 dark:border-amber-500/25 dark:bg-amber-500/[0.07]">

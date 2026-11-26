@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BookOpen,
   Check,
@@ -47,6 +47,14 @@ import {
   filterTasks,
 } from '../utils/selfImprovementEngine';
 import { useI18n } from '../i18n/LocaleProvider';
+import {
+  escapeHtml,
+  goalFormSchema,
+  habitFormSchema,
+  milestoneFormSchema,
+  taskFormSchema,
+} from '../utils/validation';
+import { DEFAULT_PAGE_SIZE, paginateItems } from '../utils/pagination';
 
 interface SelfImprovementWorkspaceProps {
   state: SelfImprovementState;
@@ -124,12 +132,14 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
   // Habit form
   const [newHabitTitle, setNewHabitTitle] = useState('');
   const [newHabitCat, setNewHabitCat] = useState<HabitItem['category']>('Recovery');
+  const [habitFormError, setHabitFormError] = useState<string | null>(null);
 
   // Task form & filter
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>('High');
   const [newTaskTime, setNewTaskTime] = useState('09:00');
   const [taskFilter, setTaskFilter] = useState<TaskFilter>('all');
+  const [taskFormError, setTaskFormError] = useState<string | null>(null);
 
   // Goal form & inline milestone inputs
   const [newGoalTitle, setNewGoalTitle] = useState('');
@@ -137,15 +147,40 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
   const [newGoalTarget, setNewGoalTarget] = useState('2026-12-31');
   const [newGoalWhy, setNewGoalWhy] = useState('');
   const [newGoalMilestones, setNewGoalMilestones] = useState('');
+  const [goalFormError, setGoalFormError] = useState<string | null>(null);
   const [milestoneInputs, setMilestoneInputs] = useState<Record<string, string>>({});
+  const [milestoneErrors, setMilestoneErrors] = useState<Record<string, string | null>>({});
+  const [habitsPage, setHabitsPage] = useState(1);
+  const [tasksPage, setTasksPage] = useState(1);
+  const [goalsPage, setGoalsPage] = useState(1);
+  const submitCooldownRef = useRef<Record<string, number>>({});
+
+  const canRunSubmit = (key: string, cooldownMs = 350): boolean => {
+    const now = Date.now();
+    const last = submitCooldownRef.current[key] ?? 0;
+    if (now - last < cooldownMs) return false;
+    submitCooldownRef.current[key] = now;
+    return true;
+  };
 
   useEffect(() => {
-    if (!showUrgePause || pauseSeconds <= 0) return;
+    if (!showUrgePause) return;
     const timer = window.setInterval(() => {
-      setPauseSeconds((s) => Math.max(0, s - 1));
+      setPauseSeconds((s) => (s <= 1 ? 0 : s - 1));
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [showUrgePause, pauseSeconds]);
+  }, [showUrgePause]);
+
+  useEffect(() => {
+    if (!focusFullscreen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setFocusFullscreen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [focusFullscreen]);
 
   useEffect(() => {
     if (!focusRunning) return;
@@ -167,7 +202,19 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
   const recentDates = getRecentDates(7);
   const dailyProgress = getDailyHabitProgress(state.habits, today);
   const checkedInToday = state.lastCleanCheckInDate === today;
-  const visibleTasks = filterTasks(state.tasks, taskFilter);
+  const visibleTasks = useMemo(() => filterTasks(state.tasks, taskFilter), [state.tasks, taskFilter]);
+  const habitsPagination = useMemo(
+    () => paginateItems(state.habits, habitsPage, DEFAULT_PAGE_SIZE),
+    [state.habits, habitsPage]
+  );
+  const tasksPagination = useMemo(
+    () => paginateItems(visibleTasks, tasksPage, DEFAULT_PAGE_SIZE),
+    [visibleTasks, tasksPage]
+  );
+  const goalsPagination = useMemo(
+    () => paginateItems(state.goals, goalsPage, DEFAULT_PAGE_SIZE),
+    [state.goals, goalsPage]
+  );
   const todayFocus = getTodayFocusSummary(state, today);
   const focusTotalSeconds = Math.max(60, focusDurationMins * 60);
   const focusProgressPct = Math.min(
@@ -189,6 +236,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
   };
 
   const handleCompleteFocusEarly = () => {
+    if (!canRunSubmit('completeFocus', 500)) return;
     const elapsedSeconds = Math.max(60, focusTotalSeconds - focusSecondsLeft);
     const loggedMinutes = Math.max(1, Math.round(elapsedSeconds / 60));
     setFocusRunning(false);
@@ -220,12 +268,12 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
 
   const handleOpenGoalInNotes = (goal: GoalItem) => {
     const html =
-      `<h2>${goal.title}</h2>` +
-      `<p><strong>${tr('Why It Matters')}:</strong> ${goal.whyItMatters || tr("Personal growth and discipline.")}</p>` +
-      `<p><strong>${tr('Target Date')}:</strong> ${goal.targetDate}</p>` +
+      `<h2>${escapeHtml(goal.title)}</h2>` +
+      `<p><strong>${tr('Why It Matters')}:</strong> ${escapeHtml(goal.whyItMatters || tr("Personal growth and discipline."))}</p>` +
+      `<p><strong>${tr('Target Date')}:</strong> ${escapeHtml(goal.targetDate)}</p>` +
       `<table><thead><tr><th>${tr('Milestone')}</th><th>${tr('Status')}</th></tr></thead><tbody>` +
       goal.milestones
-        .map((m) => `<tr><td>${m.title}</td><td>${m.done ? tr("Completed") : tr("In Progress")}</td></tr>`)
+        .map((m) => `<tr><td>${escapeHtml(m.title)}</td><td>${m.done ? tr("Completed") : tr("In Progress")}</td></tr>`)
         .join('') +
       `</tbody></table>`;
     const createdId = onCreateNote('Goals & Vision', `${tr('Goal Plan')}: ${goal.title}`, html);
@@ -365,11 +413,14 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
               <button
                 type="button"
                 onClick={() => {
+                  if (!canRunSubmit('urgeVictory', 600)) return;
                   onLogUrgeVictory();
                   setShowUrgePause(false);
                 }}
                 className="mt-3 w-full py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-xs font-semibold"
-              >{"\n                "}{tr("I Resisted — Log Victory")}{"\n              "}</button>
+              >
+                {tr("I Resisted — Log Victory")}
+              </button>
             </div>
 
             <div className="space-y-2">
@@ -419,6 +470,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
               <button
                 key={mins}
                 type="button"
+                aria-pressed={focusDurationMins === mins}
                 onClick={() => handleSelectFocusPreset(mins)}
                 className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-mono font-semibold border transition-colors ${
                   focusDurationMins === mins
@@ -696,48 +748,84 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (!newHabitTitle.trim()) return;
-              onAddHabit(newHabitTitle, newHabitCat);
+              if (!canRunSubmit('addHabit')) return;
+              const parsed = habitFormSchema.safeParse({
+                title: newHabitTitle,
+                category: newHabitCat,
+              });
+              if (!parsed.success) {
+                setHabitFormError(tr(parsed.error.issues[0]?.message ?? 'Enter a valid habit title.'));
+                return;
+              }
+              setHabitFormError(null);
+              onAddHabit(parsed.data.title, parsed.data.category);
               setNewHabitTitle('');
             }}
-            className="flex flex-wrap items-end gap-3 pb-4 border-b border-slate-200 dark:border-slate-800"
+            className="space-y-2 pb-4 border-b border-slate-200 dark:border-slate-800"
           >
-            <div className="flex-1 min-w-[200px]">
-              <label htmlFor="new-habit-title" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">{"\n                "}{tr("New Daily Habit")}{"\n              "}</label>
-              <input
-                id="new-habit-title"
-                type="text"
-                value={newHabitTitle}
-                onChange={(e) => setNewHabitTitle(e.target.value)}
-                placeholder={tr("e.g., Cold shower, 10 pages reading, No screens after 22:00")}
-                className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-2 focus:outline-sky-600"
-              />
-            </div>
-            <div>
-              <label htmlFor="new-habit-cat" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">{"\n                "}{tr("Category")}{"\n              "}</label>
-              <select
-                id="new-habit-cat"
-                value={newHabitCat}
-                onChange={(e) => setNewHabitCat(e.target.value as HabitItem['category'])}
-                className="h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex-1 min-w-0 sm:min-w-[200px]">
+                <label htmlFor="new-habit-title" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  {tr("New Daily Habit")}
+                </label>
+                <input
+                  id="new-habit-title"
+                  type="text"
+                  maxLength={100}
+                  value={newHabitTitle}
+                  onChange={(e) => {
+                    setHabitFormError(null);
+                    setNewHabitTitle(e.target.value);
+                  }}
+                  placeholder={tr("e.g., Cold shower, 10 pages reading, No screens after 22:00")}
+                  className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-2 focus:outline-sky-600"
+                />
+              </div>
+              <div>
+                <label htmlFor="new-habit-cat" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  {tr("Category")}
+                </label>
+                <select
+                  id="new-habit-cat"
+                  value={newHabitCat}
+                  onChange={(e) => setNewHabitCat(e.target.value as HabitItem['category'])}
+                  className="h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
+                >
+                  <option value="Recovery">{tr("Recovery")}</option>
+                  <option value="Discipline">{tr("Discipline")}</option>
+                  <option value="Focus">{tr("Focus")}</option>
+                  <option value="Health">{tr("Health")}</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                disabled={!newHabitTitle.trim()}
+                className="h-9 px-4 rounded-lg bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap"
               >
-                <option value="Recovery">{tr("Recovery")}</option>
-                <option value="Discipline">{tr("Discipline")}</option>
-                <option value="Focus">{tr("Focus")}</option>
-                <option value="Health">{tr("Health")}</option>
-              </select>
+                <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>{tr("Add Habit")}</span>
+              </button>
             </div>
-            <button
-              type="submit"
-              className="h-9 px-4 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap"
-            >
-              <Plus className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{tr("Add Habit")}</span>
-            </button>
+            {habitFormError && (
+              <p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">
+                {habitFormError}
+              </p>
+            )}
           </form>
 
+          {habitsPagination.totalItems === 0 ? (
+            <div className="py-8 text-center rounded-xl border border-dashed border-slate-200 dark:border-slate-800 space-y-1">
+              <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                {tr("No daily habits yet")}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {tr("Add your first daily routine above to start tracking streaks.")}
+              </p>
+            </div>
+          ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-start border-collapse">
+              <caption className="sr-only">{tr("Daily habits and 7-day completion tracker")}</caption>
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                   <th className="py-2 pe-4 text-start min-w-[9rem]">{tr("Habit")}</th>
@@ -751,7 +839,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {state.habits.map((habit) => {
+                {habitsPagination.items.map((habit) => {
                   const streak = getHabitStreak(habit);
                   return (
                     <tr key={habit.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/50">
@@ -801,6 +889,30 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
               </tbody>
             </table>
           </div>
+          )}
+          {habitsPagination.totalPages > 1 && (
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
+              <button
+                type="button"
+                disabled={!habitsPagination.hasPrev}
+                onClick={() => setHabitsPage(habitsPagination.page - 1)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 disabled:opacity-40"
+              >
+                {tr("Previous")}
+              </button>
+              <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+                {tr('Page {p} of {total}', { p: habitsPagination.page, total: habitsPagination.totalPages })}
+              </span>
+              <button
+                type="button"
+                disabled={!habitsPagination.hasNext}
+                onClick={() => setHabitsPage(habitsPagination.page + 1)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 disabled:opacity-40"
+              >
+                {tr("Next")}
+              </button>
+            </div>
+          )}
         </section>
       )}
 
@@ -810,62 +922,97 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (!newTaskTitle.trim()) return;
-              onAddTask(newTaskTitle, newTaskPriority, 'Focus', newTaskTime);
+              if (!canRunSubmit('addTask')) return;
+              const parsed = taskFormSchema.safeParse({
+                title: newTaskTitle,
+                priority: newTaskPriority,
+                dueTime: newTaskTime,
+              });
+              if (!parsed.success) {
+                setTaskFormError(tr(parsed.error.issues[0]?.message ?? 'Enter a valid task.'));
+                return;
+              }
+              setTaskFormError(null);
+              onAddTask(parsed.data.title, parsed.data.priority, 'Focus', parsed.data.dueTime);
               setNewTaskTitle('');
             }}
-            className="flex flex-wrap items-end gap-3 pb-4 border-b border-slate-200 dark:border-slate-800"
+            className="space-y-2 pb-4 border-b border-slate-200 dark:border-slate-800"
           >
-            <div className="flex-1 min-w-[200px]">
-              <label htmlFor="new-task-title" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">{"\n                "}{tr("New Action Task")}{"\n              "}</label>
-              <input
-                id="new-task-title"
-                type="text"
-                value={newTaskTitle}
-                onChange={(e) => setNewTaskTitle(e.target.value)}
-                placeholder={tr("e.g., Study Kotlin coroutines for 45 mins")}
-                className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-2 focus:outline-sky-600"
-              />
-            </div>
-            <div>
-              <label htmlFor="new-task-priority" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">{"\n                "}{tr("Priority")}{"\n              "}</label>
-              <select
-                id="new-task-priority"
-                value={newTaskPriority}
-                onChange={(e) => setNewTaskPriority(e.target.value as TaskPriority)}
-                className="h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex-1 min-w-0 sm:min-w-[200px]">
+                <label htmlFor="new-task-title" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  {tr("New Action Task")}
+                </label>
+                <input
+                  id="new-task-title"
+                  type="text"
+                  maxLength={140}
+                  value={newTaskTitle}
+                  onChange={(e) => {
+                    setTaskFormError(null);
+                    setNewTaskTitle(e.target.value);
+                  }}
+                  placeholder={tr("e.g., Study Kotlin coroutines for 45 mins")}
+                  className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-2 focus:outline-sky-600"
+                />
+              </div>
+              <div>
+                <label htmlFor="new-task-priority" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  {tr("Priority")}
+                </label>
+                <select
+                  id="new-task-priority"
+                  value={newTaskPriority}
+                  onChange={(e) => setNewTaskPriority(e.target.value as TaskPriority)}
+                  className="h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
+                >
+                  <option value="High">{tr("High")}</option>
+                  <option value="Medium">{tr("Medium")}</option>
+                  <option value="Low">{tr("Low")}</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="new-task-time" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  {tr("Target Time")}
+                </label>
+                <input
+                  id="new-task-time"
+                  type="time"
+                  value={newTaskTime}
+                  onChange={(e) => {
+                    setTaskFormError(null);
+                    setNewTaskTime(e.target.value);
+                  }}
+                  className="h-9 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-mono text-slate-900 dark:text-slate-100"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={!newTaskTitle.trim()}
+                className="h-9 px-4 rounded-lg bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap"
               >
-                <option value="High">{tr("High")}</option>
-                <option value="Medium">{tr("Medium")}</option>
-                <option value="Low">{tr("Low")}</option>
-              </select>
+                <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>{tr("Add Task")}</span>
+              </button>
             </div>
-            <div>
-              <label htmlFor="new-task-time" className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">{"\n                "}{tr("Target Time")}{"\n              "}</label>
-              <input
-                id="new-task-time"
-                type="time"
-                value={newTaskTime}
-                onChange={(e) => setNewTaskTime(e.target.value)}
-                className="h-9 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-mono text-slate-900 dark:text-slate-100"
-              />
-            </div>
-            <button
-              type="submit"
-              className="h-9 px-4 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap"
-            >
-              <Plus className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{tr("Add Task")}</span>
-            </button>
+            {taskFormError && (
+              <p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">
+                {taskFormError}
+              </p>
+            )}
           </form>
 
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="inline-flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
               {(['all', 'active', 'completed'] as const).map((f) => (
                 <button
                   key={f}
                   type="button"
-                  onClick={() => setTaskFilter(f)}
+                  aria-pressed={taskFilter === f}
+                  onClick={() => {
+                    setTaskFilter(f);
+                    setTasksPage(1);
+                  }}
                   className={`px-3 py-1 rounded text-xs font-medium capitalize ${
                     taskFilter === f
                       ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white'
@@ -882,12 +1029,12 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
           </div>
 
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {visibleTasks.length === 0 ? (
+            {tasksPagination.totalItems === 0 ? (
               <p className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">
                 {tr("No tasks in this filter. Add a focused action above.")}
               </p>
             ) : (
-              visibleTasks.map((task) => (
+              tasksPagination.items.map((task) => (
                 <div key={task.id} className="py-3 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     <button
@@ -929,6 +1076,29 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
               ))
             )}
           </div>
+          {tasksPagination.totalPages > 1 && (
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
+              <button
+                type="button"
+                disabled={!tasksPagination.hasPrev}
+                onClick={() => setTasksPage(tasksPagination.page - 1)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 disabled:opacity-40"
+              >
+                {tr("Previous")}
+              </button>
+              <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+                {tr('Page {p} of {total}', { p: tasksPagination.page, total: tasksPagination.totalPages })}
+              </span>
+              <button
+                type="button"
+                disabled={!tasksPagination.hasNext}
+                onClick={() => setTasksPage(tasksPagination.page + 1)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 disabled:opacity-40"
+              >
+                {tr("Next")}
+              </button>
+            </div>
+          )}
         </section>
       )}
 
@@ -938,19 +1108,34 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (!newGoalTitle.trim()) return;
+              if (!canRunSubmit('addGoal')) return;
+              const parsed = goalFormSchema.safeParse({
+                title: newGoalTitle,
+                category: newGoalCat,
+                targetDate: newGoalTarget,
+                whyItMatters: newGoalWhy,
+                milestones: newGoalMilestones
+                  .split('\n')
+                  .map((s) => s.trim())
+                  .filter(Boolean),
+              });
+              if (!parsed.success) {
+                setGoalFormError(tr(parsed.error.issues[0]?.message ?? 'Enter a valid goal.'));
+                return;
+              }
+              setGoalFormError(null);
               onAddGoal(
-                newGoalTitle,
-                newGoalCat,
-                newGoalTarget,
-                newGoalWhy,
-                newGoalMilestones.split('\n')
+                parsed.data.title,
+                parsed.data.category,
+                parsed.data.targetDate || 'Ongoing',
+                parsed.data.whyItMatters,
+                parsed.data.milestones
               );
               setNewGoalTitle('');
               setNewGoalWhy('');
               setNewGoalMilestones('');
             }}
-            className="surface p-5 space-y-3"
+            className="surface p-5 space-y-3 min-w-0"
           >
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">{tr("Create New Goal")}</h3>
             <div>
@@ -958,8 +1143,12 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
               <input
                 id="goal-title-input"
                 type="text"
+                maxLength={140}
                 value={newGoalTitle}
-                onChange={(e) => setNewGoalTitle(e.target.value)}
+                onChange={(e) => {
+                  setGoalFormError(null);
+                  setNewGoalTitle(e.target.value);
+                }}
                 placeholder={tr("e.g., 90 Days Clean + Launch Side Project")}
                 className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-2 focus:outline-sky-600"
               />
@@ -986,7 +1175,10 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                   id="goal-date-input"
                   type="date"
                   value={newGoalTarget}
-                  onChange={(e) => setNewGoalTarget(e.target.value)}
+                  onChange={(e) => {
+                    setGoalFormError(null);
+                    setNewGoalTarget(e.target.value);
+                  }}
                   className="w-full h-9 px-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-mono text-slate-900 dark:text-slate-100"
                 />
               </div>
@@ -997,6 +1189,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
               <input
                 id="goal-why-input"
                 type="text"
+                maxLength={500}
                 value={newGoalWhy}
                 onChange={(e) => setNewGoalWhy(e.target.value)}
                 placeholder={tr("Personal reason that keeps you grounded")}
@@ -1009,6 +1202,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
               <textarea
                 id="goal-milestones-input"
                 rows={3}
+                maxLength={3000}
                 value={newGoalMilestones}
                 onChange={(e) => setNewGoalMilestones(e.target.value)}
                 placeholder={tr('Week 1 clean\nFinish module 1\nComplete 30-day review')}
@@ -1016,17 +1210,34 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
               />
             </div>
 
+            {goalFormError && (
+              <p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">
+                {goalFormError}
+              </p>
+            )}
+
             <button
               type="submit"
-              className="w-full h-9 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5"
+              disabled={!newGoalTitle.trim()}
+              className="w-full h-9 rounded-lg bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5"
             >
               <Target className="w-3.5 h-3.5" aria-hidden="true" />
               <span>{tr("Save Goal")}</span>
             </button>
           </form>
 
-          <div className="space-y-4">
-            {state.goals.map((goal) => {
+          <div className="space-y-4 min-w-0">
+            {goalsPagination.totalItems === 0 ? (
+              <div className="surface p-8 text-center space-y-1.5">
+                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                  {tr("No goals added yet")}
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {tr("Define a measurable target and milestones on the left to start tracking progress.")}
+                </p>
+              </div>
+            ) : (
+            goalsPagination.items.map((goal) => {
               const pct = getGoalProgressPercent(goal);
               const draftMilestone = milestoneInputs[goal.id] ?? '';
               return (
@@ -1107,30 +1318,74 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
-                      if (!draftMilestone.trim()) return;
-                      onAddGoalMilestone(goal.id, draftMilestone);
+                      if (!canRunSubmit(`milestone-${goal.id}`)) return;
+                      const parsed = milestoneFormSchema.safeParse({ title: draftMilestone });
+                      if (!parsed.success) {
+                        setMilestoneErrors((prev) => ({
+                          ...prev,
+                          [goal.id]: tr(parsed.error.issues[0]?.message ?? 'Enter a milestone.'),
+                        }));
+                        return;
+                      }
+                      setMilestoneErrors((prev) => ({ ...prev, [goal.id]: null }));
+                      onAddGoalMilestone(goal.id, parsed.data.title);
                       setMilestoneInputs((prev) => ({ ...prev, [goal.id]: '' }));
                     }}
-                    className="flex items-center gap-2 pt-1"
+                    className="space-y-1.5 pt-1"
                   >
-                    <input
-                      type="text"
-                      aria-label={tr('Add milestone to {title}', { title: goal.title })}
-                      value={draftMilestone}
-                      onChange={(e) =>
-                        setMilestoneInputs((prev) => ({ ...prev, [goal.id]: e.target.value }))
-                      }
-                      placeholder={tr("Add another milestone...")}
-                      className="flex-1 h-8 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
-                    />
-                    <button
-                      type="submit"
-                      className="h-8 px-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200"
-                    >{"\n                      "}{tr("Add")}{"\n                    "}</button>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        maxLength={140}
+                        aria-label={tr('Add milestone to {title}', { title: goal.title })}
+                        value={draftMilestone}
+                        onChange={(e) => {
+                          setMilestoneErrors((prev) => ({ ...prev, [goal.id]: null }));
+                          setMilestoneInputs((prev) => ({ ...prev, [goal.id]: e.target.value }));
+                        }}
+                        placeholder={tr("Add another milestone...")}
+                        className="flex-1 min-w-0 h-8 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                      />
+                      <button
+                        type="submit"
+                        disabled={!draftMilestone.trim()}
+                        className="h-8 px-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 text-xs font-medium text-slate-700 dark:text-slate-200 shrink-0"
+                      >
+                        {tr("Add")}
+                      </button>
+                    </div>
+                    {milestoneErrors[goal.id] && (
+                      <p role="alert" className="text-[11px] font-medium text-red-600 dark:text-red-400">
+                        {milestoneErrors[goal.id]}
+                      </p>
+                    )}
                   </form>
                 </div>
               );
-            })}
+            }))}
+            {goalsPagination.totalPages > 1 && (
+              <div className="surface p-3 flex items-center justify-between gap-2 text-xs">
+                <button
+                  type="button"
+                  disabled={!goalsPagination.hasPrev}
+                  onClick={() => setGoalsPage(goalsPagination.page - 1)}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 disabled:opacity-40"
+                >
+                  {tr("Previous")}
+                </button>
+                <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+                  {tr('Page {p} of {total}', { p: goalsPagination.page, total: goalsPagination.totalPages })}
+                </span>
+                <button
+                  type="button"
+                  disabled={!goalsPagination.hasNext}
+                  onClick={() => setGoalsPage(goalsPagination.page + 1)}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 disabled:opacity-40"
+                >
+                  {tr("Next")}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

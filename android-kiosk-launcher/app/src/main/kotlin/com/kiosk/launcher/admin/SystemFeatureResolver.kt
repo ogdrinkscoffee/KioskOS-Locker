@@ -2,8 +2,11 @@ package com.kiosk.launcher.admin
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.content.pm.ResolveInfo
+import android.content.pm.ServiceInfo
 import android.net.Uri
 import android.os.Build
 import android.telecom.TelecomManager
@@ -22,6 +25,14 @@ class SystemFeatureResolver(context: Context) {
 
     @Volatile
     private var cachedSnapshot: Snapshot? = null
+
+    /**
+     * Resolves the active system permission controller package using public SDK APIs.
+     * (`PackageManager.permissionControllerPackageName` is `@SystemApi` and not exposed in
+     * the public Android SDK.)
+     */
+    internal val permissionControllerPackageName: String?
+        get() = resolvePermissionControllerPackageName()
 
     private data class Snapshot(
         val expiresAtMs: Long,
@@ -44,7 +55,7 @@ class SystemFeatureResolver(context: Context) {
         snapshot(nowMs).installers
 
     fun protectedFromUninstallLockPackages(nowMs: Long = System.currentTimeMillis()): Set<String> {
-        val snap = snapshot(nowMs)
+        val snap: Snapshot = snapshot(nowMs)
         return LinkedHashSet<String>().apply {
             add(appContext.packageName)
             addAll(snap.calling)
@@ -55,7 +66,7 @@ class SystemFeatureResolver(context: Context) {
     }
 
     private fun snapshot(nowMs: Long): Snapshot {
-        val existing = cachedSnapshot
+        val existing: Snapshot? = cachedSnapshot
         if (existing != null && nowMs < existing.expiresAtMs) {
             return existing
         }
@@ -73,11 +84,16 @@ class SystemFeatureResolver(context: Context) {
         val packages = LinkedHashSet<String>()
         packages.addAll(DevicePolicyHelper.CALLING_PACKAGES)
 
-        runCatching {
-            val telecom = appContext.getSystemService(Context.TELECOM_SERVICE) as? TelecomManager
-            telecom?.defaultDialerPackage?.takeIf { it.isNotBlank() }?.let { packages.add(it) }
+        runCatching<Unit> {
+            val telecom: TelecomManager? =
+                appContext.getSystemService(Context.TELECOM_SERVICE) as? TelecomManager
+            telecom?.defaultDialerPackage
+                ?.takeIf { pkg: String -> pkg.isNotBlank() }
+                ?.let { pkg: String -> packages.add(pkg) }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                telecom?.systemDialerPackage?.takeIf { it.isNotBlank() }?.let { packages.add(it) }
+                telecom?.systemDialerPackage
+                    ?.takeIf { pkg: String -> pkg.isNotBlank() }
+                    ?.let { pkg: String -> packages.add(pkg) }
             }
         }
 
@@ -98,16 +114,19 @@ class SystemFeatureResolver(context: Context) {
         packages.addAll(DevicePolicyHelper.ESSENTIAL_SYSTEM_PACKAGES)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            permissionControllerPackageName?.let { pkg: String ->
+                packages.add(pkg)
+            }
             packages.addAll(
                 queryActivityPackages(
-                    Intent("android.content.pm.action.REQUEST_PERMISSIONS"),
+                    Intent(ACTION_REQUEST_PERMISSIONS),
                     systemOnly = true
                 )
             )
         }
 
         // Standard Google Play Services / Auth / Credential Manager / Location Accuracy intents.
-        val systemActivityIntents = listOf(
+        val systemActivityIntents: List<Intent> = listOf(
             Intent("com.google.android.gms.common.account.CHOOSE_ACCOUNT"),
             Intent("com.google.android.gms.auth.GOOGLE_SIGN_IN"),
             Intent("com.google.android.gms.auth.api.credentials.PICKER"),
@@ -119,26 +138,48 @@ class SystemFeatureResolver(context: Context) {
             Intent(Intent.ACTION_CHOOSER),
             Intent("android.net.conn.CAPTIVE_PORTAL")
         )
-        systemActivityIntents.forEach { intent ->
+        systemActivityIntents.forEach { intent: Intent ->
             packages.addAll(queryActivityPackages(intent, systemOnly = true))
         }
 
-        val systemServiceIntents = listOf(
+        val systemServiceIntents: List<Intent> = listOf(
             Intent("android.service.credentials.CredentialProviderService"),
             Intent("android.speech.RecognitionService")
         )
-        systemServiceIntents.forEach { intent ->
+        systemServiceIntents.forEach { intent: Intent ->
             packages.addAll(queryServicePackages(intent, systemOnly = true))
         }
 
         return packages
     }
 
+    private fun resolvePermissionControllerPackageName(): String? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+        val intent = Intent(ACTION_REQUEST_PERMISSIONS)
+        val resolved: String? = runCatching<String?> {
+            val pm: PackageManager = appContext.packageManager
+            val info: ResolveInfo? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.resolveActivity(
+                    intent,
+                    PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong())
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                pm.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            }
+            val ai: ActivityInfo = info?.activityInfo ?: return@runCatching null
+            val pkg: String = ai.packageName?.takeIf { name: String -> name.isNotBlank() }
+                ?: return@runCatching null
+            if (isSystemApp(ai.applicationInfo)) pkg else null
+        }.getOrNull()
+        return resolved ?: queryActivityPackages(intent, systemOnly = true).firstOrNull()
+    }
+
     private fun resolveInstallerPackages(): Set<String> {
         val packages = LinkedHashSet<String>()
         packages.addAll(DevicePolicyHelper.INSTALLER_PACKAGES)
 
-        val apkUri = Uri.parse("content://${appContext.packageName}.updates/probe.apk")
+        val apkUri: Uri = Uri.parse("content://${appContext.packageName}.updates/probe.apk")
         packages.addAll(
             queryActivityPackages(
                 Intent(Intent.ACTION_VIEW).setDataAndType(apkUri, "application/vnd.android.package-archive"),
@@ -162,46 +203,51 @@ class SystemFeatureResolver(context: Context) {
     }
 
     @Suppress("DEPRECATION")
-    private fun queryActivityPackages(intent: Intent, systemOnly: Boolean): Set<String> = runCatching {
-        val pm = appContext.packageManager
-        val list = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            pm.queryIntentActivities(
-                intent,
-                PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong())
-            )
-        } else {
-            pm.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
-        }
-        list.mapNotNull { info ->
-            val ai = info.activityInfo ?: return@mapNotNull null
-            val pkg = ai.packageName?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-            if (systemOnly && !isSystemApp(ai.applicationInfo)) return@mapNotNull null
-            pkg
-        }.toSet()
-    }.getOrDefault(emptySet())
+    private fun queryActivityPackages(intent: Intent, systemOnly: Boolean): Set<String> =
+        runCatching<Set<String>> {
+            val pm: PackageManager = appContext.packageManager
+            val list: List<ResolveInfo> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.queryIntentActivities(
+                    intent,
+                    PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong())
+                )
+            } else {
+                pm.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            }
+            list.mapNotNull { info: ResolveInfo ->
+                val ai: ActivityInfo = info.activityInfo ?: return@mapNotNull null
+                val pkg: String = ai.packageName?.takeIf { name: String -> name.isNotBlank() }
+                    ?: return@mapNotNull null
+                if (systemOnly && !isSystemApp(ai.applicationInfo)) return@mapNotNull null
+                pkg
+            }.toSet()
+        }.getOrDefault(emptySet())
 
     @Suppress("DEPRECATION")
-    private fun queryServicePackages(intent: Intent, systemOnly: Boolean): Set<String> = runCatching {
-        val pm = appContext.packageManager
-        val list = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            pm.queryIntentServices(intent, PackageManager.ResolveInfoFlags.of(0L))
-        } else {
-            pm.queryIntentServices(intent, 0)
-        }
-        list.mapNotNull { info ->
-            val si = info.serviceInfo ?: return@mapNotNull null
-            val pkg = si.packageName?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-            if (systemOnly && !isSystemApp(si.applicationInfo)) return@mapNotNull null
-            pkg
-        }.toSet()
-    }.getOrDefault(emptySet())
+    private fun queryServicePackages(intent: Intent, systemOnly: Boolean): Set<String> =
+        runCatching<Set<String>> {
+            val pm: PackageManager = appContext.packageManager
+            val list: List<ResolveInfo> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.queryIntentServices(intent, PackageManager.ResolveInfoFlags.of(0L))
+            } else {
+                pm.queryIntentServices(intent, 0)
+            }
+            list.mapNotNull { info: ResolveInfo ->
+                val si: ServiceInfo = info.serviceInfo ?: return@mapNotNull null
+                val pkg: String = si.packageName?.takeIf { name: String -> name.isNotBlank() }
+                    ?: return@mapNotNull null
+                if (systemOnly && !isSystemApp(si.applicationInfo)) return@mapNotNull null
+                pkg
+            }.toSet()
+        }.getOrDefault(emptySet())
 
     private fun isSystemApp(applicationInfo: ApplicationInfo?): Boolean {
-        val ai = applicationInfo ?: return false
+        val ai: ApplicationInfo = applicationInfo ?: return false
         return (ai.flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0
     }
 
     private companion object {
         const val CACHE_TTL_MS = 30_000L
+        const val ACTION_REQUEST_PERMISSIONS = "android.content.pm.action.REQUEST_PERMISSIONS"
     }
 }

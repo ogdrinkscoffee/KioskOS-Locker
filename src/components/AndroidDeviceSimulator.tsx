@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   BatteryCharging,
@@ -52,6 +52,7 @@ import {
   getPinLockoutRemainingSeconds,
   getStrictShieldRemainingMinutes,
   getVisibleHomeApps,
+  isAppPasswordProtected,
   isDowntimeActive,
 } from '../utils/kioskEngine';
 import {
@@ -61,7 +62,18 @@ import {
   getTodayFocusSummary,
 } from '../utils/selfImprovementEngine';
 import { KioskAccountabilityDashboard } from './KioskAccountabilityDashboard';
+import { AppAccessPinModal } from './AppAccessPinModal';
 import { useI18n } from '../i18n/LocaleProvider';
+import {
+  adminPinValueSchema,
+  browserUrlSchema,
+  customAppFormSchema,
+  downtimeHoursSchema,
+  escapeHtml,
+  kioskTitleSchema,
+  quickDiaryFormSchema,
+} from '../utils/validation';
+import { DEFAULT_PAGE_SIZE, paginateItems } from '../utils/pagination';
 
 interface AndroidDeviceSimulatorProps {
   state: KioskState;
@@ -72,6 +84,8 @@ interface AndroidDeviceSimulatorProps {
   onSubmitPin: (pin: string) => { verified: boolean; lockedOutSeconds?: number };
   onCancelPinGate: () => void;
   onToggleAllowedApp: (packageName: string) => void;
+  onToggleAppPasswordProtection: (packageName: string) => void;
+  onVerifyAppAccessPin: (packageName: string, pin: string) => { verified: boolean; lockedOutSeconds?: number };
   onAddCustomApp: (label: string, packageName: string) => { ok: boolean; error?: string };
   onUpdatePin: (currentPin: string, newPin: string, confirmPin: string) => { ok: boolean; error?: string };
   onSetAdminUnlock: (unlocked: boolean) => void;
@@ -179,6 +193,8 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
   onSubmitPin,
   onCancelPinGate,
   onToggleAllowedApp,
+  onToggleAppPasswordProtection,
+  onVerifyAppAccessPin,
   onAddCustomApp,
   onUpdatePin,
   onSetAdminUnlock,
@@ -214,6 +230,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
   const [showPinEntry, setShowPinEntry] = useState(false);
   const [pinError, setPinError] = useState<string | null>(null);
   const [navBlockedMessage, setNavBlockedMessage] = useState<string | null>(null);
+  const [pendingProtectedAppPkg, setPendingProtectedAppPkg] = useState<string | null>(null);
 
   const [currentPinInput, setCurrentPinInput] = useState('');
   const [newPinInput, setNewPinInput] = useState('');
@@ -223,6 +240,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
 
   const [kioskTitleDraft, setKioskTitleDraft] = useState(state.kioskTitle);
   const [titleSavedNotice, setTitleSavedNotice] = useState(false);
+  const [kioskTitleError, setKioskTitleError] = useState<string | null>(null);
 
   const shields = state.blockerShields ?? DEFAULT_BLOCKER_SHIELDS;
   const downtime = state.downtimeSchedule ?? DEFAULT_DOWNTIME_SCHEDULE;
@@ -243,6 +261,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
   const [customAppPkg, setCustomAppPkg] = useState('');
   const [customAppFeedback, setCustomAppFeedback] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [adminAppFilter, setAdminAppFilter] = useState('');
+  const [adminAppsPage, setAdminAppsPage] = useState(1);
 
   const [uninstallTarget, setUninstallTarget] = useState('com.enterprise.pos');
 
@@ -255,6 +274,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
   const [quickNoteTitle, setQuickNoteTitle] = useState('');
   const [quickNoteBody, setQuickNoteBody] = useState('');
   const [quickNoteSaved, setQuickNoteSaved] = useState(false);
+  const [quickNoteError, setQuickNoteError] = useState<string | null>(null);
 
   // Interactive auto-updating battery state
   const [batteryLevel, setBatteryLevel] = useState<number>(84);
@@ -263,10 +283,39 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
   const [batteryPanelOpen, setBatteryPanelOpen] = useState<boolean>(false);
   const [hostBatteryAvailable, setHostBatteryAvailable] = useState<boolean>(false);
   const [hostBatterySynced, setHostBatterySynced] = useState<boolean>(false);
+  const [simIconError, setSimIconError] = useState<boolean>(false);
+
+  const quickNoteTimerRef = useRef<number | null>(null);
+  const titleTimerRef = useRef<number | null>(null);
+  const submitCooldownRef = useRef<Record<string, number>>({});
+
+  const canRunSubmit = (key: string, cooldownMs = 350): boolean => {
+    const now = Date.now();
+    const last = submitCooldownRef.current[key] ?? 0;
+    if (now - last < cooldownMs) return false;
+    submitCooldownRef.current[key] = now;
+    return true;
+  };
 
   const allInstalledApps = getAllInstalledApps(state);
   const visibleApps = getVisibleHomeApps(state);
   const activeApp = allInstalledApps.find((a) => a.packageName === state.activeAppPackage);
+  const pendingProtectedApp = useMemo(
+    () =>
+      pendingProtectedAppPkg
+        ? allInstalledApps.find((a) => a.packageName === pendingProtectedAppPkg) ?? null
+        : null,
+    [allInstalledApps, pendingProtectedAppPkg]
+  );
+
+  const handleAppLaunchRequest = (packageName: string) => {
+    setNavBlockedMessage(null);
+    if (isAppPasswordProtected(state, packageName)) {
+      setPendingProtectedAppPkg(packageName);
+      return;
+    }
+    onLaunchApp(packageName);
+  };
   const isLandscape = state.orientation === 'landscape';
   const textScaleClass = state.fontScale === '1.15x' ? 'text-[15px]' : 'text-[13px]';
   const today = formatIsoDate();
@@ -390,6 +439,17 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
   }, [hostBatterySynced]);
 
   useEffect(() => {
+    return () => {
+      if (quickNoteTimerRef.current !== null) {
+        window.clearTimeout(quickNoteTimerRef.current);
+      }
+      if (titleTimerRef.current !== null) {
+        window.clearTimeout(titleTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!batteryAutoUpdate || hostBatterySynced || state.activeScreen === 'rebooting') return;
     const batteryTimer = window.setInterval(() => {
       setBatteryLevel((prev) => {
@@ -402,16 +462,25 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
     return () => window.clearInterval(batteryTimer);
   }, [batteryAutoUpdate, hostBatterySynced, isCharging, state.activeScreen]);
 
-  const filteredAdminApps = allInstalledApps
-    .filter((a) => !a.isSystemRestricted)
-    .filter((a) => {
-      const q = adminAppFilter.trim().toLowerCase();
-      if (!q) return true;
-      return a.label.toLowerCase().includes(q) || a.packageName.toLowerCase().includes(q);
-    });
+  const filteredAdminApps = useMemo(
+    () =>
+      allInstalledApps
+        .filter((a) => !a.isSystemRestricted)
+        .filter((a) => {
+          const q = adminAppFilter.trim().toLowerCase();
+          if (!q) return true;
+          return a.label.toLowerCase().includes(q) || a.packageName.toLowerCase().includes(q);
+        }),
+    [allInstalledApps, adminAppFilter]
+  );
+  const adminAppsPagination = useMemo(
+    () => paginateItems(filteredAdminApps, adminAppsPage, DEFAULT_PAGE_SIZE),
+    [filteredAdminApps, adminAppsPage]
+  );
 
   const handlePinSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (!canRunSubmit('pin_submit')) return;
     const res = onSubmitPin(pinEntry);
     if (res.verified) {
       setPinEntry('');
@@ -435,7 +504,16 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
 
   const handleSavePin = (e: React.FormEvent) => {
     e.preventDefault();
-    const res = onUpdatePin(currentPinInput, newPinInput, confirmPinInput);
+    if (!canRunSubmit('save_pin')) return;
+    const parsedPin = adminPinValueSchema.safeParse(newPinInput);
+    if (!parsedPin.success) {
+      setPinChangeFeedback({
+        type: 'error',
+        text: tr(parsedPin.error.issues[0]?.message ?? 'Invalid passcode.'),
+      });
+      return;
+    }
+    const res = onUpdatePin(currentPinInput, parsedPin.data, confirmPinInput);
     if (res.ok) {
       setCurrentPinInput('');
       setNewPinInput('');
@@ -448,13 +526,25 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
 
   const handleAddCustomAppSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const res = onAddCustomApp(customAppLabel, customAppPkg);
+    if (!canRunSubmit('add_custom_app')) return;
+    const parsed = customAppFormSchema.safeParse({
+      label: customAppLabel,
+      packageName: customAppPkg,
+    });
+    if (!parsed.success) {
+      setCustomAppFeedback({
+        type: 'error',
+        text: tr(parsed.error.issues[0]?.message ?? 'Could not add app.'),
+      });
+      return;
+    }
+    const res = onAddCustomApp(parsed.data.label, parsed.data.packageName);
     if (res.ok) {
       setCustomAppFeedback({
         type: 'ok',
         text: tr('Added {label} ({pkg}) to Kiosk allowlist.', {
-          label: customAppLabel.trim(),
-          pkg: customAppPkg.trim(),
+          label: parsed.data.label,
+          pkg: parsed.data.packageName,
         }),
       });
       setCustomAppLabel('');
@@ -466,10 +556,15 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
 
   const handleBrowserGo = (urlToVisit: string) => {
     setInAppTestResult(null);
-    const res = onNavigateBrowser(urlToVisit);
+    const parsed = browserUrlSchema.safeParse(urlToVisit);
+    if (!parsed.success) {
+      setBrowserBlockReason(tr(parsed.error.issues[0]?.message ?? 'Blocked by Kiosk Browser policy.'));
+      return;
+    }
+    const res = onNavigateBrowser(parsed.data);
     if (res.ok) {
       setBrowserBlockReason(null);
-      setBrowserUrlInput(urlToVisit.includes('://') ? urlToVisit : `https://${urlToVisit}`);
+      setBrowserUrlInput(parsed.data.includes('://') ? parsed.data : `https://${parsed.data}`);
     } else {
       setBrowserBlockReason(res.reason ?? tr("Blocked by Kiosk Browser policy."));
     }
@@ -754,14 +849,19 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
           )}
 
           {navBlockedMessage && (
-            <div className="bg-amber-50 dark:bg-amber-950/60 border-b border-amber-200 dark:border-amber-800 px-3.5 py-2 flex items-center justify-between gap-2 text-xs text-amber-900 dark:text-amber-200 shrink-0">
-              <span>{navBlockedMessage}</span>
+            <div
+              role="status"
+              className="bg-amber-50 dark:bg-amber-950/60 border-b border-amber-200 dark:border-amber-800 px-3.5 py-2 flex items-center justify-between gap-2 text-xs text-amber-900 dark:text-amber-200 shrink-0"
+            >
+              <span className="min-w-0 break-words">{navBlockedMessage}</span>
               <button
                 type="button"
                 onClick={() => setNavBlockedMessage(null)}
                 aria-label={tr("Dismiss navigation notice")}
                 className="text-amber-800 dark:text-amber-300 hover:text-amber-950 dark:hover:text-amber-100 font-medium px-1 shrink-0"
-              >{"\n                "}{tr("Close")}{"\n              "}</button>
+              >
+                {tr("Close")}
+              </button>
             </div>
           )}
 
@@ -781,13 +881,23 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
               <div className="flex flex-col h-full">
                 <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <img
-                      src="/app-icon.svg"
-                      alt={tr("Ironclad OS app icon")}
-                      width={32}
-                      height={32}
-                      className="w-8 h-8 rounded-lg shrink-0"
-                    />
+                    {simIconError ? (
+                      <div
+                        className="w-8 h-8 rounded-lg bg-slate-900 dark:bg-sky-600 text-white flex items-center justify-center shrink-0"
+                        aria-hidden="true"
+                      >
+                        <ShieldCheck className="w-4 h-4" />
+                      </div>
+                    ) : (
+                      <img
+                        src="/app-icon.svg"
+                        alt={tr("Ironclad OS app icon")}
+                        width={32}
+                        height={32}
+                        onError={() => setSimIconError(true)}
+                        className="w-8 h-8 rounded-lg shrink-0"
+                      />
+                    )}
                     <div className="min-w-0 flex-1">
                       <h2
                         dir="auto"
@@ -854,7 +964,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                     <button
                       type="button"
                       onClick={() =>
-                        onLaunchApp(
+                        handleAppLaunchRequest(
                           state.kioskMode === 'kiosk_browser'
                             ? KIOSK_BROWSER_PACKAGE
                             : state.singleAppPackage ?? SELF_IMPROVEMENT_PACKAGE
@@ -911,7 +1021,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                   onToggleHabitToday={onToggleHabitToday}
                   onOpenFocusGrowth={() => {
                     if (state.allowedPackages.includes(SELF_IMPROVEMENT_PACKAGE)) {
-                      onLaunchApp(SELF_IMPROVEMENT_PACKAGE);
+                      handleAppLaunchRequest(SELF_IMPROVEMENT_PACKAGE);
                     } else {
                       onOpenFullSelfImprovement();
                     }
@@ -942,6 +1052,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                         const limitMins = (state.appTimeLimits ?? {})[app.packageName] ?? 0;
                         const remSec = getAppRemainingSeconds(state, app.packageName);
                         const blockReason = getAppScheduleOrLimitBlockReason(state, app.packageName);
+                        const passwordProtected = isAppPasswordProtected(state, app.packageName);
                         const remDisplay =
                           remSec !== null
                             ? remSec <= 0
@@ -952,10 +1063,8 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                           <button
                             key={app.packageName}
                             type="button"
-                            onClick={() => {
-                              setNavBlockedMessage(null);
-                              onLaunchApp(app.packageName);
-                            }}
+                            data-testid={`kiosk-home-app-${app.packageName}`}
+                            onClick={() => handleAppLaunchRequest(app.packageName)}
                             className={`min-h-[82px] p-3 rounded-xl border transition-colors flex flex-col items-start justify-between text-start focus-visible:outline-2 focus-visible:outline-sky-600 ${
                               blockReason
                                 ? 'border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-800/80'
@@ -965,8 +1074,18 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                                 : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-sky-400 dark:hover:border-sky-600 hover:bg-sky-50/40 dark:hover:bg-slate-800/80'
                             }`}
                           >
-                            <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-sky-700 dark:text-sky-400 flex items-center justify-center">
-                              {getAppIcon(app.packageName, 'w-4 h-4')}
+                            <div className="w-full flex items-center justify-between gap-2">
+                              <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-sky-700 dark:text-sky-400 flex items-center justify-center">
+                                {getAppIcon(app.packageName, 'w-4 h-4')}
+                              </div>
+                              {passwordProtected && (
+                                <span
+                                  title={tr('App Access PIN required')}
+                                  className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 shrink-0"
+                                >
+                                  <Lock className="w-3 h-3" aria-label={tr('Password required')} />
+                                </span>
+                              )}
                             </div>
                             <div className="w-full mt-2">
                               <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">
@@ -1077,7 +1196,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                       value={browserUrlInput}
                       onChange={(e) => setBrowserUrlInput(e.target.value)}
                       placeholder="https://wikipedia.org"
-                      className="flex-1 h-9 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 font-mono text-xs focus:outline-2 focus:outline-sky-600"
+                      className="min-w-0 flex-1 h-9 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 font-mono text-xs focus:outline-2 focus:outline-sky-600"
                     />
                     <button
                       type="submit"
@@ -1210,34 +1329,50 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                   >{"\n                    "}{tr("Open Full Editor")}{"\n                  "}</button>
                 </div>
 
-                <div className="grid grid-cols-3 gap-1 bg-slate-200/70 dark:bg-slate-900 border border-transparent dark:border-slate-800 p-1 rounded-lg">
+                <div
+                  role="tablist"
+                  aria-label={tr("Focus and growth sections")}
+                  className="grid grid-cols-3 gap-1 bg-slate-200/70 dark:bg-slate-900 border border-transparent dark:border-slate-800 p-1 rounded-lg"
+                >
                   <button
                     type="button"
+                    role="tab"
+                    aria-selected={kioskSiTab === 'today'}
                     onClick={() => setKioskSiTab('today')}
                     className={`py-1.5 rounded text-[11px] font-semibold ${
                       kioskSiTab === 'today'
                         ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm'
                         : 'text-slate-600 dark:text-slate-400'
                     }`}
-                  >{"\n                    "}{tr("Today")}{"\n                  "}</button>
+                  >
+                    {tr("Today")}
+                  </button>
                   <button
                     type="button"
+                    role="tab"
+                    aria-selected={kioskSiTab === 'timer'}
                     onClick={() => setKioskSiTab('timer')}
                     className={`py-1.5 rounded text-[11px] font-semibold ${
                       kioskSiTab === 'timer'
                         ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm'
                         : 'text-slate-600 dark:text-slate-400'
                     }`}
-                  >{"\n                    "}{tr("Focus Timer")}{"\n                  "}</button>
+                  >
+                    {tr("Focus Timer")}
+                  </button>
                   <button
                     type="button"
+                    role="tab"
+                    aria-selected={kioskSiTab === 'diary'}
                     onClick={() => setKioskSiTab('diary')}
                     className={`py-1.5 rounded text-[11px] font-semibold ${
                       kioskSiTab === 'diary'
                         ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm'
                         : 'text-slate-600 dark:text-slate-400'
                     }`}
-                  >{"\n                    "}{tr("Quick Diary")}{"\n                  "}</button>
+                  >
+                    {tr("Quick Diary")}
+                  </button>
                 </div>
 
                 {kioskSiTab === 'today' ? (
@@ -1327,6 +1462,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                         <button
                           key={mins}
                           type="button"
+                          aria-pressed={simTimerMins === mins}
                           onClick={() => {
                             setSimTimerRunning(false);
                             setSimTimerMins(mins);
@@ -1373,40 +1509,72 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
-                      if (!quickNoteBody.trim()) return;
+                      if (!canRunSubmit('quick_diary')) return;
+                      const parsed = quickDiaryFormSchema.safeParse({
+                        title: quickNoteTitle,
+                        body: quickNoteBody,
+                      });
+                      if (!parsed.success) {
+                        setQuickNoteError(tr(parsed.error.issues[0]?.message ?? 'Write a reflection before saving.'));
+                        return;
+                      }
+                      setQuickNoteError(null);
                       onQuickSaveDiaryNote(
-                        quickNoteTitle.trim() || `Kiosk Diary — ${today}`,
-                        `<p>${quickNoteBody.trim()}</p>`
+                        parsed.data.title || `Kiosk Diary — ${today}`,
+                        `<p>${escapeHtml(parsed.data.body)}</p>`
                       );
                       setQuickNoteTitle('');
                       setQuickNoteBody('');
                       setQuickNoteSaved(true);
-                      window.setTimeout(() => setQuickNoteSaved(false), 2000);
+                      if (quickNoteTimerRef.current !== null) {
+                        window.clearTimeout(quickNoteTimerRef.current);
+                      }
+                      quickNoteTimerRef.current = window.setTimeout(() => setQuickNoteSaved(false), 2000);
                     }}
                     className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 space-y-2"
                   >
                     <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">{tr("Quick Diary / Trigger Entry")}</div>
                     <input
                       type="text"
+                      aria-label={tr("Diary entry title")}
+                      maxLength={120}
                       value={quickNoteTitle}
-                      onChange={(e) => setQuickNoteTitle(e.target.value)}
+                      onChange={(e) => {
+                        setQuickNoteError(null);
+                        setQuickNoteTitle(e.target.value);
+                      }}
                       placeholder={tr("Entry title...")}
                       className="w-full h-8 px-2.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-xs"
                     />
                     <textarea
                       rows={4}
+                      aria-label={tr("Diary reflection")}
+                      maxLength={5000}
                       value={quickNoteBody}
-                      onChange={(e) => setQuickNoteBody(e.target.value)}
+                      onChange={(e) => {
+                        setQuickNoteError(null);
+                        setQuickNoteBody(e.target.value);
+                      }}
                       placeholder={tr("Log a reflection, goal progress, or urge trigger...")}
                       className="w-full p-2.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-xs"
                     />
+                    {quickNoteError && (
+                      <p role="alert" className="text-[11px] font-medium text-red-600 dark:text-red-400">
+                        {quickNoteError}
+                      </p>
+                    )}
                     {quickNoteSaved && (
-                      <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400">{"\n                        "}{tr("Saved to Notebooks & Diary.")}{"\n                      "}</p>
+                      <p role="status" className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                        {tr("Saved to Notebooks & Diary.")}
+                      </p>
                     )}
                     <button
                       type="submit"
-                      className="w-full h-8 rounded-lg bg-slate-900 dark:bg-sky-600 hover:bg-slate-800 dark:hover:bg-sky-500 text-white text-xs font-semibold"
-                    >{"\n                      "}{tr("Save Diary Entry")}{"\n                    "}</button>
+                      disabled={!quickNoteBody.trim()}
+                      className="w-full h-8 rounded-lg bg-slate-900 dark:bg-sky-600 hover:bg-slate-800 dark:hover:bg-sky-500 disabled:opacity-45 text-white text-xs font-semibold"
+                    >
+                      {tr("Save Diary Entry")}
+                    </button>
                   </form>
                 )}
 
@@ -1421,6 +1589,27 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                 >
                   <Lock className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>{tr("Exit LockTask (Admin Passcode)")}</span>
+                </button>
+              </div>
+            )}
+
+            {state.activeScreen === 'app_lock_task' && !activeApp && (
+              <div className="h-full flex flex-col items-center justify-center text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
+                <ShieldAlert className="w-8 h-8 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                    {tr("Application Unavailable")}
+                  </h3>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                    {tr("The selected LockTask package is no longer available on this device.")}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={onReturnHome}
+                  className="min-h-[38px] px-4 py-2 rounded-lg bg-slate-900 dark:bg-sky-600 text-white text-xs font-semibold hover:bg-slate-800 dark:hover:bg-sky-500"
+                >
+                  {tr("Return to Kiosk Home")}
                 </button>
               </div>
             )}
@@ -1453,8 +1642,10 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
 
                   <div className="mt-4 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 space-y-1">
                     <div className="font-medium text-slate-900 dark:text-slate-100">{tr("Active Kiosk Isolation")}</div>
-                    <div>{"\n                      "}{tr("Launched via")}{' '}
-                      <code className="font-mono text-sky-700 dark:text-sky-400">startLockTask()</code>{tr(". Status bar expansion, task switching, and Home navigation are locked.")}{"\n                    "}</div>
+                    <div>
+                      {tr("Launched via")}{' '}
+                      <code className="font-mono text-sky-700 dark:text-sky-400">startLockTask()</code>{tr(". Status bar expansion, task switching, and Home navigation are locked.")}
+                    </div>
                   </div>
 
                   {activeAppRemainingSec !== null && (
@@ -1469,7 +1660,9 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                         type="button"
                         onClick={() => onAdvanceAppUsage(activeApp.packageName, 300)}
                         className="px-2.5 py-1.5 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-[11px] font-semibold text-amber-900 dark:text-amber-200 whitespace-nowrap"
-                      >{"\n                        "}{tr("Simulate +5m Usage")}{"\n                      "}</button>
+                      >
+                        {tr("Simulate +5m Usage")}
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1553,7 +1746,11 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                     )}
 
                     {/* Quick Numeric Keypad (helpful for default 1234; keyboard supports full 50-char strings) */}
-                    <div className="grid grid-cols-3 gap-2 mt-3">
+                    <div
+                      role="group"
+                      aria-label={tr("Numeric passcode keypad")}
+                      className="grid grid-cols-3 gap-2 mt-3"
+                    >
                       {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
                         <button
                           key={digit}
@@ -1667,6 +1864,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                       <button
                         key={modeOpt.id}
                         type="button"
+                        aria-pressed={state.kioskMode === modeOpt.id}
                         onClick={() => onSetKioskMode(modeOpt.id, state.singleAppPackage)}
                         className={`py-1.5 px-2 rounded-lg border text-[11px] font-semibold whitespace-nowrap ${
                           state.kioskMode === modeOpt.id
@@ -1701,30 +1899,52 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                     </div>
                   )}
 
-                  <div className="flex items-end gap-2">
-                    <div className="flex-1 min-w-0">
-                      <label htmlFor="kiosk-title-input" className="block text-[11px] text-slate-600 dark:text-slate-400 mb-0.5">
-                        {tr("Custom Launcher Title")}
-                      </label>
-                      <input
-                        id="kiosk-title-input"
-                        type="text"
-                        value={kioskTitleDraft}
-                        onChange={(e) => setKioskTitleDraft(e.target.value)}
-                        className="w-full h-8 px-2 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-xs"
-                      />
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap sm:flex-nowrap items-end gap-2">
+                      <div className="flex-1 min-w-0">
+                        <label htmlFor="kiosk-title-input" className="block text-[11px] text-slate-600 dark:text-slate-400 mb-0.5">
+                          {tr("Custom Launcher Title")}
+                        </label>
+                        <input
+                          id="kiosk-title-input"
+                          type="text"
+                          maxLength={80}
+                          value={kioskTitleDraft}
+                          onChange={(e) => {
+                            setKioskTitleError(null);
+                            setKioskTitleDraft(e.target.value);
+                          }}
+                          className="w-full h-8 px-2 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-xs"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!canRunSubmit('save_title')) return;
+                          const parsed = kioskTitleSchema.safeParse({ title: kioskTitleDraft });
+                          if (!parsed.success) {
+                            setKioskTitleError(tr(parsed.error.issues[0]?.message ?? 'Title cannot be empty.'));
+                            return;
+                          }
+                          setKioskTitleError(null);
+                          setKioskTitleDraft(parsed.data.title);
+                          onUpdateKioskTitle(parsed.data.title);
+                          setTitleSavedNotice(true);
+                          if (titleTimerRef.current !== null) {
+                            window.clearTimeout(titleTimerRef.current);
+                          }
+                          titleTimerRef.current = window.setTimeout(() => setTitleSavedNotice(false), 1800);
+                        }}
+                        className="h-8 px-3 rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap shrink-0"
+                      >
+                        {titleSavedNotice ? tr("Saved") : tr("Save Title")}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onUpdateKioskTitle(kioskTitleDraft);
-                        setTitleSavedNotice(true);
-                        window.setTimeout(() => setTitleSavedNotice(false), 1800);
-                      }}
-                      className="h-8 px-3 rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap shrink-0"
-                    >
-                      {titleSavedNotice ? tr("Saved") : tr("Save Title")}
-                    </button>
+                    {kioskTitleError && (
+                      <p role="alert" className="text-[11px] font-medium text-red-600 dark:text-red-400">
+                        {kioskTitleError}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1736,7 +1956,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                     </span>
                     <button
                       type="button"
-                      onClick={() => onLaunchApp(KIOSK_BROWSER_PACKAGE)}
+                      onClick={() => handleAppLaunchRequest(KIOSK_BROWSER_PACKAGE)}
                       className="text-[11px] font-semibold text-sky-700 dark:text-sky-400 hover:text-sky-900 dark:hover:text-sky-300 whitespace-nowrap"
                     >
                       {tr("Open Browser")}
@@ -1744,7 +1964,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                   </div>
 
                   {/* Strict Anti-Relapse Shield Time-Lock */}
-                  <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2">
+                  <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0">
                       <div className="text-[11px] font-semibold text-slate-800 dark:text-slate-200 truncate">
                         {strictLockMinutes > 0
@@ -1759,6 +1979,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                       <button
                         type="button"
                         onClick={() => {
+                          if (!canRunSubmit('strict_lock')) return;
                           onActivateStrictLock(60);
                           setShieldFeedback({ type: 'ok', text: tr('Shields time-locked for 60 minutes.') });
                         }}
@@ -1769,6 +1990,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                       <button
                         type="button"
                         onClick={() => {
+                          if (!canRunSubmit('strict_lock')) return;
                           onActivateStrictLock(1440);
                           setShieldFeedback({ type: 'ok', text: tr('Shields time-locked for 24 hours.') });
                         }}
@@ -1833,6 +2055,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                         <button
                           key={dnsOpt.id}
                           type="button"
+                          aria-pressed={shields.familyDnsMode === dnsOpt.id}
                           onClick={() => {
                             const res = onSetFamilyDnsMode(dnsOpt.id);
                             if (!res.ok && res.error) {
@@ -1907,6 +2130,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                   <button
                     type="button"
                     onClick={() => {
+                      if (!canRunSubmit('save_blockers')) return;
                       onUpdateInAppWhitelist(inAppWhitelistDraft.split(','));
                       onUpdateAllowedDomains(domainsDraft.split(','));
                       onUpdateBlockedKeywords(keywordsDraft.split(','));
@@ -2006,9 +2230,11 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                   className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-2"
                 >
                   <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">{"\n                    "}{tr("Add Any App to Kiosk")}{"\n                  "}</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label htmlFor="custom-app-label" className="block text-[11px] text-slate-600 dark:text-slate-400 mb-0.5">{"\n                        "}{tr("App Name")}{"\n                      "}</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="min-w-0">
+                      <label htmlFor="custom-app-label" className="block text-[11px] text-slate-600 dark:text-slate-400 mb-0.5">
+                        {tr("App Name")}
+                      </label>
                       <input
                         id="custom-app-label"
                         type="text"
@@ -2018,8 +2244,10 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                         className="w-full h-8 px-2 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-xs"
                       />
                     </div>
-                    <div>
-                      <label htmlFor="custom-app-pkg" className="block text-[11px] text-slate-600 dark:text-slate-400 mb-0.5">{"\n                        "}{tr("Package ID")}{"\n                      "}</label>
+                    <div className="min-w-0">
+                      <label htmlFor="custom-app-pkg" className="block text-[11px] text-slate-600 dark:text-slate-400 mb-0.5">
+                        {tr("Package ID")}
+                      </label>
                       <input
                         id="custom-app-pkg"
                         type="text"
@@ -2042,7 +2270,8 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                   )}
                   <button
                     type="submit"
-                    className="w-full min-h-[34px] rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5"
+                    disabled={!customAppLabel.trim() || !customAppPkg.trim()}
+                    className="w-full min-h-[34px] rounded-lg bg-sky-600 hover:bg-sky-700 disabled:opacity-45 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5"
                   >
                     <Plus className="w-3.5 h-3.5" aria-hidden="true" />
                     <span>{tr("Add App & Allow LockTask")}</span>
@@ -2147,8 +2376,8 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                       </button>
                     </div>
 
-                    <div className="flex items-end gap-1.5">
-                      <div className="flex-1">
+                    <div className="flex flex-wrap sm:flex-nowrap items-end gap-1.5">
+                      <div className="flex-1 min-w-[90px]">
                         <label htmlFor="downtime-start-hour" className="block text-[10px] text-slate-600 dark:text-slate-400 mb-0.5">
                           {tr("Start Hour (0–23)")}
                         </label>
@@ -2162,7 +2391,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                           className="w-full h-8 px-2 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-mono text-xs"
                         />
                       </div>
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-[90px]">
                         <label htmlFor="downtime-end-hour" className="block text-[10px] text-slate-600 dark:text-slate-400 mb-0.5">
                           {tr("End Hour (0–23)")}
                         </label>
@@ -2179,11 +2408,21 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                       <button
                         type="button"
                         onClick={() => {
-                          const start = Number.parseInt(downtimeStartDraft, 10);
-                          const end = Number.parseInt(downtimeEndDraft, 10);
+                          if (!canRunSubmit('save_downtime')) return;
+                          const parsed = downtimeHoursSchema.safeParse({
+                            startHour: downtimeStartDraft,
+                            endHour: downtimeEndDraft,
+                          });
+                          if (!parsed.success) {
+                            setLimitFeedback({
+                              type: 'error',
+                              text: tr(parsed.error.issues[0]?.message ?? 'Enter valid hours (0–23).'),
+                            });
+                            return;
+                          }
                           const res = onUpdateDowntimeSchedule({
-                            startHour: Number.isNaN(start) ? 22 : start,
-                            endHour: Number.isNaN(end) ? 6 : end,
+                            startHour: parsed.data.startHour,
+                            endHour: parsed.data.endHour,
                           });
                           setLimitFeedback(
                             res.ok
@@ -2191,7 +2430,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                               : { type: 'error', text: res.error ?? tr("Failed to save schedule.") }
                           );
                         }}
-                        className="h-8 px-2.5 rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-[11px] font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap"
+                        className="h-8 px-2.5 rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-[11px] font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap shrink-0"
                       >
                         {tr("Save")}
                       </button>
@@ -2238,13 +2477,36 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                     type="search"
                     aria-label={tr("Filter installed apps")}
                     value={adminAppFilter}
-                    onChange={(e) => setAdminAppFilter(e.target.value)}
+                    onChange={(e) => {
+                      setAdminAppFilter(e.target.value);
+                      setAdminAppsPage(1);
+                    }}
                     placeholder={tr("Search installed apps...")}
                     className="w-full h-8 px-2.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-xs"
                   />
                   <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {filteredAdminApps.map((app) => {
+                    {adminAppsPagination.totalItems === 0 ? (
+                      <div className="py-5 text-center space-y-2">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {tr("No matching apps found.")}
+                        </p>
+                        {adminAppFilter.trim().length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAdminAppFilter('');
+                              setAdminAppsPage(1);
+                            }}
+                            className="px-2.5 py-1 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-[11px] font-medium text-slate-700 dark:text-slate-200"
+                          >
+                            {tr("Clear filter")}
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                    adminAppsPagination.items.map((app) => {
                       const allowed = state.allowedPackages.includes(app.packageName);
+                      const passwordProtected = isAppPasswordProtected(state, app.packageName);
                       const limitMins = (state.appTimeLimits ?? {})[app.packageName] ?? 0;
                       const usedMins = Math.floor(
                         ((state.appUsageSeconds ?? {})[app.packageName] ?? 0) / 60
@@ -2271,7 +2533,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                             <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
-                                onClick={() => onLaunchApp(app.packageName)}
+                                onClick={() => handleAppLaunchRequest(app.packageName)}
                                 disabled={!allowed}
                                 aria-label={tr('Launch {label} in LockTask', { label: app.label })}
                                 className="px-2 py-1 rounded border border-slate-200 dark:border-slate-700 text-[11px] font-medium text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/50 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -2293,6 +2555,30 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                                 {allowed ? tr("Allowed") : tr("Hidden")}
                               </button>
                             </div>
+                          </div>
+
+                          {/* Per-App Password Requirement Toggle */}
+                          <div className="flex items-center justify-between gap-2 pt-0.5">
+                            <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400 inline-flex items-center gap-1">
+                              <Lock className="w-3 h-3 text-slate-500 dark:text-slate-400" aria-hidden="true" />
+                              <span>{tr("Require Password")}</span>
+                            </span>
+                            <button
+                              type="button"
+                              role="switch"
+                              disabled={!allowed}
+                              aria-checked={passwordProtected}
+                              aria-label={tr('Require Password for {label}', { label: app.label })}
+                              data-testid={`require-password-toggle-${app.packageName}`}
+                              onClick={() => onToggleAppPasswordProtection(app.packageName)}
+                              className={`min-w-[48px] px-2 py-0.5 rounded text-[10px] font-semibold border transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
+                                passwordProtected
+                                  ? 'bg-amber-600 border-amber-600 text-white'
+                                  : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                              }`}
+                            >
+                              {passwordProtected ? tr("On") : tr("Off")}
+                            </button>
                           </div>
 
                           {/* Per-App Daily Time Limit Controls */}
@@ -2355,8 +2641,32 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                           </div>
                         </div>
                       );
-                    })}
+                    })
+                    )}
                   </div>
+                  {adminAppsPagination.totalPages > 1 && (
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-[11px]">
+                      <button
+                        type="button"
+                        disabled={!adminAppsPagination.hasPrev}
+                        onClick={() => setAdminAppsPage(adminAppsPagination.page - 1)}
+                        className="px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 disabled:opacity-40"
+                      >
+                        {tr("Previous")}
+                      </button>
+                      <span className="font-mono text-slate-500 dark:text-slate-400 tabular-nums">
+                        {tr('Page {p} of {total}', { p: adminAppsPagination.page, total: adminAppsPagination.totalPages })}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={!adminAppsPagination.hasNext}
+                        onClick={() => setAdminAppsPage(adminAppsPagination.page + 1)}
+                        className="px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 disabled:opacity-40"
+                      >
+                        {tr("Next")}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Change Admin Passcode (4–50 chars, letters/digits/symbols) */}
@@ -2472,12 +2782,12 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
 
                 <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-2">
                   <label htmlFor="uninstall-pkg-select" className="block text-xs font-medium text-slate-700 dark:text-slate-300">{"\n                    "}{tr("Manage / Uninstall Package")}{"\n                  "}</label>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
                     <select
                       id="uninstall-pkg-select"
                       value={uninstallTarget}
                       onChange={(e) => setUninstallTarget(e.target.value)}
-                      className="flex-1 h-9 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
+                      className="min-w-0 flex-1 h-9 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
                     >
                       {allInstalledApps
                         .filter((a) => !a.isSystemRestricted)
@@ -2491,8 +2801,10 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                     <button
                       type="button"
                       onClick={() => onAttemptUninstall(uninstallTarget)}
-                      className="h-9 px-3 rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/60 text-red-800 dark:text-red-300 text-xs font-medium hover:bg-red-100 dark:hover:bg-red-900/60 whitespace-nowrap"
-                    >{"\n                      "}{tr("Uninstall")}{"\n                    "}</button>
+                      className="h-9 px-3 rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/60 text-red-800 dark:text-red-300 text-xs font-medium hover:bg-red-100 dark:hover:bg-red-900/60 whitespace-nowrap shrink-0"
+                    >
+                      {tr("Uninstall")}
+                    </button>
                   </div>
                 </div>
               </div>
