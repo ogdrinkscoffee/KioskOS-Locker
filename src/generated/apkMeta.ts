@@ -4,8 +4,8 @@
 // Refresh with `npm run apk:meta` (build-apk.sh and CI do it for you).
 
 export const APK_META = {
-  version: '1.3.5',
-  versionCode: 12,
+  version: '1.3.6',
+  versionCode: 13,
   sizeMb: '5.0',
   sizeBytes: 5232844,
   sha256: '6f98a8ad8954433fbb589cf8019c1e1ea4dda18544afce3208fb86470f179c2c',
