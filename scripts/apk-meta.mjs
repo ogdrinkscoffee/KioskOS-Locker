@@ -51,7 +51,11 @@ const APK_FILE_NAME = 'IroncladOS.apk';
 const args = process.argv.slice(2);
 const checkOnly = args.includes('--check');
 const apkArgIndex = args.indexOf('--apk');
-const extraApk = apkArgIndex === -1 ? null : path.resolve(process.cwd(), args[apkArgIndex + 1] ?? '');
+const extraApkArg = apkArgIndex === -1 ? null : args[apkArgIndex + 1];
+if (apkArgIndex !== -1 && (!extraApkArg || extraApkArg.startsWith('--'))) {
+  fail('missing path after --apk');
+}
+const extraApk = extraApkArg ? path.resolve(process.cwd(), extraApkArg) : null;
 
 function fail(message) {
   console.error(`apk-meta: ${message}`);
@@ -169,12 +173,19 @@ function renderFeed(declared, published) {
 }
 
 const declared = readGradleVersion();
-const embedded = readApkBadging(publishedApk, 'public/downloads/IroncladOS.apk');
-assertVersionsAgree(declared, embedded, 'the published APK');
 
 if (extraApk) {
   assertVersionsAgree(declared, readApkBadging(extraApk, 'the built APK'), 'the built APK');
+  if (checkOnly) {
+    console.log(
+      `apk-meta: ok — built APK matches v${declared.versionName} (code ${declared.versionCode})`
+    );
+    process.exit(0);
+  }
 }
+
+const embedded = readApkBadging(publishedApk, 'public/downloads/IroncladOS.apk');
+assertVersionsAgree(declared, embedded, 'the published APK');
 
 const published = readPublishedApk();
 const next = render(declared, published);
