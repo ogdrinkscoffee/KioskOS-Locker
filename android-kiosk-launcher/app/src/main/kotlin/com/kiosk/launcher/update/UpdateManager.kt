@@ -73,7 +73,7 @@ class UpdateManager(private val context: Context) {
         worker.execute {
             val client = UpdateHttpClient()
             var lastError: String? = null
-            var found: CheckOutcome.Success? = null
+            var best: CheckOutcome.Success? = null
 
             for (url in candidates) {
                 val bodyResult = runCatching { client.fetchText(url) }
@@ -83,15 +83,19 @@ class UpdateManager(private val context: Context) {
                 }
                 val manifest = UpdateManifest.parse(bodyResult.getOrNull().orEmpty(), url)
                 if (manifest != null) {
-                    found = CheckOutcome.Success(manifest, url)
-                    break
+                    if (best == null || manifest.versionCode > best.manifest.versionCode) {
+                        best = CheckOutcome.Success(manifest, url)
+                    }
+                    if (isUpdateAvailable(manifest)) {
+                        break
+                    }
                 } else {
                     lastError = "invalid_manifest"
                 }
             }
 
             prefs.lastUpdateCheckMs = System.currentTimeMillis()
-            val outcome: CheckOutcome = found ?: CheckOutcome.Error(lastError ?: "unreachable")
+            val outcome: CheckOutcome = best ?: CheckOutcome.Error(lastError ?: "unreachable")
             mainHandler.post { onResult(outcome) }
         }
     }

@@ -19,6 +19,9 @@ internal class UpdateHttpClient {
             if (conn.responseCode !in 200..299) {
                 throw UpdateException("http_${conn.responseCode}")
             }
+            if (!conn.url.protocol.equals("https", ignoreCase = true)) {
+                throw UpdateException("insecure_redirect")
+            }
             conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
         }
     }
@@ -29,6 +32,9 @@ internal class UpdateHttpClient {
         connection.use { conn ->
             if (conn.responseCode !in 200..299) {
                 throw UpdateException("http_${conn.responseCode}")
+            }
+            if (!conn.url.protocol.equals("https", ignoreCase = true)) {
+                throw UpdateException("insecure_redirect")
             }
             val total = conn.contentLengthLong
             var written = 0L

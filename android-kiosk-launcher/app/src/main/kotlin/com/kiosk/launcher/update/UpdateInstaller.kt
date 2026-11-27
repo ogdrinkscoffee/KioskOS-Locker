@@ -76,11 +76,18 @@ class UpdateInstaller(context: Context) {
                     }.exceptionOrNull()
 
                     if (failure == null) {
-                        downloaded = true
-                        break
+                        val validFile = target.length() == manifest.sizeBytes &&
+                            checksum(target) == manifest.sha256
+                        if (validFile) {
+                            downloaded = true
+                            break
+                        }
+                        lastFailure = UpdateException(FAILED_CHECKSUM)
+                        target.delete()
+                    } else {
+                        lastFailure = failure
+                        target.delete()
                     }
-                    lastFailure = failure
-                    target.delete()
                 }
 
                 if (!downloaded) {
@@ -90,7 +97,7 @@ class UpdateInstaller(context: Context) {
                 }
             }
 
-            if (checksum(target) != manifest.sha256) {
+            if (target.length() != manifest.sizeBytes || checksum(target) != manifest.sha256) {
                 target.delete()
                 emit(Event.Failed(FAILED_CHECKSUM))
                 return@execute
