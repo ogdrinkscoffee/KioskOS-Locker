@@ -24,17 +24,27 @@ export const AppAccessPinModal: React.FC<AppAccessPinModalProps> = ({
   const [pinEntry, setPinEntry] = useState('');
   const [showPin, setShowPin] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [shakeCount, setShakeCount] = useState(0);
+  const [isShaking, setIsShaking] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const shakeTimerRef = useRef<number | null>(null);
   const titleId = useId();
   const descId = useId();
   const inputId = useId();
+
+  useEffect(() => {
+    return () => {
+      if (shakeTimerRef.current !== null) {
+        window.clearTimeout(shakeTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
     setPinEntry('');
     setShowPin(false);
     setErrorMessage(null);
+    setIsShaking(false);
     const focusTimer = window.setTimeout(() => {
       inputRef.current?.focus();
     }, 20);
@@ -57,6 +67,16 @@ export const AppAccessPinModal: React.FC<AppAccessPinModalProps> = ({
 
   const isLockedOut = lockoutSeconds > 0;
 
+  const triggerShake = () => {
+    setIsShaking(true);
+    if (shakeTimerRef.current !== null) {
+      window.clearTimeout(shakeTimerRef.current);
+    }
+    shakeTimerRef.current = window.setTimeout(() => {
+      setIsShaking(false);
+    }, 180);
+  };
+
   const handleDigitPress = (digit: string) => {
     if (isLockedOut) return;
     if (pinEntry.length < MAX_ADMIN_PIN_LENGTH) {
@@ -78,7 +98,7 @@ export const AppAccessPinModal: React.FC<AppAccessPinModalProps> = ({
     }
 
     setPinEntry('');
-    setShakeCount((c) => c + 1);
+    triggerShake();
     if (result.lockedOutSeconds && result.lockedOutSeconds > 0) {
       setErrorMessage(
         tr('Too many failed attempts. Security cooldown active for {s}s.', {
@@ -101,13 +121,16 @@ export const AppAccessPinModal: React.FC<AppAccessPinModalProps> = ({
       }}
     >
       <div
-        key={shakeCount}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descId}
         data-testid="app-access-pin-modal"
-        className="w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xl p-5 space-y-4 transition-transform duration-150"
+        className={`w-full max-w-sm rounded-2xl border bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xl p-5 space-y-4 transition-all duration-150 ${
+          isShaking
+            ? 'border-red-500 ring-2 ring-red-500/40 -translate-x-1'
+            : 'border-slate-200 dark:border-slate-800'
+        }`}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">

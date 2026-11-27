@@ -44,6 +44,7 @@ import {
   PinGateTarget,
   RestrictionKey,
   SELF_IMPROVEMENT_PACKAGE,
+  UNSUPPORTED_BROWSER_PACKAGES,
   getAllInstalledApps,
   getAppRemainingSeconds,
   getAppScheduleOrLimitBlockReason,
@@ -231,6 +232,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
   const [pinError, setPinError] = useState<string | null>(null);
   const [navBlockedMessage, setNavBlockedMessage] = useState<string | null>(null);
   const [pendingProtectedAppPkg, setPendingProtectedAppPkg] = useState<string | null>(null);
+  const [lockoutNowMs, setLockoutNowMs] = useState<number>(() => Date.now());
 
   const [currentPinInput, setCurrentPinInput] = useState('');
   const [newPinInput, setNewPinInput] = useState('');
@@ -310,6 +312,31 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
 
   const handleAppLaunchRequest = (packageName: string) => {
     setNavBlockedMessage(null);
+    const targetApp = allInstalledApps.find((item) => item.packageName === packageName);
+    const blockedByUnsupportedBrowser =
+      Boolean(targetApp?.isUnsupportedBrowser || UNSUPPORTED_BROWSER_PACKAGES.has(packageName)) &&
+      state.isDeviceOwner &&
+      shields.blockUnsupportedBrowsers &&
+      !state.adminUnlocked;
+    const blockedByScheduleOrLimit =
+      !state.adminUnlocked && getAppScheduleOrLimitBlockReason(state, packageName) !== null;
+    const blockedByCameraLock =
+      packageName === 'com.android.camera2' &&
+      state.isDeviceOwner &&
+      Boolean(state.hardwareLocks?.cameraDisabled);
+    const blockedByAllowlist =
+      !state.allowedPackages.includes(packageName) && !state.adminUnlocked;
+
+    if (
+      blockedByUnsupportedBrowser ||
+      blockedByScheduleOrLimit ||
+      blockedByCameraLock ||
+      blockedByAllowlist
+    ) {
+      onLaunchApp(packageName);
+      return;
+    }
+
     if (isAppPasswordProtected(state, packageName)) {
       setPendingProtectedAppPkg(packageName);
       return;
@@ -320,7 +347,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
   const textScaleClass = state.fontScale === '1.15x' ? 'text-[15px]' : 'text-[13px]';
   const today = formatIsoDate();
   const simFocusSummary = getTodayFocusSummary(selfImprovement, today);
-  const lockoutRemaining = getPinLockoutRemainingSeconds(state);
+  const lockoutRemaining = getPinLockoutRemainingSeconds(state, lockoutNowMs);
   const strictLockMinutes = getStrictShieldRemainingMinutes(state);
   const focusBlockMinutes = getFocusBlockRemainingMinutes(state);
   const panicLockMinutes = getPanicLockRemainingMinutes(state);
@@ -329,6 +356,29 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
     state.activeAppPackage ? (state.appTimeLimits ?? {})[state.activeAppPackage] ?? 0 : 0;
   const activeAppRemainingSec =
     state.activeAppPackage ? getAppRemainingSeconds(state, state.activeAppPackage) : null;
+
+  useEffect(() => {
+    if ((state.pinLockedUntilMs ?? 0) <= Date.now()) return;
+    setLockoutNowMs(Date.now());
+    const timer = window.setInterval(() => {
+      const now = Date.now();
+      setLockoutNowMs(now);
+      if ((state.pinLockedUntilMs ?? 0) <= now) {
+        window.clearInterval(timer);
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [state.pinLockedUntilMs]);
+
+  useEffect(() => {
+    if (!pendingProtectedAppPkg) return;
+    if (
+      state.activeScreen === 'rebooting' ||
+      !isAppPasswordProtected(state, pendingProtectedAppPkg)
+    ) {
+      setPendingProtectedAppPkg(null);
+    }
+  }, [pendingProtectedAppPkg, state.activeScreen, state.allowedPackages, state.allowedApps]);
 
   useEffect(() => {
     setKioskTitleDraft(state.kioskTitle);
@@ -2863,6 +2913,18 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
         <span aria-hidden="true">·</span>
         <span className="tabular-nums shrink-0">{tr("Reboots survived:")}{" "}{state.rebootCount}</span>
       </div>
+
+      <AppAccessPinModal
+        app={pendingProtectedApp}
+        isOpen={pendingProtectedApp !== null}
+        lockoutSeconds={lockoutRemaining}
+        onVerifyPin={onVerifyAppAccessPin}
+        onSuccess={(packageName) => {
+          setPendingProtectedAppPkg(null);
+          onLaunchApp(packageName);
+        }}
+        onClose={() => setPendingProtectedAppPkg(null)}
+      />
     </div>
   );
 };

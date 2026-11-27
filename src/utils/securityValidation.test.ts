@@ -153,6 +153,10 @@ test('parseStoredKioskPayload, parseSelfImprovementPayload, and buildGrowthSyncP
       kioskMode: 'root_shell',
       adminPin: 'ab',
       allowedPackages: ['com.android.calculator2', 123, ''],
+      allowedApps: {
+        'com.android.calculator2': { passwordProtected: true },
+        'com.enterprise.pos': { passwordProtected: true },
+      },
       appTimeLimits: { 'com.enterprise.pos': 999999, '': 10, bad: -5 },
       activeScreen: 'rebooting',
       tamperEscalationTier: 99,
@@ -163,6 +167,9 @@ test('parseStoredKioskPayload, parseSelfImprovementPayload, and buildGrowthSyncP
   assert.equal(parsedKiosk.kioskMode, kioskFallback.kioskMode);
   assert.equal(parsedKiosk.adminPin, kioskFallback.adminPin);
   assert.deepEqual(parsedKiosk.allowedPackages, ['com.android.calculator2']);
+  assert.deepEqual(parsedKiosk.allowedApps, {
+    'com.android.calculator2': { passwordProtected: true },
+  });
   assert.equal(parsedKiosk.appTimeLimits['com.enterprise.pos'], MAX_DAILY_APP_LIMIT_MINUTES);
   assert.equal('bad' in parsedKiosk.appTimeLimits, false);
   assert.equal(parsedKiosk.activeScreen, 'home');

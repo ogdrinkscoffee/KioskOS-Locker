@@ -24,8 +24,8 @@ import {
   getStrictShieldRemainingMinutes,
   getTamperWarningEvents,
   getVisibleHomeApps,
-  isValidPinFormat,
   isAppPasswordProtected,
+  isValidPinFormat,
   isWithinScheduleHours,
   launchApp,
   navigateKioskBrowser,
@@ -53,6 +53,7 @@ import {
   updateBlockedKeywords,
   updateDowntimeSchedule,
   updateInAppBrowserWhitelist,
+  verifyAppAccessPin,
 } from './kioskEngine';
 
 test('Device Owner automatically enforces all 4 UserManager restrictions', () => {
@@ -534,28 +535,73 @@ test('Emergency Panic Button kills active apps, scrubs browser & clipboard, lock
   assert.equal(browserAfterClear.activeScreen, 'kiosk_browser');
 });
 
-
-test('hiding an app does not forget its password setting', () => {
+test('Per-app password protection toggles cleanly on allowed apps, verifies PIN with 5-attempt lockout, and survives reboot', () => {
+  const baseTime = 1_700_000_000_000;
   let state = createInitialKioskState();
-  state = toggleAppPasswordProtection(state, 'com.enterprise.pos');
+
+  // Default allowed apps start unprotected
+  assert.equal(isAppPasswordProtected(state, 'com.enterprise.pos'), false);
+  assert.equal(state.allowedApps['com.enterprise.pos']?.passwordProtected, false);
+
+  // Restricted or non-allowed apps cannot be password-protected directly
+  const nonAllowedToggle = toggleAppPasswordProtection(state, 'com.android.camera2', true, '09:15:00');
+  assert.equal(isAppPasswordProtected(nonAllowedToggle, 'com.android.camera2'), false);
+  const restrictedToggle = toggleAppPasswordProtection(state, 'com.android.settings', true, '09:15:01');
+  assert.equal(isAppPasswordProtected(restrictedToggle, 'com.android.settings'), false);
+
+  // Enable password protection on Retail POS
+  state = toggleAppPasswordProtection(state, 'com.enterprise.pos', undefined, '09:15:02');
   assert.equal(isAppPasswordProtected(state, 'com.enterprise.pos'), true);
 
-  // Hidden apps are unreachable, so the flag correctly reads as inactive.
-  const hidden = toggleAllowedApp(state, 'com.enterprise.pos');
-  assert.equal(hidden.allowedPackages.includes('com.enterprise.pos'), false);
+  // Adding a custom app preserves existing protected app flags and initializes the new app to false
+  const added = addCustomApp(state, 'Kindle Reader', 'com.amazon.kindle', '09:15:03');
+  assert.equal(added.ok, true);
+  state = added.nextState;
+  assert.equal(isAppPasswordProtected(state, 'com.enterprise.pos'), true);
+  assert.equal(isAppPasswordProtected(state, 'com.amazon.kindle'), false);
 
-  // Re-showing it must restore the protection rather than silently dropping it:
-  // a visibility toggle should not weaken a security setting.
-  const reshown = toggleAllowedApp(hidden, 'com.enterprise.pos');
-  assert.equal(isAppPasswordProtected(reshown, 'com.enterprise.pos'), true);
+  // Five failed App Access PIN attempts trigger 30s lockout and block even the right PIN during cooldown
+  for (let i = 0; i < 4; i += 1) {
+    const attempt = verifyAppAccessPin(state, 'com.enterprise.pos', '0000', '09:15:10', baseTime + i * 100);
+    assert.equal(attempt.verified, false);
+    assert.equal(attempt.lockedOutSeconds, undefined);
+    state = attempt.nextState;
+  }
+  const fifth = verifyAppAccessPin(state, 'com.enterprise.pos', '0000', '09:15:11', baseTime + 500);
+  assert.equal(fifth.verified, false);
+  assert.ok((fifth.lockedOutSeconds ?? 0) >= 29);
+  state = fifth.nextState;
+
+  const blockedDuringCooldown = verifyAppAccessPin(
+    state,
+    'com.enterprise.pos',
+    DEFAULT_KIOSK_PIN,
+    '09:15:12',
+    baseTime + 2000
+  );
+  assert.equal(blockedDuringCooldown.verified, false);
+  assert.ok((blockedDuringCooldown.lockedOutSeconds ?? 0) >= 25);
+
+  // After cooldown expires, valid PIN succeeds and resets failed attempts
+  const afterCooldown = verifyAppAccessPin(
+    state,
+    'com.enterprise.pos',
+    DEFAULT_KIOSK_PIN,
+    '09:15:45',
+    baseTime + 35_000
+  );
+  assert.equal(afterCooldown.verified, true);
+  assert.equal(afterCooldown.nextState.failedPinAttempts, 0);
+  assert.equal(afterCooldown.nextState.pinLockedUntilMs, 0);
+
+  // Protection survives reboot
+  const rebooted = simulateDeviceReboot(afterCooldown.nextState, '09:16:00', baseTime + 40_000);
+  assert.equal(isAppPasswordProtected(rebooted, 'com.enterprise.pos'), true);
+
+  // Removing an app from allowlist clears its passwordProtected entry cleanly
+  const hidden = toggleAllowedApp(rebooted, 'com.enterprise.pos', '09:16:05');
+  assert.equal(isAppPasswordProtected(hidden, 'com.enterprise.pos'), false);
+  assert.equal('com.enterprise.pos' in hidden.allowedApps, false);
 });
 
-test('turning the password off clears it, and non-allowlisted apps cannot be protected', () => {
-  let state = toggleAppPasswordProtection(createInitialKioskState(), 'com.enterprise.pos');
-  state = toggleAppPasswordProtection(state, 'com.enterprise.pos', false);
-  assert.equal(isAppPasswordProtected(state, 'com.enterprise.pos'), false);
 
-  // An app that is not on the allowlist is refused rather than silently stored.
-  const refused = toggleAppPasswordProtection(createInitialKioskState(), 'com.amazon.kindle');
-  assert.equal(isAppPasswordProtected(refused, 'com.amazon.kindle'), false);
-});
