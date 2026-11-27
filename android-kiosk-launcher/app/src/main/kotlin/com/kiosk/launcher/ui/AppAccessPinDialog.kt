@@ -23,11 +23,6 @@ object AppAccessPinGate {
 
     fun prompt(activity: Activity, appLabel: String, onSuccess: () -> Unit) {
         val prefs = KioskPreferences(activity)
-        // No password means nothing to ask for; protection is inert until Admin sets one.
-        if (!prefs.hasAppPin()) {
-            onSuccess()
-            return
-        }
 
         val view = LayoutInflater.from(activity).inflate(R.layout.dialog_pin_entry, null)
         val input = view.findViewById<EditText>(R.id.pinInput)

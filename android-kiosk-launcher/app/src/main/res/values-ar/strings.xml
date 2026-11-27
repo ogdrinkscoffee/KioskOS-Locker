@@ -445,4 +445,35 @@
     <string name="lock_unlock_button">افتح القفل</string>
     <string name="log_custom_lock_enabled">شاشة القفل المخصصة اشتغلت</string>
     <string name="log_custom_lock_disabled">شاشة القفل المخصصة اتقفلت</string>
+    <string name="lock_battery_unknown">--%</string>
+    <string name="lock_battery_charging">بيشحن</string>
+    <string name="lock_battery_discharging">على البطارية</string>
+    <string name="lock_note_label">ملاحظة الإدارة</string>
+    <string name="lock_quick_launch_label">تشغيل سريع</string>
+    <string name="lock_swipe_hint">اسحب لفوق أو اضغط فتح القفل</string>
+
+    <!-- App PIN & badge accessibility -->
+    <string name="app_pin_label">رمز فتح التطبيقات (من 4 لـ 50 حرف)</string>
+    <string name="app_pin_hint">ادخل رمز التطبيق…</string>
+    <string name="app_pin_helper">ادخل رمز فتح التطبيقات (أو رمز الإدارة لو مفيش رمز مخصص).</string>
+    <string name="app_locked_badge">محتاج رمز مرور</string>
+    <string name="app_locked_content_desc_fmt">%1$s (محتاج رمز مرور)</string>
+
+    <!-- Scheduled kiosk & day allowlists -->
+    <string name="allowlist_weekdays">أيام الأسبوع</string>
+    <string name="allowlist_weekends">نهاية الأسبوع</string>
+    <string name="allowlist_scope_desc">قوائم منفصلة لأيام الأسبوع ولنهاية الأسبوع بتشتغل طول ما الجدول مفعّل.</string>
+    <string name="eyebrow_schedule">جدول الكشك</string>
+    <string name="schedule_desc">شغّل وضع الكشك في الساعات اللي تحددها بس. برّه الساعات دي الجهاز بيشتغل كموبايل عادي.</string>
+    <string name="schedule_toggle">فعّل الجدول</string>
+    <string name="schedule_windows_hint">الفترات (مثلًا Mon-Fri 08:00-15:00)</string>
+    <string name="schedule_save">احفظ الجدول</string>
+    <string name="schedule_hint_default">فترة واحدة في كل سطر (مثلًا Mon-Fri 08:00-17:00 أو 20:00-07:00).</string>
+    <string name="schedule_saved">جدول الكشك اتحفظ</string>
+    <string name="schedule_invalid_fmt">جدول مش صحيح في السطر %1$d: %2$s</string>
+    <string name="schedule_active_now">حالة الجدول: الكشك شغال دلوقتي</string>
+    <string name="schedule_paused_now">حالة الجدول: برّه ساعات الكشك (موبايل عادي)</string>
+    <string name="log_schedule_enabled">جدول الكشك اشتغل</string>
+    <string name="log_schedule_disabled">جدول الكشك اتقفل</string>
+    <string name="log_schedule_saved">جدول الكشك اتحدّث</string>
 </resources>

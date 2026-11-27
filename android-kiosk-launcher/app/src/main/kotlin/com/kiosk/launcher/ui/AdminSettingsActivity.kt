@@ -35,6 +35,9 @@ import com.kiosk.launcher.admin.KioskDeviceAdminReceiver
 import com.kiosk.launcher.data.AppEntry
 import com.kiosk.launcher.data.InstalledAppsRepository
 import com.kiosk.launcher.data.KioskPreferences
+import com.kiosk.launcher.schedule.KioskSchedule
+import com.kiosk.launcher.schedule.ScheduleController
+import com.kiosk.launcher.schedule.ScheduleParse
 import com.kiosk.launcher.service.ScreenLockService
 import com.kiosk.launcher.update.UpdateInstaller
 import com.kiosk.launcher.update.UpdateManager
@@ -58,6 +61,11 @@ class AdminSettingsActivity : AppCompatActivity() {
     private lateinit var appPinStatus: TextView
     private lateinit var appsContainer: LinearLayout
     private lateinit var allowAllSwitch: SwitchMaterial
+    private lateinit var allowListDayGroup: MaterialButtonToggleGroup
+    private lateinit var allowListScopeHint: TextView
+    private lateinit var scheduleSwitch: SwitchMaterial
+    private lateinit var scheduleWindowsInput: TextInputEditText
+    private lateinit var scheduleHint: TextView
     private lateinit var modeGroup: MaterialButtonToggleGroup
     private lateinit var domainsInput: TextInputEditText
     private lateinit var blockedKeywordsInput: TextInputEditText
@@ -93,6 +101,8 @@ class AdminSettingsActivity : AppCompatActivity() {
     /** Bumped per scan so a slow, stale result can't repaint the list. */
     private var allowListRequest = 0
     private var loadedApps: List<AppEntry> = emptyList()
+    private var editingWeekendAllowlist = false
+    private var syncingScheduleSwitch = false
 
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
@@ -117,6 +127,11 @@ class AdminSettingsActivity : AppCompatActivity() {
         appPinStatus = findViewById(R.id.appPinStatus)
         appsContainer = findViewById(R.id.appsContainer)
         allowAllSwitch = findViewById(R.id.allowAllSwitch)
+        allowListDayGroup = findViewById(R.id.allowListDayGroup)
+        allowListScopeHint = findViewById(R.id.allowListScopeHint)
+        scheduleSwitch = findViewById(R.id.scheduleSwitch)
+        scheduleWindowsInput = findViewById(R.id.scheduleWindowsInput)
+        scheduleHint = findViewById(R.id.scheduleHint)
         modeGroup = findViewById(R.id.modeGroup)
         domainsInput = findViewById(R.id.domainsInput)
         blockedKeywordsInput = findViewById(R.id.blockedKeywordsInput)
@@ -181,9 +196,12 @@ class AdminSettingsActivity : AppCompatActivity() {
             startActivity(Intent(this, DiagnosticsActivity::class.java))
         }
         findViewById<View>(R.id.domainsSave).setOnClickListener { saveBrowserFilters() }
+        findViewById<View>(R.id.scheduleSave).setOnClickListener { saveSchedule() }
 
         domainsInput.setText(prefs.domains().sorted().joinToString("\n"))
         blockedKeywordsInput.setText(prefs.blockedKeywords().sorted().joinToString("\n"))
+        scheduleWindowsInput.setText(prefs.scheduleWindows)
+        editingWeekendAllowlist = KioskSchedule.isWeekend(System.currentTimeMillis())
 
         renderOwner()
         renderDefaultLauncher()
@@ -195,6 +213,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         renderLocks()
         renderCustomLockScreen()
         renderAppAccessPin()
+        renderSchedule()
         renderAllowList()
 
         modeGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
@@ -212,6 +231,26 @@ class AdminSettingsActivity : AppCompatActivity() {
             prefs.allowAllApps = checked
             policy.applyPolicy()
             if (loadedApps.isEmpty()) renderAllowList() else renderAllowListRows(loadedApps)
+        }
+
+        allowListDayGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (!isChecked) return@addOnButtonCheckedListener
+            editingWeekendAllowlist = checkedId == R.id.allowListWeekends
+            if (loadedApps.isNotEmpty()) renderAllowListRows(loadedApps)
+        }
+
+        scheduleSwitch.setOnCheckedChangeListener { _, checked ->
+            if (syncingScheduleSwitch) return@setOnCheckedChangeListener
+            if (checked) prefs.seedDayListsFromLegacyAllowlist()
+            prefs.scheduleEnabled = checked
+            prefs.logPolicy(
+                getString(if (checked) R.string.log_schedule_enabled else R.string.log_schedule_disabled)
+            )
+            ScheduleController.refresh(this)
+            policy.applyPolicy()
+            renderSchedule()
+            if (loadedApps.isEmpty()) renderAllowList() else renderAllowListRows(loadedApps)
+            renderPolicyLog()
         }
     }
 
@@ -915,6 +954,53 @@ class AdminSettingsActivity : AppCompatActivity() {
         )
     }
 
+    private fun renderSchedule() {
+        syncingScheduleSwitch = true
+        scheduleSwitch.isChecked = prefs.scheduleEnabled
+        syncingScheduleSwitch = false
+
+        val showDayScope = prefs.scheduleEnabled
+        allowListDayGroup.visibility = if (showDayScope) View.VISIBLE else View.GONE
+        allowListScopeHint.visibility = if (showDayScope) View.VISIBLE else View.GONE
+        if (showDayScope) {
+            allowListDayGroup.check(
+                if (editingWeekendAllowlist) R.id.allowListWeekends else R.id.allowListWeekdays
+            )
+        }
+
+        scheduleHint.text = when {
+            !prefs.scheduleEnabled -> getString(R.string.schedule_hint_default)
+            else -> when (val parsed = prefs.scheduleWindowsParsed()) {
+                is ScheduleParse.Invalid ->
+                    getString(R.string.schedule_invalid_fmt, parsed.lineNumber, parsed.line)
+                is ScheduleParse.Parsed -> {
+                    if (prefs.isWithinKioskHours()) getString(R.string.schedule_active_now)
+                    else getString(R.string.schedule_paused_now)
+                }
+            }
+        }
+    }
+
+    private fun saveSchedule() {
+        val text = scheduleWindowsInput.text?.toString().orEmpty()
+        when (val parsed = KioskSchedule.parse(text)) {
+            is ScheduleParse.Invalid -> {
+                val msg = getString(R.string.schedule_invalid_fmt, parsed.lineNumber, parsed.line)
+                scheduleHint.text = msg
+                toast(msg)
+            }
+            is ScheduleParse.Parsed -> {
+                prefs.scheduleWindows = text
+                prefs.logPolicy(getString(R.string.log_schedule_saved))
+                ScheduleController.refresh(this)
+                policy.applyPolicy()
+                renderSchedule()
+                renderPolicyLog()
+                toast(getString(R.string.schedule_saved))
+            }
+        }
+    }
+
     private fun renderAllowList() {
         val request = ++allowListRequest
         appsContainer.removeAllViews()
@@ -925,6 +1011,12 @@ class AdminSettingsActivity : AppCompatActivity() {
             loadedApps = installed
             renderAllowListRows(installed)
         }
+    }
+
+    private fun isRowAllowed(packageName: String): Boolean = when {
+        prefs.allowAllApps -> true
+        prefs.scheduleEnabled -> prefs.isDayAllowed(packageName, editingWeekendAllowlist)
+        else -> prefs.allowedPackages().contains(packageName)
     }
 
     private fun renderAllowListRows(installed: List<AppEntry>) {
@@ -945,21 +1037,27 @@ class AdminSettingsActivity : AppCompatActivity() {
             row.findViewById<ImageView>(R.id.toggleIcon).setImageDrawable(entry.icon)
             row.findViewById<TextView>(R.id.toggleLabel).text = entry.label
 
+            val allowedForRow = isRowAllowed(entry.packageName)
             val passwordCheck = row.findViewById<MaterialCheckBox>(R.id.requirePasswordCheck)
             passwordCheck.setOnCheckedChangeListener(null)
             passwordCheck.isChecked = prefs.isAppPasswordRequired(entry.packageName)
-            passwordCheck.isEnabled = prefs.isAllowed(entry.packageName)
+            passwordCheck.isEnabled = prefs.allowAllApps || prefs.isAllowlistedAnywhere(entry.packageName)
             passwordCheck.setOnCheckedChangeListener { _, checked ->
                 prefs.setAppPasswordRequired(entry.packageName, checked)
             }
 
             val switch = row.findViewById<SwitchMaterial>(R.id.toggleSwitch)
-            switch.isChecked = prefs.isAllowed(entry.packageName)
+            switch.isChecked = allowedForRow
             switch.isEnabled = !prefs.allowAllApps
             switch.alpha = if (prefs.allowAllApps) 0.5f else 1f
             switch.setOnCheckedChangeListener { _, checked ->
-                prefs.setAppAllowed(entry.packageName, checked)
-                passwordCheck.isEnabled = prefs.isAllowed(entry.packageName)
+                if (prefs.scheduleEnabled) {
+                    prefs.setDayAllowed(entry.packageName, checked, editingWeekendAllowlist)
+                } else {
+                    prefs.setAppAllowed(entry.packageName, checked)
+                }
+                passwordCheck.isEnabled =
+                    prefs.allowAllApps || prefs.isAllowlistedAnywhere(entry.packageName)
                 policy.applyPolicy()
             }
 

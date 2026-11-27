@@ -446,4 +446,35 @@
     <string name="lock_unlock_button">Unlock</string>
     <string name="log_custom_lock_enabled">Custom lock screen enabled</string>
     <string name="log_custom_lock_disabled">Custom lock screen disabled</string>
+    <string name="lock_battery_unknown">--%</string>
+    <string name="lock_battery_charging">Charging</string>
+    <string name="lock_battery_discharging">Battery power</string>
+    <string name="lock_note_label">Admin note</string>
+    <string name="lock_quick_launch_label">Quick launch</string>
+    <string name="lock_swipe_hint">Swipe up or tap Unlock</string>
+
+    <!-- App PIN & badge accessibility -->
+    <string name="app_pin_label">App access passcode (4–50 characters)</string>
+    <string name="app_pin_hint">Enter app passcode…</string>
+    <string name="app_pin_helper">Enter the App Access passcode (or Admin passcode if none is set).</string>
+    <string name="app_locked_badge">Password required</string>
+    <string name="app_locked_content_desc_fmt">%1$s (password required)</string>
+
+    <!-- Scheduled kiosk & day allowlists -->
+    <string name="allowlist_weekdays">Weekdays</string>
+    <string name="allowlist_weekends">Weekends</string>
+    <string name="allowlist_scope_desc">Separate weekday and weekend app lists apply while Kiosk schedule is enabled.</string>
+    <string name="eyebrow_schedule">Kiosk schedule</string>
+    <string name="schedule_desc">Run kiosk mode only during chosen hours. Outside those hours the device behaves like a normal phone.</string>
+    <string name="schedule_toggle">Enable schedule</string>
+    <string name="schedule_windows_hint">Windows (e.g. Mon-Fri 08:00-15:00)</string>
+    <string name="schedule_save">Save schedule</string>
+    <string name="schedule_hint_default">One window per line (e.g. Mon-Fri 08:00-17:00 or 20:00-07:00).</string>
+    <string name="schedule_saved">Kiosk schedule saved</string>
+    <string name="schedule_invalid_fmt">Invalid schedule on line %1$d: %2$s</string>
+    <string name="schedule_active_now">Schedule status: Kiosk active right now</string>
+    <string name="schedule_paused_now">Schedule status: Outside kiosk hours (normal phone)</string>
+    <string name="log_schedule_enabled">Kiosk schedule enabled</string>
+    <string name="log_schedule_disabled">Kiosk schedule disabled</string>
+    <string name="log_schedule_saved">Kiosk schedule updated</string>
 </resources>

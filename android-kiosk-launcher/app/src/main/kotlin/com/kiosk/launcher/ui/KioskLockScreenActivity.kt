@@ -236,7 +236,7 @@ class KioskLockScreenActivity : AppCompatActivity() {
         val filteredPackages = AppPasswordPolicy.filterQuickLaunchPackages(
             selectedPackages = configured,
             allowAllApps = prefs.allowAllApps,
-            allowedPackages = prefs.allowedPackages(),
+            allowedPackages = prefs.allowedPackagesNow(),
             panicLocked = prefs.isPanicLocked(),
             callingPackages = policy.callingPackages()
         )

@@ -127,11 +127,6 @@ class KioskLauncherActivity : AppCompatActivity() {
         findViewById<View>(R.id.panicButton).setOnClickListener {
             panic()
         }
-        // A real Home affordance: from any kiosk app the system Home button now works,
-        // and this guarantees a one-tap route back to the grid even when it does not.
-        findViewById<View>(R.id.homeButton).setOnClickListener {
-            returnToHome()
-        }
         // Dismissing a new-build prompt keeps the launcher quiet about that version.
         findViewById<View>(R.id.updateButton).setOnClickListener {
             pendingUpdate?.let { manifest ->
@@ -143,14 +138,11 @@ class KioskLauncherActivity : AppCompatActivity() {
         }
     }
 
-    private fun returnToHome() {
-        // Bring the launcher (singleTask) back to the front instead of stacking copies.
-        startActivity(
-            Intent(this, KioskLauncherActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        )
-        // Re-assert kiosk before the app disappears, so a Home tap can't leave it unpinned.
-        policy.enterLockTask(this)
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        // A Home press must always reach the grid rather than bouncing straight back into the pinned app.
+        hasAutoLaunchedMode = true
     }
 
     override fun onResume() {
@@ -407,7 +399,8 @@ class KioskLauncherActivity : AppCompatActivity() {
 
     private fun syncSystemBars() {
         val controller = WindowInsetsControllerCompat(window, window.decorView)
-        controller.hide(WindowInsetsCompat.Type.navigationBars())
+        // Never hide the navigation bar: under lock task it is the Home button SystemUI offers.
+        controller.show(WindowInsetsCompat.Type.navigationBars())
         controller.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         if (!prefs.statusBarLocked || prefs.isAdminTemporarilyUnlocked()) {
