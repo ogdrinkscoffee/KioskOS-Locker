@@ -1,7 +1,9 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { Eye, EyeOff, Lock, X } from 'lucide-react';
 import { MAX_ADMIN_PIN_LENGTH, SimulatedAndroidApp } from '../utils/kioskEngine';
 import { useI18n } from '../i18n/LocaleProvider';
+import { EASE_SETTLE, SPRING_MODAL } from './MotionPrimitives';
 
 interface AppAccessPinModalProps {
   app: SimulatedAndroidApp | null;
@@ -63,8 +65,6 @@ export const AppAccessPinModal: React.FC<AppAccessPinModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen || !app) return null;
-
   const isLockedOut = lockoutSeconds > 0;
 
   const triggerShake = () => {
@@ -74,7 +74,7 @@ export const AppAccessPinModal: React.FC<AppAccessPinModalProps> = ({
     }
     shakeTimerRef.current = window.setTimeout(() => {
       setIsShaking(false);
-    }, 180);
+    }, 280);
   };
 
   const handleDigitPress = (digit: string) => {
@@ -89,11 +89,11 @@ export const AppAccessPinModal: React.FC<AppAccessPinModalProps> = ({
     e.preventDefault();
     if (isLockedOut || !pinEntry.trim()) return;
 
-    const result = onVerifyPin(app.packageName, pinEntry);
+    const result = onVerifyPin(app!.packageName, pinEntry);
     if (result.verified) {
       setPinEntry('');
       setErrorMessage(null);
-      onSuccess(app.packageName);
+      onSuccess(app!.packageName);
       return;
     }
 
@@ -112,26 +112,43 @@ export const AppAccessPinModal: React.FC<AppAccessPinModalProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 backdrop-blur-xs p-4"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={descId}
-        data-testid="app-access-pin-modal"
-        className={`w-full max-w-sm rounded-2xl border bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xl p-5 space-y-4 transition-all duration-150 ${
-          isShaking
-            ? 'border-red-500 ring-2 ring-red-500/40 -translate-x-1'
-            : 'border-slate-200 dark:border-slate-800'
-        }`}
-      >
+    <AnimatePresence>
+      {isOpen && app && (
+        <motion.div
+          key="app-access-pin-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.16, ease: EASE_SETTLE }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 backdrop-blur-xs p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              onClose();
+            }
+          }}
+        >
+          <motion.div
+            key="app-access-pin-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            aria-describedby={descId}
+            data-testid="app-access-pin-modal"
+            initial={{ opacity: 0, scale: 0.94, y: 10 }}
+            animate={{
+              opacity: 1,
+              scale: 1,
+              y: 0,
+              x: isShaking ? [0, -7, 7, -5, 5, 0] : 0,
+            }}
+            exit={{ opacity: 0, scale: 0.96, y: 6 }}
+            transition={isShaking ? { duration: 0.26, ease: 'easeOut' } : SPRING_MODAL}
+            className={`w-full max-w-sm rounded-2xl border bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xl p-5 space-y-4 transition-colors duration-150 ${
+              isShaking
+                ? 'border-red-500 ring-2 ring-red-500/40'
+                : 'border-slate-200 dark:border-slate-800'
+            }`}
+          >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
@@ -209,18 +226,20 @@ export const AppAccessPinModal: React.FC<AppAccessPinModalProps> = ({
             className="grid grid-cols-3 gap-2"
           >
             {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
-              <button
+              <motion.button
                 key={digit}
                 type="button"
+                whileTap={{ scale: 0.92 }}
                 disabled={isLockedOut}
                 onClick={() => handleDigitPress(digit)}
                 className="min-h-[42px] rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100 disabled:opacity-40 transition-colors"
               >
                 {digit}
-              </button>
+              </motion.button>
             ))}
-            <button
+            <motion.button
               type="button"
+              whileTap={{ scale: 0.94 }}
               disabled={isLockedOut || pinEntry.length === 0}
               onClick={() => {
                 setPinEntry('');
@@ -229,17 +248,19 @@ export const AppAccessPinModal: React.FC<AppAccessPinModalProps> = ({
               className="min-h-[42px] rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 disabled:opacity-40 transition-colors"
             >
               {tr('Clear')}
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               type="button"
+              whileTap={{ scale: 0.92 }}
               disabled={isLockedOut}
               onClick={() => handleDigitPress('0')}
               className="min-h-[42px] rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100 disabled:opacity-40 transition-colors"
             >
               0
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               type="button"
+              whileTap={{ scale: 0.94 }}
               disabled={isLockedOut || pinEntry.length === 0}
               onClick={() => {
                 setErrorMessage(null);
@@ -249,28 +270,32 @@ export const AppAccessPinModal: React.FC<AppAccessPinModalProps> = ({
               className="min-h-[42px] rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 disabled:opacity-40 transition-colors"
             >
               {tr('Del')}
-            </button>
+            </motion.button>
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
-            <button
+            <motion.button
               type="button"
+              whileTap={{ scale: 0.97 }}
               onClick={onClose}
               className="min-h-[44px] px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 whitespace-nowrap"
             >
               {tr('Cancel')}
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               type="submit"
+              whileTap={{ scale: 0.97 }}
               data-testid="app-access-pin-submit"
               disabled={isLockedOut || !pinEntry.trim()}
               className="flex-1 min-h-[44px] px-4 py-2 rounded-lg bg-slate-900 dark:bg-sky-600 hover:bg-slate-800 dark:hover:bg-sky-500 disabled:opacity-45 disabled:cursor-not-allowed text-white text-xs font-semibold whitespace-nowrap transition-colors"
             >
               {tr('Unlock & Launch')}
-            </button>
+            </motion.button>
           </div>
         </form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   );
 };

@@ -8,8 +8,10 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import android.text.Editable
 import android.text.InputFilter
 import android.text.InputType
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -20,10 +22,12 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.widget.NestedScrollView
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.checkbox.MaterialCheckBox
+import com.google.android.material.chip.ChipGroup
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.switchmaterial.SwitchMaterial
@@ -35,6 +39,7 @@ import com.kiosk.launcher.admin.KioskDeviceAdminReceiver
 import com.kiosk.launcher.data.AppEntry
 import com.kiosk.launcher.data.InstalledAppsRepository
 import com.kiosk.launcher.data.KioskPreferences
+import com.kiosk.launcher.data.LockScreenShortcuts
 import com.kiosk.launcher.schedule.KioskSchedule
 import com.kiosk.launcher.schedule.ScheduleController
 import com.kiosk.launcher.schedule.ScheduleParse
@@ -45,6 +50,7 @@ import com.kiosk.launcher.update.UpdateManifest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.min
 
 class AdminSettingsActivity : AppCompatActivity() {
 
@@ -53,12 +59,32 @@ class AdminSettingsActivity : AppCompatActivity() {
     private lateinit var appRepo: InstalledAppsRepository
     private lateinit var updates: UpdateManager
 
+    private lateinit var adminScroll: NestedScrollView
+    private lateinit var sectionChips: ChipGroup
+
+    private lateinit var cardOwner: View
+    private lateinit var cardSecurity: View
+    private lateinit var cardAdminWindow: View
+    private lateinit var cardUpdate: View
+    private lateinit var cardMode: View
+    private lateinit var cardBrowser: View
+    private lateinit var cardCustomLockScreen: View
+    private lateinit var cardAllowlist: View
+    private lateinit var cardSchedule: View
+    private lateinit var cardStrongRestrictions: View
+    private lateinit var cardLocks: View
+    private lateinit var cardPolicyLog: View
+
     private lateinit var strongRestrictionsContainer: LinearLayout
     private lateinit var locksContainer: LinearLayout
+    private lateinit var browserTogglesContainer: LinearLayout
     private lateinit var customLockContainer: LinearLayout
+    private lateinit var customLockStatus: TextView
     private lateinit var lockNoteInput: TextInputEditText
     private lateinit var lockQuickAppsButton: MaterialButton
     private lateinit var appPinStatus: TextView
+    private lateinit var appsSearchInput: TextInputEditText
+    private lateinit var appsSummaryHint: TextView
     private lateinit var appsContainer: LinearLayout
     private lateinit var allowAllSwitch: SwitchMaterial
     private lateinit var allowListDayGroup: MaterialButtonToggleGroup
@@ -75,6 +101,7 @@ class AdminSettingsActivity : AppCompatActivity() {
     private lateinit var defaultLauncherSwitch: SwitchMaterial
     private lateinit var defaultLauncherDetail: TextView
     private lateinit var kioskStateDetail: TextView
+    private lateinit var activateAdminButton: MaterialButton
     private lateinit var releaseOwnerButton: View
 
     private lateinit var adminWindowValue: TextView
@@ -101,8 +128,10 @@ class AdminSettingsActivity : AppCompatActivity() {
     /** Bumped per scan so a slow, stale result can't repaint the list. */
     private var allowListRequest = 0
     private var loadedApps: List<AppEntry> = emptyList()
+    private var appSearchQuery: String = ""
     private var editingWeekendAllowlist = false
     private var syncingScheduleSwitch = false
+    private var selectedSectionId: Int = R.id.chipAdminAll
 
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
@@ -119,12 +148,34 @@ class AdminSettingsActivity : AppCompatActivity() {
         toolbar.setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material)
         toolbar.setNavigationOnClickListener { finish() }
 
+        adminScroll = findViewById(R.id.adminScroll)
+        applyEdgeToEdge(toolbar, adminScroll)
+        applyResponsiveWidth()
+
+        sectionChips = findViewById(R.id.adminSectionChips)
+        cardOwner = findViewById(R.id.cardOwner)
+        cardSecurity = findViewById(R.id.cardSecurity)
+        cardAdminWindow = findViewById(R.id.cardAdminWindow)
+        cardUpdate = findViewById(R.id.cardUpdate)
+        cardMode = findViewById(R.id.cardMode)
+        cardBrowser = findViewById(R.id.cardBrowser)
+        cardCustomLockScreen = findViewById(R.id.cardCustomLockScreen)
+        cardAllowlist = findViewById(R.id.cardAllowlist)
+        cardSchedule = findViewById(R.id.cardSchedule)
+        cardStrongRestrictions = findViewById(R.id.cardStrongRestrictions)
+        cardLocks = findViewById(R.id.cardLocks)
+        cardPolicyLog = findViewById(R.id.cardPolicyLog)
+
         strongRestrictionsContainer = findViewById(R.id.strongRestrictionsContainer)
         locksContainer = findViewById(R.id.locksContainer)
+        browserTogglesContainer = findViewById(R.id.browserTogglesContainer)
         customLockContainer = findViewById(R.id.customLockContainer)
+        customLockStatus = findViewById(R.id.customLockStatus)
         lockNoteInput = findViewById(R.id.lockNoteInput)
         lockQuickAppsButton = findViewById(R.id.lockQuickAppsButton)
         appPinStatus = findViewById(R.id.appPinStatus)
+        appsSearchInput = findViewById(R.id.appsSearchInput)
+        appsSummaryHint = findViewById(R.id.appsSummaryHint)
         appsContainer = findViewById(R.id.appsContainer)
         allowAllSwitch = findViewById(R.id.allowAllSwitch)
         allowListDayGroup = findViewById(R.id.allowListDayGroup)
@@ -141,6 +192,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         defaultLauncherSwitch = findViewById(R.id.defaultLauncherSwitch)
         defaultLauncherDetail = findViewById(R.id.defaultLauncherDetail)
         kioskStateDetail = findViewById(R.id.kioskStateDetail)
+        activateAdminButton = findViewById(R.id.activateAdminButton)
         releaseOwnerButton = findViewById(R.id.releaseOwnerButton)
         releaseOwnerButton.setOnClickListener { confirmReleaseOwner() }
 
@@ -167,10 +219,14 @@ class AdminSettingsActivity : AppCompatActivity() {
         updateInstallButton.setOnClickListener { installAvailableUpdate() }
         findViewById<View>(R.id.updateFeedSave).setOnClickListener { saveUpdateFeed() }
 
+        findViewById<View>(R.id.defaultLauncherRow).setOnClickListener { defaultLauncherSwitch.toggle() }
         defaultLauncherSwitch.setOnCheckedChangeListener { _, checked ->
             if (syncingLauncherSwitch) return@setOnCheckedChangeListener
             if (checked) requestDefaultLauncher() else dropDefaultLauncher()
         }
+
+        findViewById<View>(R.id.allowAllRow).setOnClickListener { allowAllSwitch.toggle() }
+        findViewById<View>(R.id.scheduleSwitchRow).setOnClickListener { scheduleSwitch.toggle() }
 
         findViewById<View>(R.id.changePinButton).setOnClickListener { changePin() }
         findViewById<View>(R.id.appPinButton).setOnClickListener { changeAppAccessPin() }
@@ -180,7 +236,7 @@ class AdminSettingsActivity : AppCompatActivity() {
             KioskLockScreenActivity.launch(this, preview = true)
         }
         findViewById<View>(R.id.copyCommandButton).setOnClickListener { copyProvisionCommand() }
-        findViewById<View>(R.id.activateAdminButton).setOnClickListener { activateDeviceAdmin() }
+        activateAdminButton.setOnClickListener { activateDeviceAdmin() }
         findViewById<View>(R.id.openSystemSettingsButton).setOnClickListener { openSystemSettings() }
         clearPanicButton.setOnClickListener {
             prefs.clearPanicLockdown()
@@ -198,10 +254,32 @@ class AdminSettingsActivity : AppCompatActivity() {
         findViewById<View>(R.id.domainsSave).setOnClickListener { saveBrowserFilters() }
         findViewById<View>(R.id.scheduleSave).setOnClickListener { saveSchedule() }
 
+        appsSearchInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+            override fun afterTextChanged(s: Editable?) {
+                appSearchQuery = s?.toString().orEmpty().trim()
+                if (loadedApps.isNotEmpty()) renderAllowListRows(loadedApps)
+            }
+        })
+
         domainsInput.setText(prefs.domains().sorted().joinToString("\n"))
         blockedKeywordsInput.setText(prefs.blockedKeywords().sorted().joinToString("\n"))
         scheduleWindowsInput.setText(prefs.scheduleWindows)
         editingWeekendAllowlist = KioskSchedule.isWeekend(System.currentTimeMillis())
+
+        if (savedInstanceState != null) {
+            selectedSectionId = savedInstanceState.getInt(STATE_SECTION, R.id.chipAdminAll)
+        }
+        sectionChips.setOnCheckedStateChangeListener { _, checkedIds ->
+            val chipId = checkedIds.firstOrNull() ?: R.id.chipAdminAll
+            applySectionFilter(chipId, resetScroll = true)
+        }
+        val restoredChip = selectedSectionId
+            .takeIf { sectionChips.findViewById<View>(it) != null }
+            ?: R.id.chipAdminAll
+        sectionChips.check(restoredChip)
+        applySectionFilter(restoredChip, resetScroll = false)
 
         renderOwner()
         renderDefaultLauncher()
@@ -209,6 +287,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         renderAdminWindow()
         renderUpdate()
         renderMode()
+        renderBrowserToggles()
         renderStrongRestrictions()
         renderLocks()
         renderCustomLockScreen()
@@ -225,6 +304,7 @@ class AdminSettingsActivity : AppCompatActivity() {
             }
             policy.applyPolicy()
             modeHint.text = modeDescription(prefs.kioskMode)
+            if (loadedApps.isNotEmpty()) updateAppsSummaryHint(loadedApps)
         }
 
         allowAllSwitch.setOnCheckedChangeListener { _, checked ->
@@ -249,9 +329,15 @@ class AdminSettingsActivity : AppCompatActivity() {
             ScheduleController.refresh(this)
             policy.applyPolicy()
             renderSchedule()
+            renderCustomLockScreenStatus()
             if (loadedApps.isEmpty()) renderAllowList() else renderAllowListRows(loadedApps)
             renderPolicyLog()
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putInt(STATE_SECTION, selectedSectionId)
     }
 
     override fun onResume() {
@@ -268,14 +354,82 @@ class AdminSettingsActivity : AppCompatActivity() {
         // Coming back from the system Home picker can change which policy applies.
         policy.applyPolicy()
         ScreenLockService.sync(this)
+        renderOwner()
         renderDefaultLauncher()
+        renderCustomLockScreenStatus()
         renderRecoveryState()
         renderAdminWindow()
         renderPolicyLog()
-        // Jumped here from the launcher's update banner: land on the right section.
+        // Jumped here from the launcher's update banner: land on the Security/Update section.
         if (intent?.getIntExtra(EXTRA_UPDATE_VERSION, 0)?.let { it > 0 } == true) {
             intent?.removeExtra(EXTRA_UPDATE_VERSION)
+            sectionChips.check(R.id.chipAdminSecurity)
+            applySectionFilter(R.id.chipAdminSecurity, resetScroll = true)
             if (availableUpdate == null) checkForUpdates(manual = true)
+        }
+    }
+
+    private fun applyResponsiveWidth() {
+        val content = findViewById<View>(R.id.adminContent)
+        content.post {
+            val maxPx = resources.getDimensionPixelSize(R.dimen.si_max_content_width)
+            val widthPx = resources.displayMetrics.widthPixels
+            val params = content.layoutParams
+            val target = min(widthPx, maxPx)
+            if (params.width != target) {
+                params.width = target
+                content.layoutParams = params
+            }
+        }
+    }
+
+    private fun applySectionFilter(chipId: Int, resetScroll: Boolean) {
+        selectedSectionId = chipId
+        val showAll = chipId == R.id.chipAdminAll
+        val showDevice = showAll || chipId == R.id.chipAdminDevice
+        val showSecurity = showAll || chipId == R.id.chipAdminSecurity
+        val showBrowser = showAll || chipId == R.id.chipAdminBrowser
+        val showLockScreen = showAll || chipId == R.id.chipAdminLockScreen
+        val showApps = showAll || chipId == R.id.chipAdminApps
+        val showLocks = showAll || chipId == R.id.chipAdminLocks
+
+        cardOwner.visibility = if (showDevice) View.VISIBLE else View.GONE
+        cardPolicyLog.visibility = if (showDevice) View.VISIBLE else View.GONE
+
+        cardSecurity.visibility = if (showSecurity) View.VISIBLE else View.GONE
+        cardAdminWindow.visibility = if (showSecurity) View.VISIBLE else View.GONE
+        cardUpdate.visibility = if (showSecurity) View.VISIBLE else View.GONE
+
+        cardMode.visibility = if (showBrowser) View.VISIBLE else View.GONE
+        cardBrowser.visibility = if (showBrowser) View.VISIBLE else View.GONE
+
+        cardCustomLockScreen.visibility = if (showLockScreen) View.VISIBLE else View.GONE
+
+        cardAllowlist.visibility = if (showApps) View.VISIBLE else View.GONE
+        cardSchedule.visibility = if (showApps) View.VISIBLE else View.GONE
+
+        cardStrongRestrictions.visibility = if (showLocks) View.VISIBLE else View.GONE
+        cardLocks.visibility = if (showLocks) View.VISIBLE else View.GONE
+
+        val firstVisible = listOf(
+            cardOwner, cardSecurity, cardAdminWindow, cardUpdate,
+            cardMode, cardBrowser, cardCustomLockScreen,
+            cardAllowlist, cardSchedule, cardStrongRestrictions, cardLocks, cardPolicyLog
+        ).firstOrNull { it.visibility == View.VISIBLE }
+
+        listOf(
+            cardOwner, cardSecurity, cardAdminWindow, cardUpdate,
+            cardMode, cardBrowser, cardCustomLockScreen,
+            cardAllowlist, cardSchedule, cardStrongRestrictions, cardLocks, cardPolicyLog
+        ).forEach { card ->
+            (card.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
+                lp.topMargin = if (card === firstVisible) 0 else dp(14)
+                card.layoutParams = lp
+            }
+        }
+
+        if (resetScroll) {
+            adminScroll.scrollTo(0, 0)
         }
     }
 
@@ -291,15 +445,15 @@ class AdminSettingsActivity : AppCompatActivity() {
             status.setText(R.string.owner_preview_title)
             detail.text = getString(R.string.owner_preview_detail_fmt, DevicePolicyHelper.PROVISION_COMMAND)
         }
+        val adminActive = policy.isAdminActive
+        activateAdminButton.setText(
+            if (adminActive) R.string.admin_active_badge else R.string.activate_admin
+        )
+        activateAdminButton.alpha = if (adminActive) 0.7f else 1f
         // The way out only exists while this app really owns the device.
         releaseOwnerButton.visibility = if (policy.isDeviceOwner) View.VISIBLE else View.GONE
     }
 
-    /**
-     * Hands ownership back so this phone can be uninstalled without adb or a factory reset.
-     * The system uninstaller is offered right after, because that is what this is for; the
-     * app stays usable as an ordinary launcher if the admin chooses to keep it.
-     */
     private fun confirmReleaseOwner() {
         MaterialAlertDialogBuilder(this)
             .setTitle(R.string.release_owner_confirm_title)
@@ -315,6 +469,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         ScreenLockService.sync(this)
         renderOwner()
         renderDefaultLauncher()
+        renderCustomLockScreenStatus()
         renderRecoveryState()
         renderPolicyLog()
 
@@ -372,19 +527,17 @@ class AdminSettingsActivity : AppCompatActivity() {
     }
 
     private fun requestDefaultLauncher() {
-        // A device owner can pin Home silently; anyone else confirms in the system prompt.
         if (policy.pinAsHomeLauncher()) {
             prefs.kioskEnabled = true
             prefs.logPolicy(getString(R.string.log_default_launcher_on))
             toast(getString(R.string.default_launcher_set))
-            // Kiosk policy starts with Home ownership; apply it now instead of on reboot.
             policy.applyPolicy()
             ScreenLockService.sync(this)
             renderDefaultLauncher()
+            renderCustomLockScreenStatus()
             renderPolicyLog()
             return
         }
-        // Keep the state off until the system picker confirms Home ownership.
         pendingHomeRequest = true
         if (!openDefaultLauncherSettings(policy.homePickerIntent())) {
             pendingHomeRequest = false
@@ -400,20 +553,16 @@ class AdminSettingsActivity : AppCompatActivity() {
         pendingHomeRequest = false
         if (policy.isInLockTaskMode()) policy.stopKiosk(this)
         val cleared = policy.clearHomeLauncher()
-        // The recorded off state releases policy whether or not Home changes, so a
-        // non-owner — or a launcher the user picked in system settings — is not left
-        // restricted behind an "Off" label.
         policy.applyPolicy()
         ScreenLockService.sync(this)
         renderDefaultLauncher()
+        renderCustomLockScreenStatus()
         renderPolicyLog()
         if (cleared) {
             prefs.logPolicy(getString(R.string.log_default_launcher_off))
             toast(getString(R.string.default_launcher_cleared))
             return
         }
-        // Home can only be changed by the user here, so show them where it lives — and
-        // point at a different Home app, since this branch is the way back out.
         openDefaultLauncherSettings(Intent(Settings.ACTION_HOME_SETTINGS))
         toast(getString(R.string.default_launcher_manual_off))
     }
@@ -433,8 +582,6 @@ class AdminSettingsActivity : AppCompatActivity() {
     }
 
     private fun openSystemSettings() {
-        // The window length is whatever the admin set with +/−; it also closes on its own
-        // from the launcher, so it can no longer stay open indefinitely.
         prefs.grantTemporaryAdminWindow(prefs.adminUnlockMinutes)
         policy.applyPolicy()
         runCatching {
@@ -654,6 +801,37 @@ class AdminSettingsActivity : AppCompatActivity() {
         else -> getString(R.string.mode_desc_multi)
     }
 
+    // --------------------------------------------------------- browser toggles
+    private fun renderBrowserToggles() {
+        browserTogglesContainer.removeAllViews()
+        addToggle(
+            browserTogglesContainer,
+            getString(R.string.browser_show_on_home),
+            getString(R.string.browser_show_on_home_desc),
+            prefs.showBrowserOnHome
+        ) {
+            prefs.showBrowserOnHome = it
+        }
+        addToggle(
+            browserTogglesContainer,
+            getString(R.string.lock_unsupported_browsers),
+            getString(R.string.lock_unsupported_browsers_desc),
+            prefs.blockUnsupportedBrowsers
+        ) {
+            prefs.blockUnsupportedBrowsers = it
+            applyLocks()
+        }
+        addToggle(
+            browserTogglesContainer,
+            getString(R.string.lock_short_feeds),
+            getString(R.string.lock_short_feeds_desc),
+            prefs.blockShortFormFeeds
+        ) {
+            prefs.blockShortFormFeeds = it
+            applyLocks()
+        }
+    }
+
     // --------------------------------------------------------- strong restrictions
     private fun renderStrongRestrictions() {
         strongRestrictionsContainer.removeAllViews()
@@ -764,24 +942,6 @@ class AdminSettingsActivity : AppCompatActivity() {
         }
         addToggle(
             locksContainer,
-            getString(R.string.lock_unsupported_browsers),
-            getString(R.string.lock_unsupported_browsers_desc),
-            prefs.blockUnsupportedBrowsers
-        ) {
-            prefs.blockUnsupportedBrowsers = it
-            applyLocks()
-        }
-        addToggle(
-            locksContainer,
-            getString(R.string.lock_short_feeds),
-            getString(R.string.lock_short_feeds_desc),
-            prefs.blockShortFormFeeds
-        ) {
-            prefs.blockShortFormFeeds = it
-            applyLocks()
-        }
-        addToggle(
-            locksContainer,
             getString(R.string.lock_window_guard),
             getString(R.string.lock_window_guard_desc),
             prefs.guardEnabled
@@ -815,15 +975,24 @@ class AdminSettingsActivity : AppCompatActivity() {
         initial: Boolean,
         onChange: (Boolean) -> Unit
     ) {
+        val outValue = android.util.TypedValue()
+        theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(8), 0, dp(8))
+            setPadding(0, dp(10), 0, dp(10))
+            if (outValue.resourceId != 0) {
+                setBackgroundResource(outValue.resourceId)
+            }
+            isClickable = true
+            isFocusable = true
         }
 
         val column = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            setPaddingRelative(0, 0, dp(12), 0)
         }
         column.addView(TextView(this).apply {
             text = title
@@ -836,6 +1005,7 @@ class AdminSettingsActivity : AppCompatActivity() {
             textAlignment = View.TEXT_ALIGNMENT_VIEW_START
             setTextColor(colorOf(R.color.text_secondary))
             textSize = 11f
+            setLineSpacing(dp(2).toFloat(), 1f)
         })
 
         val switch = SwitchMaterial(this).apply {
@@ -843,6 +1013,7 @@ class AdminSettingsActivity : AppCompatActivity() {
             setOnCheckedChangeListener { _, checked -> onChange(checked) }
         }
 
+        row.setOnClickListener { switch.toggle() }
         row.addView(column)
         row.addView(switch)
         target.addView(row)
@@ -863,6 +1034,7 @@ class AdminSettingsActivity : AppCompatActivity() {
             )
             policy.applyPolicy()
             ScreenLockService.sync(this)
+            renderCustomLockScreenStatus()
             renderPolicyLog()
         }
         addToggle(
@@ -885,12 +1057,33 @@ class AdminSettingsActivity : AppCompatActivity() {
         ) { prefs.lockWidgetNote = it }
 
         lockNoteInput.setText(prefs.lockScreenNote)
+        renderCustomLockScreenStatus()
         updateQuickAppsButtonLabel()
     }
 
+    private fun renderCustomLockScreenStatus() {
+        val statusRes = when {
+            !prefs.customLockScreenEnabled -> R.string.custom_lock_status_off
+            prefs.kioskEnabled == true && policy.isDefaultLauncher -> R.string.custom_lock_status_armed
+            else -> R.string.custom_lock_status_needs_kiosk
+        }
+        customLockStatus.setText(statusRes)
+        customLockStatus.setTextColor(
+            colorOf(
+                if (statusRes == R.string.custom_lock_status_armed) R.color.accent
+                else R.color.text_secondary
+            )
+        )
+    }
+
     private fun updateQuickAppsButtonLabel() {
-        lockQuickAppsButton.text =
-            getString(R.string.lock_quick_apps_button, prefs.lockScreenQuickApps().size)
+        val count = if (loadedApps.isNotEmpty()) {
+            val installedPkgs = loadedApps.map { it.packageName }.toSet()
+            LockScreenShortcuts.resolve(prefs.lockScreenQuickApps(), installedPkgs).size
+        } else {
+            prefs.lockScreenQuickApps().size
+        }
+        lockQuickAppsButton.text = getString(R.string.lock_quick_apps_button, count)
     }
 
     private fun saveLockNote() {
@@ -899,7 +1092,21 @@ class AdminSettingsActivity : AppCompatActivity() {
     }
 
     private fun editQuickLaunchApps() {
-        val candidates = loadedApps.filter { prefs.isAllowed(it.packageName) }
+        if (loadedApps.isEmpty()) {
+            appRepo.launchableAsync { installed ->
+                if (isFinishing || isDestroyed) return@launchableAsync
+                loadedApps = installed
+                showQuickLaunchPicker(installed)
+            }
+            return
+        }
+        showQuickLaunchPicker(loadedApps)
+    }
+
+    private fun showQuickLaunchPicker(installed: List<AppEntry>) {
+        val candidates = installed.filter {
+            prefs.allowAllApps || prefs.isAllowlistedAnywhere(it.packageName)
+        }
         if (candidates.isEmpty()) {
             toast(getString(R.string.lock_quick_apps_empty))
             return
@@ -995,6 +1202,7 @@ class AdminSettingsActivity : AppCompatActivity() {
                 ScheduleController.refresh(this)
                 policy.applyPolicy()
                 renderSchedule()
+                renderCustomLockScreenStatus()
                 renderPolicyLog()
                 toast(getString(R.string.schedule_saved))
             }
@@ -1009,6 +1217,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         appRepo.launchableAsync { installed ->
             if (request != allowListRequest || isFinishing || isDestroyed) return@launchableAsync
             loadedApps = installed
+            updateQuickAppsButtonLabel()
             renderAllowListRows(installed)
         }
     }
@@ -1019,8 +1228,30 @@ class AdminSettingsActivity : AppCompatActivity() {
         else -> prefs.allowedPackages().contains(packageName)
     }
 
+    private fun updateAppsSummaryHint(installed: List<AppEntry>) {
+        val allowed = installed.filter { isRowAllowed(it.packageName) }
+        val countText = if (prefs.allowAllApps) {
+            getString(R.string.apps_count_all_fmt, allowed.size)
+        } else {
+            getString(R.string.apps_count_allowed_fmt, allowed.size, installed.size)
+        }
+        appsSummaryHint.text = if (prefs.kioskMode == KioskPreferences.MODE_SINGLE) {
+            val first = allowed.firstOrNull()
+            val singleHint = if (first != null) {
+                getString(R.string.apps_single_mode_note, first.label)
+            } else {
+                getString(R.string.apps_single_mode_none)
+            }
+            "$countText · $singleHint"
+        } else {
+            countText
+        }
+    }
+
     private fun renderAllowListRows(installed: List<AppEntry>) {
         appsContainer.removeAllViews()
+        updateAppsSummaryHint(installed)
+
         if (installed.isEmpty()) {
             appsContainer.addView(TextView(this).apply {
                 setText(R.string.no_launchable_apps_short)
@@ -1032,7 +1263,28 @@ class AdminSettingsActivity : AppCompatActivity() {
             return
         }
 
-        installed.forEach { entry ->
+        val query = appSearchQuery.lowercase(Locale.getDefault())
+        val filtered = if (query.isEmpty()) {
+            installed
+        } else {
+            installed.filter {
+                it.label.lowercase(Locale.getDefault()).contains(query) ||
+                    it.packageName.lowercase(Locale.getDefault()).contains(query)
+            }
+        }
+
+        if (filtered.isEmpty()) {
+            appsContainer.addView(TextView(this).apply {
+                setText(R.string.apps_filter_empty)
+                textAlignment = View.TEXT_ALIGNMENT_VIEW_START
+                setTextColor(colorOf(R.color.text_secondary))
+                textSize = 13f
+                setPadding(0, dp(8), 0, dp(8))
+            })
+            return
+        }
+
+        filtered.forEach { entry ->
             val row = layoutInflater.inflate(R.layout.item_admin_app_toggle, appsContainer, false)
             row.findViewById<ImageView>(R.id.toggleIcon).setImageDrawable(entry.icon)
             row.findViewById<TextView>(R.id.toggleLabel).text = entry.label
@@ -1041,12 +1293,15 @@ class AdminSettingsActivity : AppCompatActivity() {
             val passwordCheck = row.findViewById<MaterialCheckBox>(R.id.requirePasswordCheck)
             passwordCheck.setOnCheckedChangeListener(null)
             passwordCheck.isChecked = prefs.isAppPasswordRequired(entry.packageName)
-            passwordCheck.isEnabled = prefs.allowAllApps || prefs.isAllowlistedAnywhere(entry.packageName)
+            val passwordEnabled = prefs.allowAllApps || prefs.isAllowlistedAnywhere(entry.packageName)
+            passwordCheck.isEnabled = passwordEnabled
+            passwordCheck.alpha = if (passwordEnabled) 1f else 0.45f
             passwordCheck.setOnCheckedChangeListener { _, checked ->
                 prefs.setAppPasswordRequired(entry.packageName, checked)
             }
 
             val switch = row.findViewById<SwitchMaterial>(R.id.toggleSwitch)
+            switch.setOnCheckedChangeListener(null)
             switch.isChecked = allowedForRow
             switch.isEnabled = !prefs.allowAllApps
             switch.alpha = if (prefs.allowAllApps) 0.5f else 1f
@@ -1056,9 +1311,16 @@ class AdminSettingsActivity : AppCompatActivity() {
                 } else {
                     prefs.setAppAllowed(entry.packageName, checked)
                 }
-                passwordCheck.isEnabled =
+                val nextPasswordEnabled =
                     prefs.allowAllApps || prefs.isAllowlistedAnywhere(entry.packageName)
+                passwordCheck.isEnabled = nextPasswordEnabled
+                passwordCheck.alpha = if (nextPasswordEnabled) 1f else 0.45f
+                updateAppsSummaryHint(installed)
                 policy.applyPolicy()
+            }
+
+            row.setOnClickListener {
+                if (switch.isEnabled) switch.toggle()
             }
 
             appsContainer.addView(row)
@@ -1173,5 +1435,6 @@ class AdminSettingsActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_UPDATE_VERSION = "update_version_code"
+        private const val STATE_SECTION = "admin_section_id"
     }
 }

@@ -21,6 +21,8 @@ import {
   Trash2,
   Underline,
 } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { EASE_SETTLE } from './MotionPrimitives';
 import {
   AiDailyPrompt,
   NoteFontFamily,
@@ -367,9 +369,11 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
               resetCounter={turnstileResetKey}
               compact
             />
-            <button
+            <motion.button
               type="submit"
               disabled={aiLoading || !captchaToken}
+              whileTap={{ scale: 0.96 }}
+              transition={{ duration: 0.12, ease: EASE_SETTLE }}
               className="min-h-[38px] px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-sky-600 dark:hover:bg-sky-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
             >
               {aiLoading ? (
@@ -378,18 +382,34 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
                 <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
               )}
               <span>{aiLoading ? tr("Generating Prompt...") : aiPrompt ? tr("New AI Prompt") : tr("Suggest Daily Prompt")}</span>
-            </button>
+            </motion.button>
           </div>
         </form>
 
+        <AnimatePresence>
         {aiError && (
-          <p role="alert" className="text-xs text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">
+          <motion.p
+            role="alert"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.16, ease: EASE_SETTLE }}
+            className="text-xs text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2"
+          >
             {aiError}
-          </p>
+          </motion.p>
         )}
+        </AnimatePresence>
 
+        <AnimatePresence>
         {aiPrompt && (
-          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.2, ease: EASE_SETTLE }}
+            className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2.5"
+          >
             <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
               {aiPrompt.focusTheme}{" "}{tr("· Connected to:")}{" "}{aiPrompt.goalReferenced}
             </div>
@@ -400,20 +420,25 @@ export const RichNotesEditor: React.FC<RichNotesEditorProps> = ({
             </p>
             <div className="flex flex-wrap items-center gap-2 pt-1">
               {activeNote && (
-                <button
+                <motion.button
                   type="button"
+                  whileTap={{ scale: 0.96 }}
+                  transition={{ duration: 0.12, ease: EASE_SETTLE }}
                   onClick={handleInsertPromptIntoNote}
                   className="min-h-[34px] px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold whitespace-nowrap"
-                >{"\n                  "}{tr("Insert into Current Note")}{"\n                "}</button>
+                >{"\n                  "}{tr("Insert into Current Note")}{"\n                "}</motion.button>
               )}
-              <button
+              <motion.button
                 type="button"
+                whileTap={{ scale: 0.96 }}
+                transition={{ duration: 0.12, ease: EASE_SETTLE }}
                 onClick={handleNewNoteFromPrompt}
                 className="min-h-[34px] px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap"
-              >{"\n                "}{tr("New Diary Note from Prompt")}{"\n              "}</button>
+              >{"\n                "}{tr("New Diary Note from Prompt")}{"\n              "}</motion.button>
             </div>
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-[290px_1fr] gap-5 items-start">

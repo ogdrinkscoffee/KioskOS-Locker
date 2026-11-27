@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.webkit.CookieManager
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -15,8 +16,13 @@ import android.webkit.WebViewClient
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.chip.Chip
+import com.google.android.material.chip.ChipGroup
+import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.kiosk.launcher.R
 import com.kiosk.launcher.admin.DevicePolicyHelper
 import com.kiosk.launcher.data.KioskPreferences
@@ -28,6 +34,12 @@ class KioskBrowserActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var banner: TextView
     private lateinit var urlInput: EditText
+    private lateinit var progressBar: LinearProgressIndicator
+    private lateinit var emptyState: TextView
+    private lateinit var backButton: MaterialButton
+    private lateinit var forwardButton: MaterialButton
+    private lateinit var reloadButton: MaterialButton
+    private lateinit var domainChips: ChipGroup
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,9 +52,19 @@ class KioskBrowserActivity : AppCompatActivity() {
         toolbar.setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material)
         toolbar.setNavigationOnClickListener { finish() }
 
+        val browserHeader = findViewById<View>(R.id.browserHeader)
+        val contentContainer = findViewById<View>(R.id.browserContentContainer)
+        applyEdgeToEdge(browserHeader, contentContainer)
+
         banner = findViewById(R.id.blockedBanner)
         urlInput = findViewById(R.id.browserUrlInput)
         webView = findViewById(R.id.webView)
+        progressBar = findViewById(R.id.browserProgress)
+        emptyState = findViewById(R.id.browserEmptyState)
+        backButton = findViewById(R.id.browserBackButton)
+        forwardButton = findViewById(R.id.browserForwardButton)
+        reloadButton = findViewById(R.id.browserReloadButton)
+        domainChips = findViewById(R.id.browserDomainChips)
 
         webView.settings.apply {
             javaScriptEnabled = true
@@ -56,6 +78,17 @@ class KioskBrowserActivity : AppCompatActivity() {
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 safeBrowsingEnabled = true
+            }
+        }
+
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                if (newProgress in 1..99) {
+                    progressBar.visibility = View.VISIBLE
+                    progressBar.progress = newProgress
+                } else {
+                    progressBar.visibility = View.GONE
+                }
             }
         }
 
@@ -74,6 +107,21 @@ class KioskBrowserActivity : AppCompatActivity() {
                 if (!url.isNullOrBlank() && url != "about:blank") {
                     urlInput.setText(url)
                 }
+                syncNavButtons()
+            }
+        }
+
+        backButton.setOnClickListener {
+            if (webView.canGoBack()) webView.goBack()
+        }
+        forwardButton.setOnClickListener {
+            if (webView.canGoForward()) webView.goForward()
+        }
+        reloadButton.setOnClickListener {
+            if (webView.url.isNullOrBlank() || webView.url == "about:blank") {
+                navigateFromBar()
+            } else {
+                webView.reload()
             }
         }
 
@@ -89,13 +137,45 @@ class KioskBrowserActivity : AppCompatActivity() {
 
         findViewById<View>(R.id.browserPanicButton).setOnClickListener { triggerBrowserPanic() }
 
-        val start = prefs.domains().firstOrNull()
-        if (start != null) {
-            val initialUrl = "https://$start"
-            urlInput.setText(initialUrl)
-            webView.loadUrl(initialUrl)
-        } else {
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (webView.canGoBack()) webView.goBack()
+                else finish()
+            }
+        })
+
+        renderAllowedDomains()
+        syncNavButtons()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        renderAllowedDomains()
+    }
+
+    private fun renderAllowedDomains() {
+        val allowed = prefs.domains().sorted()
+        domainChips.removeAllViews()
+        allowed.forEach { domain ->
+            val chip = Chip(this).apply {
+                text = domain
+                isCheckable = false
+                setOnClickListener { loadUrlChecked("https://$domain") }
+            }
+            domainChips.addView(chip)
+        }
+
+        if (allowed.isEmpty()) {
+            emptyState.visibility = View.VISIBLE
             webView.loadUrl("about:blank")
+            reloadButton.isEnabled = false
+        } else {
+            emptyState.visibility = View.GONE
+            reloadButton.isEnabled = true
+            val currentUrl = webView.url
+            if (currentUrl.isNullOrBlank() || currentUrl == "about:blank") {
+                loadUrlChecked("https://${allowed.first()}")
+            }
         }
     }
 
@@ -104,11 +184,22 @@ class KioskBrowserActivity : AppCompatActivity() {
         if (raw.isEmpty()) return
         val hasScheme = raw.contains("://") || Regex("^[a-zA-Z][a-zA-Z0-9+.-]*:").containsMatchIn(raw)
         val normalized = if (hasScheme) raw else "https://$raw"
-        val uri = Uri.parse(normalized)
+        loadUrlChecked(normalized)
+    }
+
+    private fun loadUrlChecked(url: String) {
+        val uri = Uri.parse(url)
         if (!decide(uri)) {
             banner.visibility = View.GONE
-            webView.loadUrl(normalized)
+            emptyState.visibility = View.GONE
+            urlInput.setText(url)
+            webView.loadUrl(url)
         }
+    }
+
+    private fun syncNavButtons() {
+        backButton.isEnabled = webView.canGoBack()
+        forwardButton.isEnabled = webView.canGoForward()
     }
 
     private fun decide(uri: Uri): Boolean {
@@ -198,11 +289,5 @@ class KioskBrowserActivity : AppCompatActivity() {
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         )
         finish()
-    }
-
-    @Suppress("DEPRECATION")
-    override fun onBackPressed() {
-        if (::webView.isInitialized && webView.canGoBack()) webView.goBack()
-        else super.onBackPressed()
     }
 }

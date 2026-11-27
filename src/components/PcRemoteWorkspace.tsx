@@ -18,6 +18,8 @@ import {
   Wifi,
   WifiOff,
 } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { EASE_SETTLE } from './MotionPrimitives';
 import {
   BlockerShieldToggleKey,
   DEFAULT_ADMIN_RESTRICTIONS,
@@ -839,8 +841,14 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
               )}
             </div>
 
+            <AnimatePresence mode="wait" initial={false}>
             {!remoteAdminUnlocked ? (
-              <form
+              <motion.form
+                key="pc-admin-gate"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.18, ease: EASE_SETTLE }}
                 onSubmit={(e) => void handleUnlockRemoteAdmin(e)}
                 data-testid="pc-admin-password-gate"
                 className="max-w-md space-y-3"
@@ -880,12 +888,25 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                     {passwordError}
                   </p>
                 )}
-              </form>
+              </motion.form>
             ) : (
-              <div data-testid="pc-remote-admin-panel" className="space-y-5">
+              <motion.div
+                key="pc-admin-unlocked"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.18, ease: EASE_SETTLE }}
+                data-testid="pc-remote-admin-panel"
+                className="space-y-5"
+              >
+                <AnimatePresence>
                 {actionFeedback && (
-                  <div
+                  <motion.div
                     role="status"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.16, ease: EASE_SETTLE }}
                     className={`p-3 rounded-lg border text-xs font-medium flex items-center justify-between gap-2 ${
                       actionFeedback.type === 'ok'
                         ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
@@ -898,8 +919,9 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                       onClick={() => setActionFeedback(null)}
                       className="font-semibold px-1.5 shrink-0"
                     >{"\n                      "}{tr("Close")}{"\n                    "}</button>
-                  </div>
+                  </motion.div>
                 )}
+                </AnimatePresence>
 
                 {/* Troubleshooting & Recovery Actions */}
                 <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-2.5">
@@ -1554,8 +1576,9 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                     </button>
                   </div>
                 </form>
-              </div>
+              </motion.div>
             )}
+            </AnimatePresence>
           </section>
 
           {/* Section 4: Pair Physical Android APK */}
@@ -1610,16 +1633,22 @@ export const PcRemoteWorkspace: React.FC<PcRemoteWorkspaceProps> = ({
                       {item.display}
                     </div>
                   </div>
-                  <button
+                  <motion.button
                     type="button"
                     disabled={!item.val}
+                    whileTap={{ scale: 0.94 }}
+                    transition={{ duration: 0.12, ease: EASE_SETTLE }}
                     aria-label={tr('Copy {label}', { label: tr(item.label) })}
                     onClick={() => copyText(item.key, item.val)}
                     className="px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 text-[11px] font-medium text-slate-700 dark:text-slate-200 inline-flex items-center gap-1 shrink-0"
                   >
-                    <Copy className="w-3 h-3" aria-hidden="true" />
+                    {copiedKey === item.key ? (
+                      <Check className="w-3 h-3 text-emerald-500" aria-hidden="true" />
+                    ) : (
+                      <Copy className="w-3 h-3" aria-hidden="true" />
+                    )}
                     <span>{copiedKey === item.key ? tr("Copied") : tr("Copy")}</span>
-                  </button>
+                  </motion.button>
                 </div>
               ))}
             </div>

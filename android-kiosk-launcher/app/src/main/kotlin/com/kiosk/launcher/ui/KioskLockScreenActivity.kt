@@ -29,6 +29,7 @@ import com.kiosk.launcher.admin.DevicePolicyHelper
 import com.kiosk.launcher.data.AppEntry
 import com.kiosk.launcher.data.InstalledAppsRepository
 import com.kiosk.launcher.data.KioskPreferences
+import com.kiosk.launcher.data.LockScreenShortcuts
 import com.kiosk.launcher.selfimprovement.SelfImprovementRepository
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -63,6 +64,12 @@ class KioskLockScreenActivity : AppCompatActivity() {
     private var isPreviewMode = false
     private var unlocking = false
 
+    private var swipeDownY = 0f
+    private var swipeDownX = 0f
+    private var swipeDragging = false
+    private var swipeThresholdPx = 0f
+    private var swipeStartSlopPx = 0f
+
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
     private val dateFormat = SimpleDateFormat("EEEE, d MMMM", Locale.getDefault())
 
@@ -73,6 +80,11 @@ class KioskLockScreenActivity : AppCompatActivity() {
         apps = InstalledAppsRepository(this)
         focus = SelfImprovementRepository(this)
         isPreviewMode = intent?.getBooleanExtra(EXTRA_PREVIEW, false) == true
+
+        if (!isPreviewMode && (!prefs.customLockScreenEnabled || prefs.isAdminTemporarilyUnlocked() || !prefs.isKioskActiveNow())) {
+            finish()
+            return
+        }
 
         configureLockWindow()
         setContentView(R.layout.activity_kiosk_lock_screen)
@@ -93,6 +105,9 @@ class KioskLockScreenActivity : AppCompatActivity() {
         quickDockSection = findViewById(R.id.quickDockSection)
         quickAppsGrid = findViewById(R.id.quickAppsGrid)
 
+        swipeThresholdPx = dp(76).toFloat()
+        swipeStartSlopPx = dp(20).toFloat()
+
         quickAdapter = LockQuickAppAdapter(
             isProtected = { pkg -> AppPasswordPolicy.requiresPassword(pkg, prefs.passwordProtectedPackages()) },
             onClick = { onQuickLaunchTap(it) }
@@ -103,13 +118,18 @@ class KioskLockScreenActivity : AppCompatActivity() {
         findViewById<View>(R.id.unlockButton).setOnClickListener {
             unlockToLauncher()
         }
-        setupSwipeToUnlock()
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (isPreviewMode) finish()
             }
         })
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        isPreviewMode = intent.getBooleanExtra(EXTRA_PREVIEW, false)
     }
 
     override fun onStart() {
@@ -120,12 +140,21 @@ class KioskLockScreenActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (!isPreviewMode && (!prefs.customLockScreenEnabled || prefs.isAdminTemporarilyUnlocked() || !prefs.isKioskActiveNow())) {
+            finish()
+            return
+        }
         isShowing = true
         syncSystemBars()
         if (!isPreviewMode) {
             policy.setTemporaryStatusBarDisabled(true)
         }
         renderLockScreen()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) syncSystemBars()
     }
 
     override fun onPause() {
@@ -145,6 +174,48 @@ class KioskLockScreenActivity : AppCompatActivity() {
         super.onDestroy()
         isShowing = false
         unregisterReceivers()
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (!::lockContent.isInitialized || unlocking) {
+            return super.dispatchTouchEvent(ev)
+        }
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                swipeDownY = ev.rawY
+                swipeDownX = ev.rawX
+                swipeDragging = false
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val dy = ev.rawY - swipeDownY
+                val dx = ev.rawX - swipeDownX
+                if (!swipeDragging && dy < -swipeStartSlopPx && abs(dy) > abs(dx) * 1.35f) {
+                    swipeDragging = true
+                }
+                if (swipeDragging) {
+                    lockContent.translationY = dy.coerceAtMost(0f)
+                    lockContent.alpha = (1f - (abs(dy) / (swipeThresholdPx * 2.2f))).coerceIn(0.35f, 1f)
+                    return true
+                }
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                if (swipeDragging) {
+                    val dy = ev.rawY - swipeDownY
+                    swipeDragging = false
+                    if (ev.actionMasked == MotionEvent.ACTION_UP && dy <= -swipeThresholdPx) {
+                        unlockToLauncher()
+                    } else {
+                        lockContent.animate()
+                            .translationY(0f)
+                            .alpha(1f)
+                            .setDuration(180L)
+                            .start()
+                    }
+                    return true
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev)
     }
 
     private fun configureLockWindow() {
@@ -188,6 +259,9 @@ class KioskLockScreenActivity : AppCompatActivity() {
         val panicActive = prefs.isPanicLocked()
         lockStatusPill.setText(if (panicActive) R.string.lock_pill_panic else R.string.lock_pill_active)
         renderClock()
+        renderBatteryFromIntent(
+            runCatching { registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) }.getOrNull()
+        )
         renderWidgets()
         renderQuickLaunchDock()
     }
@@ -196,6 +270,29 @@ class KioskLockScreenActivity : AppCompatActivity() {
         val now = Date()
         lockClock.text = timeFormat.format(now)
         lockDate.text = dateFormat.format(now)
+    }
+
+    private fun renderBatteryFromIntent(intent: Intent?) {
+        val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+        val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+        val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+            status == BatteryManager.BATTERY_STATUS_FULL
+        if (level >= 0 && scale > 0) {
+            val pct = level * 100 / scale
+            lockBatteryValue.text = getString(
+                if (charging) R.string.lock_battery_charging_fmt else R.string.lock_battery_unplugged_fmt,
+                pct
+            )
+            return
+        }
+        val bm = getSystemService(BatteryManager::class.java)
+        val capacity = bm?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
+        if (capacity in 0..100) {
+            lockBatteryValue.text = getString(R.string.lock_battery_unplugged_fmt, capacity)
+        } else {
+            lockBatteryValue.setText(R.string.lock_battery_unknown)
+        }
     }
 
     private fun renderWidgets() {
@@ -248,7 +345,8 @@ class KioskLockScreenActivity : AppCompatActivity() {
         apps.launchableAsync { installed ->
             if (isFinishing || isDestroyed) return@launchableAsync
             val byPkg = installed.associateBy { it.packageName }
-            val dockEntries = filteredPackages.mapNotNull { byPkg[it] }
+            val resolvedPackages = LockScreenShortcuts.resolve(filteredPackages, byPkg.keys)
+            val dockEntries = resolvedPackages.mapNotNull { byPkg[it] }
             if (dockEntries.isEmpty()) {
                 quickDockSection.visibility = View.GONE
                 quickAdapter.submit(emptyList())
@@ -280,9 +378,10 @@ class KioskLockScreenActivity : AppCompatActivity() {
     private fun unlockToLauncher() {
         if (unlocking) return
         unlocking = true
+        prefs.lockScreenPending = false
         dismissSystemKeyguardIfPossible()
-        policy.setTemporaryStatusBarDisabled(false)
         if (!isPreviewMode) {
+            policy.setTemporaryStatusBarDisabled(false)
             startActivity(
                 Intent(this, KioskLauncherActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -295,8 +394,11 @@ class KioskLockScreenActivity : AppCompatActivity() {
     private fun unlockAndLaunch(entry: AppEntry) {
         if (unlocking) return
         unlocking = true
+        prefs.lockScreenPending = false
         dismissSystemKeyguardIfPossible()
-        policy.setTemporaryStatusBarDisabled(false)
+        if (!isPreviewMode) {
+            policy.setTemporaryStatusBarDisabled(false)
+        }
         if (!apps.launch(entry.packageName)) {
             unlocking = false
             Toast.makeText(this, getString(R.string.cannot_open_app_fmt, entry.label), Toast.LENGTH_SHORT).show()
@@ -315,60 +417,6 @@ class KioskLockScreenActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupSwipeToUnlock() {
-        val thresholdPx = dp(76).toFloat()
-        var downY = 0f
-        var downX = 0f
-        var dragging = false
-
-        val touchHandler = View.OnTouchListener { _, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    downY = event.rawY
-                    downX = event.rawX
-                    dragging = false
-                    false
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val dy = event.rawY - downY
-                    val dx = event.rawX - downX
-                    if (!dragging && dy < -dp(16) && abs(dy) > abs(dx) * 1.2f) {
-                        dragging = true
-                    }
-                    if (dragging) {
-                        lockContent.translationY = dy.coerceAtMost(0f)
-                        lockContent.alpha = (1f - (abs(dy) / (thresholdPx * 2.2f))).coerceIn(0.35f, 1f)
-                        true
-                    } else {
-                        false
-                    }
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    if (dragging) {
-                        val dy = event.rawY - downY
-                        if (dy <= -thresholdPx) {
-                            unlockToLauncher()
-                        } else {
-                            lockContent.animate()
-                                .translationY(0f)
-                                .alpha(1f)
-                                .setDuration(180L)
-                                .start()
-                        }
-                        dragging = false
-                        true
-                    } else {
-                        false
-                    }
-                }
-                else -> false
-            }
-        }
-
-        findViewById<View>(R.id.swipeUnlockHandle).setOnTouchListener(touchHandler)
-        findViewById<View>(R.id.lockRoot).setOnTouchListener(touchHandler)
-    }
-
     private fun registerReceivers() {
         if (timeReceiver == null) {
             val receiver = object : BroadcastReceiver() {
@@ -382,7 +430,7 @@ class KioskLockScreenActivity : AppCompatActivity() {
                     this,
                     receiver,
                     IntentFilter(Intent.ACTION_TIME_TICK),
-                    ContextCompat.RECEIVER_NOT_EXPORTED
+                    ContextCompat.RECEIVER_EXPORTED
                 )
             }
         }
@@ -390,18 +438,7 @@ class KioskLockScreenActivity : AppCompatActivity() {
         if (batteryReceiver == null) {
             val receiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context?, intent: Intent?) {
-                    val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
-                    val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
-                    val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
-                    val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                        status == BatteryManager.BATTERY_STATUS_FULL
-                    if (level >= 0 && scale > 0) {
-                        val pct = level * 100 / scale
-                        lockBatteryValue.text = getString(
-                            if (charging) R.string.lock_battery_charging_fmt else R.string.lock_battery_unplugged_fmt,
-                            pct
-                        )
-                    }
+                    renderBatteryFromIntent(intent)
                 }
             }
             batteryReceiver = receiver
@@ -410,7 +447,7 @@ class KioskLockScreenActivity : AppCompatActivity() {
                     this,
                     receiver,
                     IntentFilter(Intent.ACTION_BATTERY_CHANGED),
-                    ContextCompat.RECEIVER_NOT_EXPORTED
+                    ContextCompat.RECEIVER_EXPORTED
                 )
             }
         }

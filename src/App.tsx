@@ -5,6 +5,7 @@
  */
 import { LegalFooter } from './components/LegalFooter';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import {
   AlertTriangle,
   Check,
@@ -20,6 +21,12 @@ import {
   Terminal,
   TrendingUp,
 } from 'lucide-react';
+import {
+  EASE_SETTLE,
+  HeroSecurityCanvas,
+  MotionWorkspacePanel,
+  SPRING_SNAPPY,
+} from './components/MotionPrimitives';
 import {
   DocumentData,
   QueryDocumentSnapshot,
@@ -257,6 +264,7 @@ export default function App() {
   const [syncRetryNonce, setSyncRetryNonce] = useState(0);
   const [heroImageError, setHeroImageError] = useState(false);
   const [appIconError, setAppIconError] = useState(false);
+  const [heroPointer, setHeroPointer] = useState({ x: 0.5, y: 0.5 });
 
   const applyingRemoteDeviceRef = useRef(false);
   const applyingRemoteGrowthRef = useRef(false);
@@ -1314,13 +1322,16 @@ export default function App() {
       {/* 3-Zone Single-Line Top Bar Contract */}
       <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/85 backdrop-blur-md dark:border-white/10 dark:bg-[#070b11]/85">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 sm:h-16 sm:flex-nowrap sm:px-6 sm:py-0">
-          <a
+          <motion.a
             href="#top"
             onClick={(e) => {
               e.preventDefault();
               setActiveTab('features');
             }}
-            className="inline-flex shrink-0 items-center gap-2.5 whitespace-nowrap text-base font-semibold tracking-tight text-slate-900 dark:text-white"
+            whileHover={{ y: -0.5 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ duration: 0.14, ease: EASE_SETTLE }}
+            className="group inline-flex shrink-0 items-center gap-2.5 whitespace-nowrap text-base font-semibold tracking-tight text-slate-900 dark:text-white"
           >
             {!appIconError ? (
               <img
@@ -1329,19 +1340,22 @@ export default function App() {
                 width={28}
                 height={28}
                 onError={() => setAppIconError(true)}
-                className="w-7 h-7 rounded-lg shrink-0"
+                className="w-7 h-7 rounded-lg shrink-0 transition-transform duration-150 group-hover:scale-105 group-hover:-rotate-3"
               />
             ) : (
-              <ShieldCheck className="w-6 h-6 text-sky-600 dark:text-sky-400 shrink-0" aria-hidden="true" />
+              <ShieldCheck
+                className="w-6 h-6 text-sky-600 dark:text-sky-400 shrink-0 transition-transform duration-150 group-hover:scale-105"
+                aria-hidden="true"
+              />
             )}
             <span>Ironclad OS</span>
-          </a>
+          </motion.a>
 
           <nav
             aria-label={t('nav.sectionsLabel')}
             className="order-last -mx-1 w-full overflow-x-auto px-1 sm:order-none sm:mx-0 sm:ms-auto sm:w-auto sm:px-0"
           >
-            <div className="flex w-max items-center gap-0.5 rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="relative flex w-max items-center gap-0.5 rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 dark:border-white/10 dark:bg-white/[0.04]">
               {(
                 [
                   { id: 'features', label: t('nav.features'), shortLabel: t('nav.featuresShort'), Icon: Sparkles },
@@ -1355,30 +1369,43 @@ export default function App() {
                 const active = activeTab === tab.id;
                 const Icon = tab.Icon;
                 return (
-                  <button
+                  <motion.button
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id)}
                     aria-current={active ? 'page' : undefined}
-                    className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors ${
+                    whileTap={{ scale: 0.96 }}
+                    transition={{ duration: 0.12, ease: EASE_SETTLE }}
+                    className={`relative inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors duration-150 ${
                       active
-                        ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white'
+                        ? 'text-slate-900 dark:text-white'
                         : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                     }`}
                   >
-                    <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
-                    <span className="hidden sm:inline">{tab.label}</span>
-                    <span className="sm:hidden">{tab.shortLabel}</span>
-                  </button>
+                    {active && (
+                      <motion.span
+                        layoutId="top-nav-active-pill"
+                        transition={SPRING_SNAPPY}
+                        className="absolute inset-0 rounded-lg bg-white shadow-sm dark:bg-slate-800"
+                        aria-hidden="true"
+                      />
+                    )}
+                    <Icon className="relative z-10 h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
+                    <span className="relative z-10 hidden sm:inline">{tab.label}</span>
+                    <span className="relative z-10 sm:hidden">{tab.shortLabel}</span>
+                  </motion.button>
                 );
               })}
             </div>
           </nav>
 
           <div className="ms-auto flex shrink-0 items-center gap-1.5">
-            <button
+            <motion.button
               type="button"
               onClick={() => setActiveTab('pc')}
+              whileHover={{ y: -0.5 }}
+              whileTap={{ scale: 0.96 }}
+              transition={{ duration: 0.14, ease: EASE_SETTLE }}
               className={`hidden min-h-9 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-colors sm:inline-flex ${
                 user
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300'
@@ -1387,15 +1414,17 @@ export default function App() {
             >
               <Cloud className="h-3.5 w-3.5" aria-hidden="true" />
               <span>{user ? t('sync.synced') : t('sync.action')}</span>
-            </button>
+            </motion.button>
             <div className="relative" ref={langMenuRef}>
-              <button
+              <motion.button
                 type="button"
                 data-testid="locale-toggle-button"
                 aria-label={t('lang.label')}
                 aria-haspopup="menu"
                 aria-expanded={langMenuOpen}
                 title={t('lang.label')}
+                whileTap={{ scale: 0.94 }}
+                transition={{ duration: 0.12, ease: EASE_SETTLE }}
                 onClick={() => setLangMenuOpen((open) => !open)}
                 className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition-colors ${
                   langMenuOpen
@@ -1404,83 +1433,119 @@ export default function App() {
                 }`}
               >
                 <Languages className="h-4 w-4" aria-hidden="true" />
-              </button>
-              {langMenuOpen && (
-                <div
-                  role="menu"
-                  aria-label={t('lang.label')}
-                  data-testid="locale-menu"
-                  className="absolute end-0 top-full z-40 mt-1.5 min-w-36 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-white/10 dark:bg-[#0d131b]"
-                >
-                  {(
-                    [
-                      { code: 'en', label: t('lang.toEnglish') },
-                      { code: 'ar', label: t('lang.toArabic') },
-                    ] as const
-                  ).map((option) => (
-                    <button
-                      key={option.code}
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={locale === option.code}
-                      lang={option.code}
-                      onClick={() => {
-                        setLocale(option.code);
-                        setLangMenuOpen(false);
-                      }}
-                      className={`flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-1.5 text-start text-[13px] font-medium transition-colors ${
-                        locale === option.code
-                          ? 'bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300'
-                          : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/[0.06]'
-                      }`}
-                    >
-                      <span>{option.label}</span>
-                      {locale === option.code && (
-                        <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
+              </motion.button>
+              <AnimatePresence>
+                {langMenuOpen && (
+                  <motion.div
+                    role="menu"
+                    aria-label={t('lang.label')}
+                    data-testid="locale-menu"
+                    initial={{ opacity: 0, y: -4, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.96 }}
+                    transition={{ duration: 0.15, ease: EASE_SETTLE }}
+                    className="absolute end-0 top-full z-40 mt-1.5 min-w-36 origin-top-right overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-white/10 dark:bg-[#0d131b]"
+                  >
+                    {(
+                      [
+                        { code: 'en', label: t('lang.toEnglish') },
+                        { code: 'ar', label: t('lang.toArabic') },
+                      ] as const
+                    ).map((option) => (
+                      <button
+                        key={option.code}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={locale === option.code}
+                        lang={option.code}
+                        onClick={() => {
+                          setLocale(option.code);
+                          setLangMenuOpen(false);
+                        }}
+                        className={`flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-1.5 text-start text-[13px] font-medium transition-colors ${
+                          locale === option.code
+                            ? 'bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300'
+                            : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/[0.06]'
+                        }`}
+                      >
+                        <span>{option.label}</span>
+                        {locale === option.code && (
+                          <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                        )}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-            <button
+            <motion.button
               type="button"
               data-testid="theme-toggle-button"
               aria-pressed={isDark}
               aria-label={isDark ? t('theme.toLight') : t('theme.toDark')}
               title={isDark ? t('theme.lightMode') : t('theme.darkMode')}
+              whileTap={{ scale: 0.94 }}
+              transition={{ duration: 0.12, ease: EASE_SETTLE }}
               onClick={() => setThemeMode((prev) => (prev === 'dark' ? 'light' : 'dark'))}
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.08]"
             >
-              {isDark ? (
-                <Sun className="h-4 w-4" aria-hidden="true" />
-              ) : (
-                <Moon className="h-4 w-4" aria-hidden="true" />
-              )}
-            </button>
-            <a
+              <AnimatePresence mode="wait" initial={false}>
+                {isDark ? (
+                  <motion.span
+                    key="sun"
+                    initial={{ opacity: 0, rotate: -45, scale: 0.7 }}
+                    animate={{ opacity: 1, rotate: 0, scale: 1 }}
+                    exit={{ opacity: 0, rotate: 45, scale: 0.7 }}
+                    transition={{ duration: 0.15, ease: EASE_SETTLE }}
+                    className="inline-flex"
+                  >
+                    <Sun className="h-4 w-4" aria-hidden="true" />
+                  </motion.span>
+                ) : (
+                  <motion.span
+                    key="moon"
+                    initial={{ opacity: 0, rotate: 45, scale: 0.7 }}
+                    animate={{ opacity: 1, rotate: 0, scale: 1 }}
+                    exit={{ opacity: 0, rotate: -45, scale: 0.7 }}
+                    transition={{ duration: 0.15, ease: EASE_SETTLE }}
+                    className="inline-flex"
+                  >
+                    <Moon className="h-4 w-4" aria-hidden="true" />
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </motion.button>
+            <motion.a
               href="/downloads/IroncladOS.apk"
               download="Ironclad-OS.apk"
               aria-label={t('download.apkAria')}
               title={t('download.apkTitle', APK_META_VARS)}
+              whileHover={{ y: -0.5 }}
+              whileTap={{ scale: 0.96 }}
+              transition={{ duration: 0.14, ease: EASE_SETTLE }}
               className="btn-primary whitespace-nowrap"
             >
               <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
               <span className="hidden sm:inline">{t('download.apk')}</span>
-            </a>
+            </motion.a>
           </div>
         </div>
       </header>
 
       {/* APK release notes: own row under the top bar so it never widens the header. */}
-              <p className="mx-auto w-full max-w-6xl px-4 py-2 text-[11px] font-medium leading-snug text-slate-500 sm:px-6 dark:text-slate-400">
-          {t('download.apkNotes', APK_META_VARS)}
-        </p>
+      <p className="mx-auto w-full max-w-6xl px-4 py-2 text-[11px] font-medium leading-snug text-slate-500 sm:px-6 dark:text-slate-400">
+        {t('download.apkNotes', APK_META_VARS)}
+      </p>
 
       {/* Main Content */}
       <main id="top" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
         <section className="mb-8 grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_292px]">
-          <div className="max-w-2xl">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.28, ease: EASE_SETTLE }}
+            className="max-w-2xl"
+          >
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-700 dark:text-sky-400">
               <span className="h-1.5 w-1.5 rounded-full bg-sky-500" aria-hidden="true" />
               {t('hero.eyebrow')}
@@ -1492,15 +1557,21 @@ export default function App() {
               {t('hero.lead')}
             </p>
             <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
-              <a
+              <motion.a
                 href="/downloads/IroncladOS.apk"
                 download="Ironclad-OS.apk"
                 title={t('download.apkTitle', APK_META_VARS)}
-                className="btn-primary min-h-11 px-5 text-sm"
+                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.97 }}
+                transition={{ duration: 0.14, ease: EASE_SETTLE }}
+                className="group btn-primary min-h-11 px-5 text-sm"
               >
-                <Download className="h-4 w-4" aria-hidden="true" />
+                <Download
+                  className="h-4 w-4 transition-transform duration-150 group-hover:translate-y-0.5"
+                  aria-hidden="true"
+                />
                 {t('hero.cta')}
-              </a>
+              </motion.a>
               <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
                 {t('hero.meta', APK_META_VARS)}
               </span>
@@ -1511,9 +1582,25 @@ export default function App() {
               <li>{t('hero.bullet.allowlist')}</li>
               <li>{t('hero.bullet.bypass')}</li>
             </ul>
-          </div>
-          {!heroImageError && (
-            <div className="relative hidden overflow-hidden rounded-2xl border border-slate-200/80 bg-[#0a1220] shadow-sm lg:block dark:border-white/10">
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.34, delay: 0.06, ease: EASE_SETTLE }}
+            onPointerMove={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              if (rect.width > 0 && rect.height > 0) {
+                setHeroPointer({
+                  x: (e.clientX - rect.left) / rect.width,
+                  y: (e.clientY - rect.top) / rect.height,
+                });
+              }
+            }}
+            onPointerLeave={() => setHeroPointer({ x: 0.5, y: 0.5 })}
+            className="relative hidden aspect-square overflow-hidden rounded-2xl border border-slate-200/80 bg-[#0a1220] shadow-sm lg:block dark:border-white/10"
+          >
+            {!heroImageError ? (
               <img
                 src="/brand/ironclad-shield.jpg"
                 alt={t('hero.imageAlt')}
@@ -1521,10 +1608,26 @@ export default function App() {
                 height={1024}
                 loading="eager"
                 onError={() => setHeroImageError(true)}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-cover opacity-90 transition-transform duration-300 ease-out"
+                style={{
+                  transform: `scale(1.03) translate3d(${(heroPointer.x - 0.5) * -6}px, ${(heroPointer.y - 0.5) * -6}px, 0)`,
+                }}
               />
-            </div>
-          )}
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-900 to-[#060b14]">
+                <ShieldCheck className="h-16 w-16 text-sky-400/80" aria-hidden="true" />
+              </div>
+            )}
+            <HeroSecurityCanvas
+              pointerX={heroPointer.x}
+              pointerY={heroPointer.y}
+              className="absolute inset-0 h-full w-full"
+            />
+            <div
+              className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/10"
+              aria-hidden="true"
+            />
+          </motion.div>
         </section>
 
         <ErrorBoundary
@@ -1532,176 +1635,180 @@ export default function App() {
           sectionName={tr('Active Workspace')}
           onReset={() => setSyncRetryNonce((n) => n + 1)}
         >
-        {activeTab === 'features' && <FeaturesView />}
+          <AnimatePresence mode="wait">
+            <MotionWorkspacePanel key={activeTab}>
+              {activeTab === 'features' && <FeaturesView />}
 
-        {activeTab === 'simulator' && (
-          <div
-            className={`grid grid-cols-1 gap-6 items-start ${
-              state.orientation === 'landscape'
-                ? 'xl:grid-cols-[640px_minmax(0,1fr)]'
-                : 'lg:grid-cols-[400px_minmax(0,1fr)]'
-            }`}
-          >
-            <AndroidDeviceSimulator
-              state={state}
-              selfImprovement={selfImprovement}
-              onLaunchApp={handleLaunchApp}
-              onAttemptUninstall={handleAttemptUninstall}
-              onOpenPinGate={handleOpenPinGate}
-              onSubmitPin={handleSubmitPin}
-              onCancelPinGate={handleCancelPinGate}
-              onToggleAllowedApp={handleToggleAllowedApp}
-              onToggleAppPasswordProtection={handleToggleAppPasswordProtection}
-              onVerifyAppAccessPin={handleVerifyAppAccessPin}
-              onAddCustomApp={handleAddCustomApp}
-              onUpdatePin={handleUpdatePin}
-              onSetAdminUnlock={handleSetAdminUnlock}
-              onSetKioskMode={handleSetKioskMode}
-              onUpdateKioskTitle={handleUpdateKioskTitle}
-              onToggleAdminRestriction={handleToggleAdminRestriction}
-              onToggleHardwarePolicy={handleToggleHardwarePolicy}
-              onToggleBlockerShield={handleToggleBlockerShield}
-              onSetFamilyDnsMode={handleSetFamilyDnsMode}
-              onUpdateAllowedDomains={handleUpdateAllowedDomains}
-              onUpdateInAppWhitelist={handleUpdateInAppWhitelist}
-              onUpdateBlockedKeywords={handleUpdateBlockedKeywords}
-              onActivateStrictLock={handleActivateStrictLock}
-              onTestInAppBrowser={handleTestInAppBrowser}
-              onNavigateBrowser={handleNavigateBrowser}
-              onSetAppTimeLimit={handleSetAppTimeLimit}
-              onResetAppUsage={handleResetAppUsage}
-              onUpdateDowntimeSchedule={handleUpdateDowntimeSchedule}
-              onSetFocusBlockSession={handleSetFocusBlockSession}
-              onAdvanceAppUsage={handleAdvanceAppUsage}
-              onTriggerPanic={handleTriggerPanic}
-              onReturnHome={handleReturnHome}
-              onDismissNotice={() => setState((prev) => ({ ...prev, blockedNotice: null }))}
-              onToggleHabitToday={(habitId) =>
-                setSelfImprovement((prev) => toggleHabitDate(prev, habitId, formatIsoDate()))
-              }
-              onToggleTask={(taskId) => setSelfImprovement((prev) => toggleTask(prev, taskId))}
-              onLogCleanDay={() => setSelfImprovement((prev) => logCleanDay(prev))}
-              onRecordFocusSession={handleRecordFocusSession}
-              onQuickSaveDiaryNote={(title, body) => {
-                handleCreateNote('Diary', title, body);
-              }}
-              onOpenFullSelfImprovement={() => setActiveTab('growth')}
-            />
-            <PolicySummary state={state} onOpenPolicyInspector={() => setActiveTab('policy')} />
-          </div>
-        )}
+              {activeTab === 'simulator' && (
+                <div
+                  className={`grid grid-cols-1 gap-6 items-start ${
+                    state.orientation === 'landscape'
+                      ? 'xl:grid-cols-[640px_minmax(0,1fr)]'
+                      : 'lg:grid-cols-[400px_minmax(0,1fr)]'
+                  }`}
+                >
+                  <AndroidDeviceSimulator
+                    state={state}
+                    selfImprovement={selfImprovement}
+                    onLaunchApp={handleLaunchApp}
+                    onAttemptUninstall={handleAttemptUninstall}
+                    onOpenPinGate={handleOpenPinGate}
+                    onSubmitPin={handleSubmitPin}
+                    onCancelPinGate={handleCancelPinGate}
+                    onToggleAllowedApp={handleToggleAllowedApp}
+                    onToggleAppPasswordProtection={handleToggleAppPasswordProtection}
+                    onVerifyAppAccessPin={handleVerifyAppAccessPin}
+                    onAddCustomApp={handleAddCustomApp}
+                    onUpdatePin={handleUpdatePin}
+                    onSetAdminUnlock={handleSetAdminUnlock}
+                    onSetKioskMode={handleSetKioskMode}
+                    onUpdateKioskTitle={handleUpdateKioskTitle}
+                    onToggleAdminRestriction={handleToggleAdminRestriction}
+                    onToggleHardwarePolicy={handleToggleHardwarePolicy}
+                    onToggleBlockerShield={handleToggleBlockerShield}
+                    onSetFamilyDnsMode={handleSetFamilyDnsMode}
+                    onUpdateAllowedDomains={handleUpdateAllowedDomains}
+                    onUpdateInAppWhitelist={handleUpdateInAppWhitelist}
+                    onUpdateBlockedKeywords={handleUpdateBlockedKeywords}
+                    onActivateStrictLock={handleActivateStrictLock}
+                    onTestInAppBrowser={handleTestInAppBrowser}
+                    onNavigateBrowser={handleNavigateBrowser}
+                    onSetAppTimeLimit={handleSetAppTimeLimit}
+                    onResetAppUsage={handleResetAppUsage}
+                    onUpdateDowntimeSchedule={handleUpdateDowntimeSchedule}
+                    onSetFocusBlockSession={handleSetFocusBlockSession}
+                    onAdvanceAppUsage={handleAdvanceAppUsage}
+                    onTriggerPanic={handleTriggerPanic}
+                    onReturnHome={handleReturnHome}
+                    onDismissNotice={() => setState((prev) => ({ ...prev, blockedNotice: null }))}
+                    onToggleHabitToday={(habitId) =>
+                      setSelfImprovement((prev) => toggleHabitDate(prev, habitId, formatIsoDate()))
+                    }
+                    onToggleTask={(taskId) => setSelfImprovement((prev) => toggleTask(prev, taskId))}
+                    onLogCleanDay={() => setSelfImprovement((prev) => logCleanDay(prev))}
+                    onRecordFocusSession={handleRecordFocusSession}
+                    onQuickSaveDiaryNote={(title, body) => {
+                      handleCreateNote('Diary', title, body);
+                    }}
+                    onOpenFullSelfImprovement={() => setActiveTab('growth')}
+                  />
+                  <PolicySummary state={state} onOpenPolicyInspector={() => setActiveTab('policy')} />
+                </div>
+              )}
 
-        {activeTab === 'growth' && (
-          <SelfImprovementWorkspace
-            state={selfImprovement}
-            isDark={isDark}
-            onLogCleanDay={() => setSelfImprovement((prev) => logCleanDay(prev))}
-            onResetCleanStreak={() => setSelfImprovement((prev) => resetCleanStreak(prev))}
-            onLogUrgeVictory={() => setSelfImprovement((prev) => logUrgeVictory(prev))}
-            onUpdateWhyIStarted={(text) =>
-              setSelfImprovement((prev) => updateWhyIStarted(prev, text))
-            }
-            onRecordFocusSession={handleRecordFocusSession}
-            onAddHabit={(title, cat) => setSelfImprovement((prev) => addHabit(prev, title, cat))}
-            onToggleHabitDate={(id, d) =>
-              setSelfImprovement((prev) => toggleHabitDate(prev, id, d))
-            }
-            onDeleteHabit={(id) => setSelfImprovement((prev) => deleteHabit(prev, id))}
-            onAddTask={(title, priority, cat, time) =>
-              setSelfImprovement((prev) => addTask(prev, title, priority, cat, time))
-            }
-            onToggleTask={(id) => setSelfImprovement((prev) => toggleTask(prev, id))}
-            onDeleteTask={(id) => setSelfImprovement((prev) => deleteTask(prev, id))}
-            onAddGoal={(title, cat, targetDate, why, milestones) =>
-              setSelfImprovement((prev) =>
-                addGoal(prev, title, cat, targetDate, why, milestones)
-              )
-            }
-            onToggleGoalMilestone={(gId, mId) =>
-              setSelfImprovement((prev) => toggleGoalMilestone(prev, gId, mId))
-            }
-            onAddGoalMilestone={(gId, title) =>
-              setSelfImprovement((prev) => addGoalMilestone(prev, gId, title))
-            }
-            onDeleteGoal={(gId) => setSelfImprovement((prev) => deleteGoal(prev, gId))}
-            onCreateNote={handleCreateNote}
-            onUpdateNote={(noteId, patch) =>
-              setSelfImprovement((prev) => updateNote(prev, noteId, patch))
-            }
-            onDeleteNote={(noteId) => setSelfImprovement((prev) => deleteNote(prev, noteId))}
-          />
-        )}
+              {activeTab === 'growth' && (
+                <SelfImprovementWorkspace
+                  state={selfImprovement}
+                  isDark={isDark}
+                  onLogCleanDay={() => setSelfImprovement((prev) => logCleanDay(prev))}
+                  onResetCleanStreak={() => setSelfImprovement((prev) => resetCleanStreak(prev))}
+                  onLogUrgeVictory={() => setSelfImprovement((prev) => logUrgeVictory(prev))}
+                  onUpdateWhyIStarted={(text) =>
+                    setSelfImprovement((prev) => updateWhyIStarted(prev, text))
+                  }
+                  onRecordFocusSession={handleRecordFocusSession}
+                  onAddHabit={(title, cat) => setSelfImprovement((prev) => addHabit(prev, title, cat))}
+                  onToggleHabitDate={(id, d) =>
+                    setSelfImprovement((prev) => toggleHabitDate(prev, id, d))
+                  }
+                  onDeleteHabit={(id) => setSelfImprovement((prev) => deleteHabit(prev, id))}
+                  onAddTask={(title, priority, cat, time) =>
+                    setSelfImprovement((prev) => addTask(prev, title, priority, cat, time))
+                  }
+                  onToggleTask={(id) => setSelfImprovement((prev) => toggleTask(prev, id))}
+                  onDeleteTask={(id) => setSelfImprovement((prev) => deleteTask(prev, id))}
+                  onAddGoal={(title, cat, targetDate, why, milestones) =>
+                    setSelfImprovement((prev) =>
+                      addGoal(prev, title, cat, targetDate, why, milestones)
+                    )
+                  }
+                  onToggleGoalMilestone={(gId, mId) =>
+                    setSelfImprovement((prev) => toggleGoalMilestone(prev, gId, mId))
+                  }
+                  onAddGoalMilestone={(gId, title) =>
+                    setSelfImprovement((prev) => addGoalMilestone(prev, gId, title))
+                  }
+                  onDeleteGoal={(gId) => setSelfImprovement((prev) => deleteGoal(prev, gId))}
+                  onCreateNote={handleCreateNote}
+                  onUpdateNote={(noteId, patch) =>
+                    setSelfImprovement((prev) => updateNote(prev, noteId, patch))
+                  }
+                  onDeleteNote={(noteId) => setSelfImprovement((prev) => deleteNote(prev, noteId))}
+                />
+              )}
 
-        {activeTab === 'policy' && (
-          <PolicyInspectorPanel
-            state={state}
-            onToggleDeviceOwner={handleToggleDeviceOwner}
-            onSimulateReboot={handleSimulateReboot}
-            onToggleOrientation={handleToggleOrientation}
-            onToggleFontScale={handleToggleFontScale}
-            onToggleAdminRestriction={handleToggleAdminRestriction}
-            onToggleHardwarePolicy={handleToggleHardwarePolicy}
-            onToggleBlockerShield={handleToggleBlockerShield}
-            onSetFamilyDnsMode={handleSetFamilyDnsMode}
-            onTestInAppBrowser={handleTestInAppBrowser}
-            onSetAppTimeLimit={handleSetAppTimeLimit}
-            onResetAppUsage={handleResetAppUsage}
-            onUpdateDowntimeSchedule={handleUpdateDowntimeSchedule}
-            onSetFocusBlockSession={handleSetFocusBlockSession}
-            onAdvanceAppUsage={handleAdvanceAppUsage}
-            onTriggerPanic={handleTriggerPanic}
-            onClearPanicLockdown={handleClearPanicLockdown}
-            onResetTamperDiagnostics={handleResetTamperDiagnostics}
-            onSimulateRapidAdminToggles={handleSimulateRapidAdminToggles}
-            onSetKioskMode={(mode) => handleSetKioskMode(mode)}
-            onResetAll={handleResetAll}
-          />
-        )}
+              {activeTab === 'policy' && (
+                <PolicyInspectorPanel
+                  state={state}
+                  onToggleDeviceOwner={handleToggleDeviceOwner}
+                  onSimulateReboot={handleSimulateReboot}
+                  onToggleOrientation={handleToggleOrientation}
+                  onToggleFontScale={handleToggleFontScale}
+                  onToggleAdminRestriction={handleToggleAdminRestriction}
+                  onToggleHardwarePolicy={handleToggleHardwarePolicy}
+                  onToggleBlockerShield={handleToggleBlockerShield}
+                  onSetFamilyDnsMode={handleSetFamilyDnsMode}
+                  onTestInAppBrowser={handleTestInAppBrowser}
+                  onSetAppTimeLimit={handleSetAppTimeLimit}
+                  onResetAppUsage={handleResetAppUsage}
+                  onUpdateDowntimeSchedule={handleUpdateDowntimeSchedule}
+                  onSetFocusBlockSession={handleSetFocusBlockSession}
+                  onAdvanceAppUsage={handleAdvanceAppUsage}
+                  onTriggerPanic={handleTriggerPanic}
+                  onClearPanicLockdown={handleClearPanicLockdown}
+                  onResetTamperDiagnostics={handleResetTamperDiagnostics}
+                  onSimulateRapidAdminToggles={handleSimulateRapidAdminToggles}
+                  onSetKioskMode={(mode) => handleSetKioskMode(mode)}
+                  onResetAll={handleResetAll}
+                />
+              )}
 
-        {activeTab === 'pc' && (
-          <PcRemoteWorkspace
-            user={user}
-            authLoading={authLoading}
-            authError={authError}
-            isOnline={isOnline}
-            cloudConnected={cloudConnected}
-            syncBusy={syncBusy}
-            devicesLoading={devicesLoading}
-            lastSyncedAt={lastSyncedAt}
-            pendingOfflineSync={pendingOfflineSync}
-            syncError={syncError}
-            syncedDevices={syncedDevices}
-            hasMoreDevices={hasMoreDevices}
-            loadingMoreDevices={loadingMoreDevices}
-            selectedDeviceId={selectedDeviceId}
-            remoteDevice={syncedDevices.find((d) => d.deviceId === selectedDeviceId) ?? null}
-            localKioskState={state}
-            selfImprovement={selfImprovement}
-            onSelectDeviceId={setSelectedDeviceId}
-            onLoadMoreDevices={handleLoadMoreDevices}
-            onRetrySync={() => setSyncRetryNonce((n) => n + 1)}
-            onSignInGoogle={handleSignInGoogle}
-            onSignOutGoogle={handleSignOutGoogle}
-            onSyncNow={async () => {
-              if (user) {
-                try {
-                  await pushLocalToCloud(user, state, selfImprovement, 'web_simulator', undefined, true);
-                } catch (err) {
-                  setSyncError(err instanceof Error ? err.message : tr('Sync failed.'));
-                }
-              }
-            }}
-            onRemoteUpdateSettings={handleRemoteUpdateSettings}
-            onToggleHabitToday={(habitId) =>
-              setSelfImprovement((prev) => toggleHabitDate(prev, habitId, formatIsoDate()))
-            }
-            onLogCleanDay={() => setSelfImprovement((prev) => logCleanDay(prev))}
-            onLogUrgeVictory={() => setSelfImprovement((prev) => logUrgeVictory(prev))}
-            onOpenSelfImprovementTab={() => setActiveTab('growth')}
-          />
-        )}
+              {activeTab === 'pc' && (
+                <PcRemoteWorkspace
+                  user={user}
+                  authLoading={authLoading}
+                  authError={authError}
+                  isOnline={isOnline}
+                  cloudConnected={cloudConnected}
+                  syncBusy={syncBusy}
+                  devicesLoading={devicesLoading}
+                  lastSyncedAt={lastSyncedAt}
+                  pendingOfflineSync={pendingOfflineSync}
+                  syncError={syncError}
+                  syncedDevices={syncedDevices}
+                  hasMoreDevices={hasMoreDevices}
+                  loadingMoreDevices={loadingMoreDevices}
+                  selectedDeviceId={selectedDeviceId}
+                  remoteDevice={syncedDevices.find((d) => d.deviceId === selectedDeviceId) ?? null}
+                  localKioskState={state}
+                  selfImprovement={selfImprovement}
+                  onSelectDeviceId={setSelectedDeviceId}
+                  onLoadMoreDevices={handleLoadMoreDevices}
+                  onRetrySync={() => setSyncRetryNonce((n) => n + 1)}
+                  onSignInGoogle={handleSignInGoogle}
+                  onSignOutGoogle={handleSignOutGoogle}
+                  onSyncNow={async () => {
+                    if (user) {
+                      try {
+                        await pushLocalToCloud(user, state, selfImprovement, 'web_simulator', undefined, true);
+                      } catch (err) {
+                        setSyncError(err instanceof Error ? err.message : tr('Sync failed.'));
+                      }
+                    }
+                  }}
+                  onRemoteUpdateSettings={handleRemoteUpdateSettings}
+                  onToggleHabitToday={(habitId) =>
+                    setSelfImprovement((prev) => toggleHabitDate(prev, habitId, formatIsoDate()))
+                  }
+                  onLogCleanDay={() => setSelfImprovement((prev) => logCleanDay(prev))}
+                  onLogUrgeVictory={() => setSelfImprovement((prev) => logUrgeVictory(prev))}
+                  onOpenSelfImprovementTab={() => setActiveTab('growth')}
+                />
+              )}
 
-        {activeTab === 'adb' && <AdbProvisioningView />}
+              {activeTab === 'adb' && <AdbProvisioningView />}
+            </MotionWorkspacePanel>
+          </AnimatePresence>
         </ErrorBoundary>
       </main>
       <div className="mx-auto w-full max-w-6xl px-4 pb-8 sm:px-6">
@@ -1720,7 +1827,7 @@ export default function App() {
           </div>
         </div>
       </div>
-      <LegalFooter/>
+      <LegalFooter />
     </div>
   );
 }

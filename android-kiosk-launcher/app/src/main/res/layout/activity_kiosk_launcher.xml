@@ -261,6 +261,20 @@
             android:text=""
             android:textColor="@color/text_secondary"
             android:textSize="11sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/openBrowserHomeButton"
+            style="@style/Widget.IroncladOS.Button.Outlined"
+            android:layout_width="wrap_content"
+            android:layout_height="34dp"
+            android:layout_marginStart="8dp"
+            android:minWidth="0dp"
+            android:minHeight="34dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:text="@string/action_browser"
+            android:textSize="11sp"
+            android:visibility="gone" />
     </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView
@@ -289,13 +303,14 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
+        android:baselineAligned="false"
         android:orientation="horizontal">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/focusButton"
             style="@style/Widget.IroncladOS.Button.Outlined"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:layout_weight="1"
             android:text="@string/action_focus" />
 
@@ -303,7 +318,7 @@
             android:id="@+id/adminButton"
             style="@style/Widget.IroncladOS.Button.Outlined"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:layout_marginStart="8dp"
             android:layout_weight="1"
             android:text="@string/action_admin" />
@@ -312,7 +327,7 @@
             android:id="@+id/panicButton"
             style="@style/Widget.IroncladOS.Button"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:layout_marginStart="8dp"
             android:layout_weight="1"
             android:backgroundTint="@color/danger"

@@ -1,5 +1,7 @@
 import React from 'react';
 import { ArrowRight, Flame, Lock, ShieldCheck, Timer } from 'lucide-react';
+import { motion } from 'motion/react';
+import { EASE_SETTLE } from './MotionPrimitives';
 import {
   BLOCKED_DISTRACTION_DOMAINS,
   BlockerShieldToggleKey,
@@ -81,7 +83,13 @@ export const PolicySummary: React.FC<PolicySummaryProps> = ({ state, onOpenPolic
   };
 
   return (
-    <section className="surface overflow-hidden" aria-label={tr("Live policy summary")}>
+    <motion.section
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.24, ease: EASE_SETTLE }}
+      className="surface overflow-hidden"
+      aria-label={tr("Live policy summary")}
+    >
       <header className="flex items-center justify-between gap-3 border-b border-slate-200/80 px-5 py-4 dark:border-white/10">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("Live policy")}</h2>
@@ -169,14 +177,19 @@ export const PolicySummary: React.FC<PolicySummaryProps> = ({ state, onOpenPolic
         </div>
       )}
 
-      <button
+      <motion.button
         type="button"
         onClick={onOpenPolicyInspector}
-        className="flex w-full items-center justify-between gap-2 border-t border-slate-200/80 px-5 py-3 text-[13px] font-semibold text-slate-800 transition-colors hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/[0.04]"
+        whileTap={{ scale: 0.99 }}
+        transition={{ duration: 0.12, ease: EASE_SETTLE }}
+        className="group flex w-full items-center justify-between gap-2 border-t border-slate-200/80 px-5 py-3 text-[13px] font-semibold text-slate-800 transition-colors hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/[0.04]"
       >
         {tr("Inspect every policy")}
-        <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden="true" />
-      </button>
-    </section>
+        <ArrowRight
+          className="h-3.5 w-3.5 transition-transform duration-150 group-hover:translate-x-1 rtl:rotate-180 rtl:group-hover:-translate-x-1"
+          aria-hidden="true"
+        />
+      </motion.button>
+    </motion.section>
   );
 };

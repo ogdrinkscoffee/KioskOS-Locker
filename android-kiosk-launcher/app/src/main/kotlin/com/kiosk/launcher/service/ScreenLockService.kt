@@ -71,7 +71,7 @@ class ScreenLockService : Service() {
         }
         screenReceiver = receiver
         runCatching {
-            ContextCompat.registerReceiver(this, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+            ContextCompat.registerReceiver(this, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
         }
     }
 

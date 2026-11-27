@@ -477,4 +477,29 @@
     <string name="log_schedule_enabled">Kiosk schedule enabled</string>
     <string name="log_schedule_disabled">Kiosk schedule disabled</string>
     <string name="log_schedule_saved">Kiosk schedule updated</string>
+
+    <!-- Admin UI polish & Kiosk Browser access -->
+    <string name="admin_chip_all">All</string>
+    <string name="admin_chip_device">Device</string>
+    <string name="admin_chip_security">Security</string>
+    <string name="admin_chip_browser">Mode &amp; Browser</string>
+    <string name="admin_chip_lock_screen">Lock Screen</string>
+    <string name="admin_chip_apps">Apps &amp; Schedule</string>
+    <string name="admin_chip_locks">Locks</string>
+    <string name="admin_active_badge">Admin active</string>
+    <string name="apps_search_hint">Search installed apps…</string>
+    <string name="apps_filter_empty">No installed apps match your search.</string>
+    <string name="apps_single_mode_note">Single-app mode pins the first allowed app: %1$s.</string>
+    <string name="apps_single_mode_none">Single-app mode requires at least one allowed app.</string>
+    <string name="custom_lock_status_armed">Armed: appears on screen wake while kiosk mode is active.</string>
+    <string name="custom_lock_status_needs_kiosk">Standby: turn on Default launcher above so wake lock engages. Preview still works below.</string>
+    <string name="custom_lock_status_off">Off: standard Android lock behavior applies. Preview still works below.</string>
+    <string name="browser_show_on_home">Show Kiosk Browser on Home</string>
+    <string name="browser_show_on_home_desc">Adds a Kiosk Browser shortcut on the launcher in Multi-app mode</string>
+    <string name="action_browser">Browser</string>
+    <string name="browser_back">Back</string>
+    <string name="browser_forward">Forward</string>
+    <string name="browser_reload">Reload</string>
+    <string name="browser_allowed_sites_label">Allowed sites:</string>
+    <string name="browser_no_domains_empty">No allowed domains configured yet.\nOpen Admin → Mode &amp; Browser to add websites.</string>
 </resources>

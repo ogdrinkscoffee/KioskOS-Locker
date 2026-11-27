@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, Copy, Terminal } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { EASE_SETTLE } from './MotionPrimitives';
 import { useI18n } from '../i18n/LocaleProvider';
 
 interface CommandStep {
@@ -133,7 +135,13 @@ export const AdbProvisioningView: React.FC = () => {
 
       <ol className="surface divide-y divide-slate-200/80 dark:divide-white/10">
         {STEPS.map((step, index) => (
-          <li key={step.id} className="px-4 py-4 sm:px-5">
+          <motion.li
+            key={step.id}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.22, delay: index * 0.045, ease: EASE_SETTLE }}
+            className="px-4 py-4 sm:px-5"
+          >
             <div className="flex items-start gap-3">
               <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold tabular-nums text-slate-600 dark:bg-white/10 dark:text-slate-300">
                 {index + 1}
@@ -150,22 +158,44 @@ export const AdbProvisioningView: React.FC = () => {
                   <code className="min-w-0 flex-1 truncate text-[11px] text-slate-800 dark:text-slate-200">
                     {step.command}
                   </code>
-                  <button
+                  <motion.button
                     type="button"
+                    whileTap={{ scale: 0.9 }}
+                    transition={{ duration: 0.12, ease: EASE_SETTLE }}
                     onClick={() => void handleCopy(step.id, step.command)}
                     aria-label={`${tr('Copy command for')} ${tr(step.title)}`}
                     className="inline-flex min-h-[32px] min-w-[32px] shrink-0 items-center justify-center rounded-md p-1 text-slate-500 transition-colors hover:bg-slate-200/70 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
                   >
-                    {copiedId === step.id ? (
-                      <Check className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
-                    ) : (
-                      <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-                    )}
-                  </button>
+                    <AnimatePresence mode="wait" initial={false}>
+                      {copiedId === step.id ? (
+                        <motion.span
+                          key="copied"
+                          initial={{ scale: 0.6, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.6, opacity: 0 }}
+                          transition={{ duration: 0.14, ease: EASE_SETTLE }}
+                          className="inline-flex"
+                        >
+                          <Check className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
+                        </motion.span>
+                      ) : (
+                        <motion.span
+                          key="copy"
+                          initial={{ scale: 0.6, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.6, opacity: 0 }}
+                          transition={{ duration: 0.14, ease: EASE_SETTLE }}
+                          className="inline-flex"
+                        >
+                          <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </motion.button>
                 </div>
               </div>
             </div>
-          </li>
+          </motion.li>
         ))}
       </ol>
 

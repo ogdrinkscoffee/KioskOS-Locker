@@ -8,17 +8,22 @@ import com.kiosk.launcher.data.KioskPreferences
 import com.kiosk.launcher.ui.KioskLockScreenActivity
 
 /**
- * Triggers the custom glassmorphism lock screen on screen off/on or user-present wake
- * events whenever the admin enabled custom lock screen replacement in kiosk mode.
+ * Coordinates the custom lock screen across screen-off/wake broadcasts:
+ * - On [Intent.ACTION_SCREEN_OFF], records `lockScreenPending` via [LockScreenController.onScreenOff]
+ *   so [com.kiosk.launcher.ui.KioskLauncherActivity] guarantees a foreground lock on next resume even
+ *   if Android 10+ suppresses background receiver activity starts.
+ * - On [Intent.ACTION_SCREEN_ON] / [Intent.ACTION_USER_PRESENT], attempts an immediate wake launch
+ *   when permitted (such as Device Owner mode).
  */
 class ScreenLockReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action ?: return
-        if (action != Intent.ACTION_SCREEN_OFF &&
-            action != Intent.ACTION_SCREEN_ON &&
-            action != Intent.ACTION_USER_PRESENT
-        ) {
+        if (action == Intent.ACTION_SCREEN_OFF) {
+            LockScreenController.onScreenOff(context)
+            return
+        }
+        if (action != Intent.ACTION_SCREEN_ON && action != Intent.ACTION_USER_PRESENT) {
             return
         }
         if (!shouldTrigger(context)) return
@@ -32,7 +37,7 @@ class ScreenLockReceiver : BroadcastReceiver() {
             val prefs = KioskPreferences(context)
             val policy = DevicePolicyHelper(context)
             return prefs.customLockScreenEnabled &&
-                prefs.kioskEnabled == true &&
+                prefs.isKioskActiveNow() &&
                 policy.isDefaultLauncher &&
                 !prefs.isInstallingUpdate() &&
                 !prefs.isAdminTemporarilyUnlocked()

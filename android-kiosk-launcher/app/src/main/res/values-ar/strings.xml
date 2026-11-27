@@ -476,4 +476,29 @@
     <string name="log_schedule_enabled">جدول الكشك اشتغل</string>
     <string name="log_schedule_disabled">جدول الكشك اتقفل</string>
     <string name="log_schedule_saved">جدول الكشك اتحدّث</string>
+
+    <!-- Admin UI polish & Kiosk Browser access -->
+    <string name="admin_chip_all">الكل</string>
+    <string name="admin_chip_device">الجهاز</string>
+    <string name="admin_chip_security">الأمان</string>
+    <string name="admin_chip_browser">الوضع والمتصفح</string>
+    <string name="admin_chip_lock_screen">شاشة القفل</string>
+    <string name="admin_chip_apps">التطبيقات والجدول</string>
+    <string name="admin_chip_locks">الأقفال</string>
+    <string name="admin_active_badge">مدير الجهاز مفعّل</string>
+    <string name="apps_search_hint">ابحث في التطبيقات المثبتة…</string>
+    <string name="apps_filter_empty">مفيش تطبيقات مطابقة للبحث.</string>
+    <string name="apps_single_mode_note">وضع التطبيق الواحد بيثبّت أول تطبيق مسموح: %1$s.</string>
+    <string name="apps_single_mode_none">وضع التطبيق الواحد محتاج تطبيق مسموح واحد على الأقل.</string>
+    <string name="custom_lock_status_armed">شغالة: بتظهر أول ما الشاشة تنور طول ما وضع الكشك شغال.</string>
+    <string name="custom_lock_status_needs_kiosk">في الانتظار: شغّل اللانشر الافتراضي فوق عشان تشتغل عند الإضاءة. المعاينة شغالة تحت.</string>
+    <string name="custom_lock_status_off">مقفولة: سلوك القفل العادي هو اللي شغال. المعاينة شغالة تحت.</string>
+    <string name="browser_show_on_home">إظهار متصفح الكشك في الرئيسية</string>
+    <string name="browser_show_on_home_desc">بيضيف زر متصفح الكشك على الشاشة الرئيسية في وضع التطبيقات المتعددة</string>
+    <string name="action_browser">المتصفح</string>
+    <string name="browser_back">رجوع</string>
+    <string name="browser_forward">لقدام</string>
+    <string name="browser_reload">تحديث</string>
+    <string name="browser_allowed_sites_label">المواقع المسموحة:</string>
+    <string name="browser_no_domains_empty">مفيش مواقع مسموحة متضافة لسه.\nافتح الإدارة → الوضع والمتصفح عشان تضيف مواقع.</string>
 </resources>

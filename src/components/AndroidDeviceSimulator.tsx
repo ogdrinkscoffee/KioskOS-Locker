@@ -29,6 +29,8 @@ import {
   Unlock,
   Zap,
 } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { EASE_SETTLE, SPRING_SNAPPY } from './MotionPrimitives';
 import {
   BlockerShieldToggleKey,
   DEFAULT_ADMIN_RESTRICTIONS,
@@ -703,9 +705,9 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                 }`}
               >
                 <span dir="ltr" className="relative inline-flex items-center" aria-hidden="true">
-                  <span className="w-[18px] h-[10px] rounded-[2px] border border-slate-400 p-[1.5px] flex items-center">
-                    <span
-                      className={`h-full rounded-[1px] transition-all duration-300 ${
+                  <span className="w-[18px] h-[10px] rounded-[2px] border border-slate-400 p-[1.5px] flex items-center overflow-hidden">
+                    <motion.span
+                      className={`h-full w-full origin-left rounded-[1px] transition-colors duration-200 ${
                         isCharging
                           ? 'bg-sky-400'
                           : batteryLevel <= 15
@@ -714,7 +716,9 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                           ? 'bg-amber-400'
                           : 'bg-emerald-400'
                       }`}
-                      style={{ width: `${Math.max(8, batteryLevel)}%` }}
+                      initial={false}
+                      animate={{ scaleX: Math.max(0.08, batteryLevel / 100) }}
+                      transition={{ duration: 0.25, ease: EASE_SETTLE }}
                     />
                   </span>
                   <span className="w-[2px] h-[5px] bg-slate-400 rounded-r-[1px] ml-[1px]" />
@@ -740,9 +744,14 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
           </div>
 
           {/* Interactive Battery Quick-Settings Drawer */}
+          <AnimatePresence initial={false}>
           {batteryPanelOpen && (
-            <div
+            <motion.div
               data-testid="battery-control-panel"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.18, ease: EASE_SETTLE }}
               className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3.5 py-3 space-y-2.5 text-xs shrink-0"
             >
               <div className="flex items-center justify-between gap-2">
@@ -876,13 +885,19 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                   </button>
                 )}
               </div>
-            </div>
+            </motion.div>
           )}
+          </AnimatePresence>
 
           {/* Policy Blocked Banner inside Device */}
+          <AnimatePresence>
           {state.blockedNotice && (
-            <div
+            <motion.div
               role="alert"
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.16, ease: EASE_SETTLE }}
               className="bg-red-50 dark:bg-red-950/60 border-b border-red-200 dark:border-red-800 px-3.5 py-2.5 flex items-start justify-between gap-2 text-xs text-red-900 dark:text-red-200 shrink-0"
             >
               <div className="flex items-start gap-2">
@@ -895,12 +910,18 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                 aria-label={tr("Dismiss policy alert")}
                 className="text-red-700 dark:text-red-300 hover:text-red-900 dark:hover:text-red-100 font-medium px-1.5 py-0.5 shrink-0"
               >{"\n                "}{tr("Dismiss")}{"\n              "}</button>
-            </div>
+            </motion.div>
           )}
+          </AnimatePresence>
 
+          <AnimatePresence>
           {navBlockedMessage && (
-            <div
+            <motion.div
               role="status"
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.16, ease: EASE_SETTLE }}
               className="bg-amber-50 dark:bg-amber-950/60 border-b border-amber-200 dark:border-amber-800 px-3.5 py-2 flex items-center justify-between gap-2 text-xs text-amber-900 dark:text-amber-200 shrink-0"
             >
               <span className="min-w-0 break-words">{navBlockedMessage}</span>
@@ -912,14 +933,34 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
               >
                 {tr("Close")}
               </button>
-            </div>
+            </motion.div>
           )}
+          </AnimatePresence>
 
           {/* Device Screen Content */}
           <div className="flex-1 overflow-y-auto p-4">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={state.activeScreen}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.16, ease: EASE_SETTLE }}
+                className="h-full"
+              >
             {state.activeScreen === 'rebooting' && (
               <div className="h-full flex flex-col items-center justify-center text-center px-4">
-                <RefreshCw className="w-8 h-8 text-sky-600 dark:text-sky-400 animate-spin mb-3" aria-hidden="true" />
+                <div className="relative flex items-center justify-center w-20 h-20 mb-3">
+                  <span
+                    className="gpu-orbit-cw absolute inset-0 rounded-full border border-dashed border-sky-400/50"
+                    aria-hidden="true"
+                  />
+                  <span
+                    className="gpu-orbit-ccw absolute inset-2 rounded-full border border-sky-500/35"
+                    aria-hidden="true"
+                  />
+                  <RefreshCw className="w-8 h-8 text-sky-600 dark:text-sky-400 animate-spin" aria-hidden="true" />
+                </div>
                 <p className="font-semibold text-slate-900 dark:text-slate-100 text-base">{tr("Rebooting Android Device")}</p>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 max-w-xs">
                   {tr('Executing LOCKED_BOOT_COMPLETED, re-enforcing Device Owner restrictions, and restoring KioskLauncherActivity ({mode}) as HOME.', { mode: state.kioskMode })}
@@ -1110,12 +1151,15 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                               : tr('{r}m / {l}m left', { r: Math.ceil(remSec / 60), l: limitMins })
                             : null;
                         return (
-                          <button
+                          <motion.button
                             key={app.packageName}
                             type="button"
                             data-testid={`kiosk-home-app-${app.packageName}`}
+                            whileHover={{ y: -2 }}
+                            whileTap={{ scale: 0.95 }}
+                            transition={{ duration: 0.14, ease: EASE_SETTLE }}
                             onClick={() => handleAppLaunchRequest(app.packageName)}
-                            className={`min-h-[82px] p-3 rounded-xl border transition-colors flex flex-col items-start justify-between text-start focus-visible:outline-2 focus-visible:outline-sky-600 ${
+                            className={`group min-h-[82px] p-3 rounded-xl border transition-colors flex flex-col items-start justify-between text-start focus-visible:outline-2 focus-visible:outline-sky-600 ${
                               blockReason
                                 ? 'border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-800/80'
                                 : app.packageName === SELF_IMPROVEMENT_PACKAGE ||
@@ -1125,7 +1169,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                             }`}
                           >
                             <div className="w-full flex items-center justify-between gap-2">
-                              <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-sky-700 dark:text-sky-400 flex items-center justify-center">
+                              <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-sky-700 dark:text-sky-400 flex items-center justify-center transition-transform duration-150 group-hover:scale-105">
                                 {getAppIcon(app.packageName, 'w-4 h-4')}
                               </div>
                               {passwordProtected && (
@@ -1164,7 +1208,7 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                                 </div>
                               )}
                             </div>
-                          </button>
+                          </motion.button>
                         );
                       })}
                     </div>
@@ -1802,37 +1846,45 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                       className="grid grid-cols-3 gap-2 mt-3"
                     >
                       {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
-                        <button
+                        <motion.button
                           key={digit}
                           type="button"
                           disabled={lockoutRemaining > 0}
+                          whileTap={{ scale: 0.92 }}
+                          transition={SPRING_SNAPPY}
                           onClick={() => handlePinDigit(digit)}
                           className="h-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100 disabled:opacity-40"
                         >
                           {digit}
-                        </button>
+                        </motion.button>
                       ))}
-                      <button
+                      <motion.button
                         type="button"
+                        whileTap={{ scale: 0.92 }}
+                        transition={SPRING_SNAPPY}
                         onClick={() => {
                           setPinEntry('');
                           setPinError(null);
                         }}
                         className="h-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200"
-                      >{"\n                        "}{tr("Clear")}{"\n                      "}</button>
-                      <button
+                      >{"\n                        "}{tr("Clear")}{"\n                      "}</motion.button>
+                      <motion.button
                         type="button"
                         disabled={lockoutRemaining > 0}
+                        whileTap={{ scale: 0.92 }}
+                        transition={SPRING_SNAPPY}
                         onClick={() => handlePinDigit('0')}
                         className="h-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100 disabled:opacity-40"
                       >
                         0
-                      </button>
-                      <button
+                      </motion.button>
+                      <motion.button
                         type="submit"
                         disabled={lockoutRemaining > 0}
+                        whileTap={{ scale: 0.95 }}
+                        transition={SPRING_SNAPPY}
                         className="h-9 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold disabled:opacity-40"
-                      >{"\n                        "}{tr("Unlock")}{"\n                      "}</button>
+                      >{"\n                        "}{tr("Unlock")}{"\n                      "}</motion.button>
                     </div>
                   </form>
                 </div>
@@ -2859,34 +2911,42 @@ export const AndroidDeviceSimulator: React.FC<AndroidDeviceSimulatorProps> = ({
                 </div>
               </div>
             )}
+              </motion.div>
+            </AnimatePresence>
           </div>
 
           {/* Android Navigation Bar */}
           <div className="bg-slate-900 text-slate-300 px-8 py-2.5 flex items-center justify-between shrink-0 border-t border-slate-800">
-            <button
+            <motion.button
               type="button"
               aria-label={tr("Android Back button")}
+              whileTap={{ scale: 0.86 }}
+              transition={SPRING_SNAPPY}
               onClick={() => handleSystemNavButton('Back')}
               className="p-1.5 rounded hover:bg-slate-800 hover:text-white transition-colors"
             >
               <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               type="button"
               aria-label={tr("Android Home button")}
+              whileTap={{ scale: 0.86 }}
+              transition={SPRING_SNAPPY}
               onClick={() => handleSystemNavButton('Home')}
               className="p-1.5 rounded hover:bg-slate-800 hover:text-white transition-colors"
             >
               <Home className="w-4 h-4" />
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               type="button"
               aria-label={tr("Android Recents button")}
+              whileTap={{ scale: 0.86 }}
+              transition={SPRING_SNAPPY}
               onClick={() => handleSystemNavButton('Recents')}
               className="p-1.5 rounded hover:bg-slate-800 hover:text-white transition-colors"
             >
               <Square className="w-3.5 h-3.5" />
-            </button>
+            </motion.button>
           </div>
         </div>
       </div>

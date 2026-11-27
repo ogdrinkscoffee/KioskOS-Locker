@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowUpRight, Check, Flame } from 'lucide-react';
+import { motion } from 'motion/react';
+import { EASE_SETTLE, SPRING_SNAPPY } from './MotionPrimitives';
 import {
   SelfImprovementState,
   formatIsoDate,
@@ -58,19 +60,31 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
           </div>
         </div>
 
-        <button
+        <motion.button
           type="button"
           onClick={onLogCleanDay}
           disabled={checkedCleanToday}
+          whileHover={checkedCleanToday ? undefined : { y: -1 }}
+          whileTap={checkedCleanToday ? undefined : { scale: 0.96 }}
+          transition={{ duration: 0.14, ease: EASE_SETTLE }}
           className={`min-h-[36px] px-3 py-1.5 rounded-lg text-[11px] font-semibold whitespace-nowrap shrink-0 inline-flex items-center gap-1 transition-colors ${
             checkedCleanToday
               ? 'bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
               : 'bg-slate-900 hover:bg-slate-800 dark:bg-sky-600 dark:hover:bg-sky-500 text-white'
           }`}
         >
-          {checkedCleanToday && <Check className="w-3 h-3" aria-hidden="true" />}
+          {checkedCleanToday && (
+            <motion.span
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={SPRING_SNAPPY}
+              className="inline-flex"
+            >
+              <Check className="w-3 h-3" aria-hidden="true" />
+            </motion.span>
+          )}
           <span>{checkedCleanToday ? tr("Logged Today") : tr("+1 Clean Day")}</span>
-        </button>
+        </motion.button>
       </div>
 
       {/* Hairline Divider & Daily Habits Accountability */}
@@ -104,7 +118,7 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
           </div>
         </div>
 
-        {/* Completion Progress Bar */}
+        {/* Completion Progress Bar (GPU-composited scaleX) */}
         <div
           role="progressbar"
           aria-label={tr("Daily habits completion")}
@@ -113,9 +127,11 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
           aria-valuemax={100}
           className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"
         >
-          <div
-            className="h-full bg-emerald-600 dark:bg-emerald-500 transition-all duration-200"
-            style={{ width: `${progress.percent}%` }}
+          <motion.div
+            className="h-full w-full origin-left rtl:origin-right rounded-full bg-emerald-600 dark:bg-emerald-500"
+            initial={false}
+            animate={{ scaleX: Math.max(0, Math.min(1, progress.percent / 100)) }}
+            transition={{ duration: 0.25, ease: EASE_SETTLE }}
           />
         </div>
 
@@ -136,15 +152,19 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
               const done = habit.completedDates.includes(today);
               const streak = getHabitStreak(habit);
               return (
-                <button
+                <motion.button
                   key={habit.id}
                   type="button"
                   aria-pressed={done}
+                  whileTap={{ scale: 0.985 }}
+                  transition={{ duration: 0.12, ease: EASE_SETTLE }}
                   onClick={() => onToggleHabitToday(habit.id)}
                   className="w-full min-h-[38px] py-1.5 flex items-center justify-between gap-2 text-start hover:bg-slate-50/70 dark:hover:bg-slate-800/60 transition-colors focus-visible:outline-2 focus-visible:outline-sky-600 rounded"
                 >
                   <span className="flex items-center gap-2 min-w-0">
-                    <span
+                    <motion.span
+                      animate={{ scale: done ? [1, 1.15, 1] : 1 }}
+                      transition={{ duration: 0.18, ease: EASE_SETTLE }}
                       className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
                         done
                           ? 'bg-emerald-600 border-emerald-600 text-white'
@@ -152,9 +172,9 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
                       }`}
                     >
                       {done && <Check className="w-2.5 h-2.5" aria-hidden="true" />}
-                    </span>
+                    </motion.span>
                     <span
-                      className={`text-xs truncate ${
+                      className={`text-xs truncate transition-colors ${
                         done ? 'text-slate-500 dark:text-slate-500 line-through' : 'text-slate-800 dark:text-slate-200 font-medium'
                       }`}
                     >
@@ -164,7 +184,7 @@ export const KioskAccountabilityDashboard: React.FC<KioskAccountabilityDashboard
                   <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400 tabular-nums shrink-0">
                     {streak} {pluralDays(streak)}
                   </span>
-                </button>
+                </motion.button>
               );
             })}
           </div>

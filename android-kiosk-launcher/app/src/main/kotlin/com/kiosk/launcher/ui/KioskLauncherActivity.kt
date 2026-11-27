@@ -9,6 +9,7 @@ import android.os.BatteryManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
@@ -26,6 +27,7 @@ import com.kiosk.launcher.admin.DevicePolicyHelper
 import com.kiosk.launcher.data.AppEntry
 import com.kiosk.launcher.data.InstalledAppsRepository
 import com.kiosk.launcher.data.KioskPreferences
+import com.kiosk.launcher.receiver.LockScreenController
 import com.kiosk.launcher.selfimprovement.SelfImprovementRepository
 import com.kiosk.launcher.service.ScreenLockService
 import com.kiosk.launcher.update.UpdateManager
@@ -56,6 +58,7 @@ class KioskLauncherActivity : AppCompatActivity() {
     private lateinit var streakValue: TextView
     private lateinit var streakMeta: TextView
     private lateinit var appCount: TextView
+    private lateinit var openBrowserHomeButton: View
     private lateinit var emptyApps: TextView
     private lateinit var grid: RecyclerView
 
@@ -103,6 +106,7 @@ class KioskLauncherActivity : AppCompatActivity() {
         streakValue = findViewById(R.id.streakValue)
         streakMeta = findViewById(R.id.streakMeta)
         appCount = findViewById(R.id.appCount)
+        openBrowserHomeButton = findViewById(R.id.openBrowserHomeButton)
         emptyApps = findViewById(R.id.emptyApps)
 
         grid = findViewById(R.id.appGrid)
@@ -110,6 +114,9 @@ class KioskLauncherActivity : AppCompatActivity() {
         grid.adapter = adapter
         grid.addItemDecoration(GridSpacing(this))
 
+        openBrowserHomeButton.setOnClickListener {
+            startActivity(Intent(this, KioskBrowserActivity::class.java))
+        }
         findViewById<View>(R.id.markCleanDay).setOnClickListener {
             val logged = prefs.markTodayClean()
             toast(getString(if (logged) R.string.streak_logged_today else R.string.streak_already_logged))
@@ -155,6 +162,7 @@ class KioskLauncherActivity : AppCompatActivity() {
         syncSystemBars()
         ScreenLockService.sync(this)
         renderAll()
+        LockScreenController.onKioskVisible(this)
         // Idempotent: only enters when this is a device owner kiosk with no admin
         // unlock window open, and does nothing while lock task is already held.
         policy.enterLockTask(this)
@@ -162,6 +170,14 @@ class KioskLauncherActivity : AppCompatActivity() {
         // "5 minute" unlock cannot silently stay open for the rest of the session.
         scheduleUnlockExpiry()
         checkForUpdate()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            syncSystemBars()
+            LockScreenController.onKioskVisible(this)
+        }
     }
 
     /** Re-applies policy when the admin unlock window runs out while the kiosk is open. */
@@ -195,6 +211,10 @@ class KioskLauncherActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
+        val power = getSystemService(PowerManager::class.java)
+        if (power != null && !power.isInteractive) {
+            LockScreenController.onScreenOff(this)
+        }
         handler.removeCallbacks(clockTick)
         handler.removeCallbacks(unlockExpiryTick)
         batteryReceiver?.let { receiver -> runCatching { unregisterReceiver(receiver) } }
@@ -266,7 +286,17 @@ class KioskLauncherActivity : AppCompatActivity() {
     }
 
     private fun renderModeBanner(visibleApps: List<AppEntry>) {
-        if (prefs.isPanicLocked()) {
+        val panicLocked = prefs.isPanicLocked()
+        openBrowserHomeButton.visibility = if (
+            !panicLocked &&
+            prefs.showBrowserOnHome &&
+            prefs.kioskMode == KioskPreferences.MODE_MULTI
+        ) {
+            View.VISIBLE
+        } else {
+            View.GONE
+        }
+        if (panicLocked) {
             modeBannerRow.visibility = View.GONE
             return
         }
@@ -386,12 +416,14 @@ class KioskLauncherActivity : AppCompatActivity() {
         val root = findViewById<View>(R.id.root)
         val base = dp(20)
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
-            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
             view.setPadding(
-                cutout.left + base,
-                cutout.top + base,
-                cutout.right + base,
-                cutout.bottom + base
+                bars.left + base,
+                bars.top + base,
+                bars.right + base,
+                bars.bottom + base
             )
             insets
         }

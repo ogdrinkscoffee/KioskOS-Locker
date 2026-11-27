@@ -33,6 +33,7 @@ class BootCompletedReceiver : BroadcastReceiver() {
         // kiosk is enabled and owns Home: an un-opted or turned-off install must not
         // pull itself to the front.
         if (runCatching { prefs.kioskEnabled == true && policy.isDefaultLauncher }.getOrDefault(false)) {
+            runCatching { LockScreenController.onScreenOff(context) }
             runCatching {
                 context.startActivity(
                     Intent(context, KioskLauncherActivity::class.java)

@@ -13,6 +13,8 @@ import {
   Timer,
   Unlock,
 } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { EASE_SETTLE, SPRING_SNAPPY } from './MotionPrimitives';
 import {
   BLOCKED_DISTRACTION_DOMAINS,
   BlockerShieldToggleKey,
@@ -245,31 +247,50 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
       <div
         role="tablist"
         aria-label={tr("Policy groups")}
-        className="flex max-w-full flex-wrap items-center gap-0.5 rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 dark:border-white/10 dark:bg-white/[0.04]"
+        className="relative flex max-w-full flex-wrap items-center gap-0.5 rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 dark:border-white/10 dark:bg-white/[0.04]"
       >
         {POLICY_SECTIONS.map((tab) => {
           const active = policySection === tab.id;
           const Icon = tab.Icon;
           return (
-            <button
+            <motion.button
               key={tab.id}
               type="button"
               role="tab"
               aria-selected={active}
+              whileTap={{ scale: 0.96 }}
+              transition={{ duration: 0.12, ease: EASE_SETTLE }}
               onClick={() => setPolicySection(tab.id)}
-              className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors ${
+              className={`relative inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors ${
                 active
-                  ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white'
+                  ? 'text-slate-900 dark:text-white'
                   : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
               }`}
             >
-              <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              {tr(tab.label)}
-            </button>
+              {active && (
+                <motion.span
+                  layoutId="policy-section-pill"
+                  transition={SPRING_SNAPPY}
+                  className="absolute inset-0 rounded-lg bg-white shadow-sm dark:bg-slate-800"
+                  aria-hidden="true"
+                />
+              )}
+              <Icon className="relative z-10 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span className="relative z-10">{tr(tab.label)}</span>
+            </motion.button>
           );
         })}
       </div>
 
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={policySection}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.18, ease: EASE_SETTLE }}
+          className="space-y-5"
+        >
       {policySection === 'device' && (<>
       {/* Device Controls */}
       <section className="surface p-5">
@@ -1102,6 +1123,8 @@ export const PolicyInspectorPanel: React.FC<PolicyInspectorPanelProps> = ({
         )}
       </section>
       </>)}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 };

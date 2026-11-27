@@ -27,6 +27,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { AnimatePresence, motion } from 'motion/react';
+import { EASE_SETTLE, SPRING_MODAL, SPRING_SNAPPY, SvgProgressRing } from './MotionPrimitives';
 import { RichNotesEditor } from './RichNotesEditor';
 import {
   GoalItem,
@@ -287,7 +289,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
       <div
         role="tablist"
         aria-label={tr("Self-improvement sections")}
-        className="flex max-w-full flex-wrap items-center gap-0.5 rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 dark:border-white/10 dark:bg-white/[0.04]"
+        className="relative flex max-w-full flex-wrap items-center gap-0.5 rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 dark:border-white/10 dark:bg-white/[0.04]"
       >
         {(
           [
@@ -300,24 +302,43 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
         ).map((tab) => {
           const active = subTab === tab.id;
           return (
-            <button
+            <motion.button
               key={tab.id}
               type="button"
               role="tab"
               aria-selected={active}
+              whileTap={{ scale: 0.96 }}
+              transition={{ duration: 0.12, ease: EASE_SETTLE }}
               onClick={() => setSubTab(tab.id)}
-              className={`rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors whitespace-nowrap ${
+              className={`relative rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors whitespace-nowrap ${
                 active
-                  ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white'
+                  ? 'text-slate-900 dark:text-white'
                   : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
               }`}
             >
-              {tr(tab.label)}
-            </button>
+              {active && (
+                <motion.span
+                  layoutId="si-subtab-pill"
+                  transition={SPRING_SNAPPY}
+                  className="absolute inset-0 rounded-lg bg-white shadow-sm dark:bg-slate-800"
+                  aria-hidden="true"
+                />
+              )}
+              <span className="relative z-10">{tr(tab.label)}</span>
+            </motion.button>
           );
         })}
       </div>
 
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={subTab}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.18, ease: EASE_SETTLE }}
+          className="space-y-5"
+        >
       {/* Overview: streak, focus timer and analytics */}
       {subTab === 'overview' && (<>
       {/* Recovery & Clean Streak Anchor */}
@@ -402,16 +423,35 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
         </div>
 
         {/* Emergency Urge Grounding Drawer */}
+        <AnimatePresence initial={false}>
         {showUrgePause && (
-          <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4 items-center">
-            <div className="p-4 rounded-xl bg-slate-900 dark:bg-slate-950 border border-slate-800 text-white text-center">
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.2, ease: EASE_SETTLE }}
+            className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4 items-center"
+          >
+            <div className="p-4 rounded-xl bg-slate-900 dark:bg-slate-950 border border-slate-800 text-white text-center flex flex-col items-center">
               <div className="text-xs text-slate-300">{tr("60-Second Urge Reset")}</div>
-              <div className="text-3xl font-mono font-bold tabular-nums mt-1">
-                00:{String(pauseSeconds).padStart(2, '0')}
+              <div className="mt-2 flex justify-center">
+                <SvgProgressRing
+                  progress={pauseSeconds / 60}
+                  size={84}
+                  strokeWidth={4}
+                  trackClassName="stroke-slate-800"
+                  progressClassName="stroke-sky-400"
+                >
+                  <span className="text-xl font-mono font-bold tabular-nums">
+                    00:{String(pauseSeconds).padStart(2, '0')}
+                  </span>
+                </SvgProgressRing>
               </div>
-              <p className="text-[11px] text-slate-300 mt-1">{"\n                "}{tr("Breathe slowly for 60s before touching any app.")}{"\n              "}</p>
-              <button
+              <p className="text-[11px] text-slate-300 mt-2">{"\n                "}{tr("Breathe slowly for 60s before touching any app.")}{"\n              "}</p>
+              <motion.button
                 type="button"
+                whileTap={{ scale: 0.96 }}
+                transition={{ duration: 0.12, ease: EASE_SETTLE }}
                 onClick={() => {
                   if (!canRunSubmit('urgeVictory', 600)) return;
                   onLogUrgeVictory();
@@ -420,7 +460,7 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                 className="mt-3 w-full py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-xs font-semibold"
               >
                 {tr("I Resisted — Log Victory")}
-              </button>
+              </motion.button>
             </div>
 
             <div className="space-y-2">
@@ -433,8 +473,9 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                 className="w-full p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-800 dark:text-slate-100 focus:outline-2 focus:outline-sky-600"
               />
             </div>
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
       </section>
 
       {/* Focus Mode Timer */}
@@ -495,9 +536,11 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
         </div>
 
         <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-          <div
-            className="h-full bg-sky-600 dark:bg-sky-500 transition-all duration-300"
-            style={{ width: `${focusProgressPct}%` }}
+          <motion.div
+            className="h-full w-full origin-left rtl:origin-right rounded-full bg-sky-600 dark:bg-sky-500"
+            initial={false}
+            animate={{ scaleX: Math.max(0, Math.min(1, focusProgressPct / 100)) }}
+            transition={{ duration: 0.28, ease: EASE_SETTLE }}
           />
         </div>
 
@@ -562,51 +605,77 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
         )}
       </section>
 
+      <AnimatePresence>
       {focusFullscreen && (
-        <div
+        <motion.div
           role="dialog"
           aria-modal="true"
           aria-label={tr("Distraction-Free Focus Mode")}
-          className="fixed inset-0 z-50 bg-slate-950 text-white flex flex-col items-center justify-center p-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18, ease: EASE_SETTLE }}
+          className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md text-white flex flex-col items-center justify-center p-6"
         >
-          <div className="max-w-lg w-full text-center space-y-6">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 8 }}
+            transition={SPRING_MODAL}
+            className="max-w-lg w-full text-center space-y-6 flex flex-col items-center"
+          >
             <div className="text-xs font-semibold text-sky-400">{"\n              "}{tr("Focus Mode ·")}{" "}{focusIntention || tr("Deep Work")}
             </div>
-            <div className="text-6xl sm:text-7xl font-mono font-bold tabular-nums tracking-tight">
-              {formatCountdown(focusSecondsLeft)}
-            </div>
+            <SvgProgressRing
+              progress={focusProgressPct / 100}
+              size={210}
+              strokeWidth={5}
+              trackClassName="stroke-slate-800"
+              progressClassName="stroke-sky-400"
+            >
+              <div className="text-5xl sm:text-6xl font-mono font-bold tabular-nums tracking-tight">
+                {formatCountdown(focusSecondsLeft)}
+              </div>
+            </SvgProgressRing>
             <p className="text-sm text-slate-300 leading-relaxed">
               {tr("Stay present. Complete one focused block at a time.")}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-              <button
+              <motion.button
                 type="button"
+                whileTap={{ scale: 0.96 }}
+                transition={{ duration: 0.12, ease: EASE_SETTLE }}
                 onClick={() => setFocusRunning((prev) => !prev)}
                 className="min-h-[44px] px-5 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm font-semibold inline-flex items-center gap-2"
               >
                 {focusRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                 <span>{focusRunning ? tr("Pause") : tr("Resume Focus")}</span>
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 type="button"
+                whileTap={{ scale: 0.96 }}
+                transition={{ duration: 0.12, ease: EASE_SETTLE }}
                 onClick={() => {
                   handleCompleteFocusEarly();
                   setFocusFullscreen(false);
                 }}
                 className="min-h-[44px] px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold"
-              >{"\n                "}{tr("Complete & Log")}{"\n              "}</button>
-              <button
+              >{"\n                "}{tr("Complete & Log")}{"\n              "}</motion.button>
+              <motion.button
                 type="button"
+                whileTap={{ scale: 0.96 }}
+                transition={{ duration: 0.12, ease: EASE_SETTLE }}
                 onClick={() => setFocusFullscreen(false)}
                 className="min-h-[44px] px-4 py-2.5 rounded-lg border border-slate-700 hover:bg-slate-800 text-slate-200 text-sm font-medium inline-flex items-center gap-1.5"
               >
                 <Minimize2 className="w-4 h-4" aria-hidden="true" />
                 <span>{tr("Exit View")}</span>
-              </button>
+              </motion.button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* 30-Day Progress Charts (Recharts) */}
       <section
@@ -1282,9 +1351,11 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
                       </span>
                     </div>
                     <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                      <div
-                        className="h-full bg-sky-600 dark:bg-sky-500 transition-all duration-200"
-                        style={{ width: `${pct}%` }}
+                      <motion.div
+                        className="h-full w-full origin-left rtl:origin-right rounded-full bg-sky-600 dark:bg-sky-500"
+                        initial={false}
+                        animate={{ scaleX: Math.max(0, Math.min(1, pct / 100)) }}
+                        transition={{ duration: 0.25, ease: EASE_SETTLE }}
                       />
                     </div>
                   </div>
@@ -1410,6 +1481,8 @@ export const SelfImprovementWorkspace: React.FC<SelfImprovementWorkspaceProps> =
           }}
         />
       )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 };

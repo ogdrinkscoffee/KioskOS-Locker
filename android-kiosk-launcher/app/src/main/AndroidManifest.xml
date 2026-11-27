@@ -134,30 +134,20 @@
             android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".ui.KioskBrowserActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".ui.DiagnosticsActivity"
             android:exported="false" />
         <activity
             android:name=".ui.KioskLockScreenActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|keyboardHidden|uiMode"
             android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTop"
             android:showWhenLocked="true"
+            android:theme="@style/Theme.IroncladOS.LockScreen"
             android:turnScreenOn="true" />
-
-        <!--
-            Custom lock screen. singleTask keeps one instance while the screen cycles;
-            the window flags are applied in code so the surface also appears over a
-            keyguard Android refused to disable (a device with a lock password).
-        -->
-        <activity
-            android:name=".ui.LockScreenActivity"
-            android:configChanges="orientation|screenSize|smallestScreenSize|keyboardHidden|uiMode"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:launchMode="singleTask"
-            android:theme="@style/Theme.IroncladOS.LockScreen" />
 
         <receiver
             android:name=".admin.KioskDeviceAdminReceiver"

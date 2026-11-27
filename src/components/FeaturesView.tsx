@@ -7,8 +7,10 @@ import {
   ZapOff,
   type LucideIcon,
 } from 'lucide-react';
+import { motion } from 'motion/react';
 import { useI18n } from '../i18n/LocaleProvider';
 import type { MessageKey } from '../i18n/messages';
+import { EASE_SETTLE, SPRING_SNAPPY } from './MotionPrimitives';
 
 interface Feature {
   titleKey: MessageKey;
@@ -48,15 +50,23 @@ export function FeaturesView() {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {FEATURES.map(({ titleKey, bodyKey, Icon }, index) => (
-          <article
+          <motion.article
             key={titleKey}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              duration: 0.22,
+              delay: index * 0.045,
+              ease: EASE_SETTLE,
+            }}
+            whileHover={{ y: -3, transition: SPRING_SNAPPY }}
             className="group relative rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:border-white/10 dark:bg-[#0d131b]"
           >
             <div className="flex items-start justify-between gap-3">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-50 to-slate-100 text-sky-700 ring-1 ring-slate-200/70 dark:from-sky-500/15 dark:to-slate-800 dark:text-sky-300 dark:ring-white/10">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-50 to-slate-100 text-sky-700 ring-1 ring-slate-200/70 transition-transform duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105 dark:from-sky-500/15 dark:to-slate-800 dark:text-sky-300 dark:ring-white/10">
                 <Icon className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
               </span>
-              <span className="text-[11px] font-semibold tabular-nums text-slate-300 dark:text-slate-600">
+              <span className="text-[11px] font-semibold tabular-nums text-slate-300 transition-colors group-hover:text-sky-500/70 dark:text-slate-600 dark:group-hover:text-sky-400/70">
                 {String(index + 1).padStart(2, '0')}
               </span>
             </div>
@@ -71,7 +81,7 @@ export function FeaturesView() {
                 {t('features.tag')}
               </span>
             )}
-          </article>
+          </motion.article>
         ))}
       </div>
     </section>

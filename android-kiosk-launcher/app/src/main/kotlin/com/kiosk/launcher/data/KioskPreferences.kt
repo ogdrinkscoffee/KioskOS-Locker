@@ -141,7 +141,7 @@ class KioskPreferences(context: Context) {
 
     private fun digest(pin: String, salt: ByteArray): String = PinHash.digest(pin, salt)
 
-    // Aliases used by LockScreenActivity / AppAccessPinGate so both surfaces share one store.
+    // Legacy method aliases kept for helper compatibility.
     fun hasAppPin(): Boolean = hasAppAccessPin()
     fun setAppPin(pin: String) = setAppAccessPin(pin)
     fun clearAppPin() = clearAppAccessPin()
@@ -284,6 +284,10 @@ class KioskPreferences(context: Context) {
     }
 
     // Browser & shield toggles
+    var showBrowserOnHome: Boolean
+        get() = bool(KEY_SHOW_BROWSER_ON_HOME, true)
+        set(value) = setBool(KEY_SHOW_BROWSER_ON_HOME, value)
+
     var blockUnsupportedBrowsers: Boolean
         get() = bool(KEY_BLOCK_UNSUPPORTED_BROWSERS, true)
         set(value) = setBool(KEY_BLOCK_UNSUPPORTED_BROWSERS, value)
@@ -757,6 +761,7 @@ class KioskPreferences(context: Context) {
         private const val KEY_WEEKDAY_ALLOWED = "weekday_allowed_packages"
         private const val KEY_WEEKEND_ALLOWED = "weekend_allowed_packages"
         private const val KEY_SCHEDULE_OBSERVED = "schedule_observed_active"
+        private const val KEY_SHOW_BROWSER_ON_HOME = "show_browser_on_home"
         private const val KEY_BLOCK_UNSUPPORTED_BROWSERS = "block_unsupported_browsers"
         private const val KEY_BLOCK_SHORT_FEEDS = "block_short_form_feeds"
         private const val KEY_PANIC_LOCK_UNTIL = "panic_lock_until_ms"
