@@ -12,6 +12,12 @@ import java.util.Calendar
 
 data class PolicyEvent(val time: Long, val label: String)
 
+data class KioskFolder(
+    val id: String,
+    val name: String,
+    val packageNames: List<String>
+)
+
 /**
  * All persisted kiosk state. Everything is local: the app works offline and
  * never needs an account.
@@ -690,6 +696,71 @@ class KioskPreferences(context: Context) {
     }
 
 
+    // --------------------------------------------------- home folders & layout
+    fun homeFolders(): List<KioskFolder> {
+        val raw = prefs.getString(KEY_HOME_FOLDERS, null) ?: return emptyList()
+        return runCatching {
+            val array = JSONArray(raw)
+            (0 until array.length()).mapNotNull { i ->
+                val obj = array.optJSONObject(i) ?: return@mapNotNull null
+                val id = obj.optString("id") ?: return@mapNotNull null
+                val name = obj.optString("name") ?: "Folder"
+                val pkgsArray = obj.optJSONArray("packageNames") ?: JSONArray()
+                val pkgs = (0 until pkgsArray.length()).mapNotNull { j -> pkgsArray.optString(j) }
+                KioskFolder(id = id, name = name, packageNames = pkgs)
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    fun saveHomeFolders(folders: List<KioskFolder>) {
+        val array = JSONArray()
+        for (f in folders) {
+            val obj = JSONObject()
+            obj.put("id", f.id)
+            obj.put("name", f.name)
+            val pkgsArray = JSONArray()
+            f.packageNames.distinct().forEach { pkgsArray.put(it) }
+            obj.put("packageNames", pkgsArray)
+            array.put(obj)
+        }
+        putRaw(KEY_HOME_FOLDERS, array.toString())
+    }
+
+    fun createFolder(name: String, packageNames: List<String>): KioskFolder {
+        val id = "folder_" + System.currentTimeMillis()
+        val folder = KioskFolder(id, name, packageNames)
+        val updated = homeFolders() + folder
+        saveHomeFolders(updated)
+        return folder
+    }
+
+    fun updateFolder(folderId: String, name: String, packageNames: List<String>) {
+        val updated = homeFolders().map {
+            if (it.id == folderId) KioskFolder(folderId, name, packageNames) else it
+        }
+        saveHomeFolders(updated)
+    }
+
+    fun deleteFolder(folderId: String) {
+        val updated = homeFolders().filter { it.id != folderId }
+        saveHomeFolders(updated)
+        homeItemsOrder = homeItemsOrder.filter { it != "folder:$folderId" }
+    }
+
+    var homeItemsOrder: List<String>
+        get() {
+            val raw = prefs.getString(KEY_HOME_ITEMS_ORDER, null) ?: return emptyList()
+            return runCatching {
+                val array = JSONArray(raw)
+                (0 until array.length()).mapNotNull { array.optString(it) }
+            }.getOrDefault(emptyList())
+        }
+        set(value) {
+            val array = JSONArray()
+            value.forEach { array.put(it) }
+            putRaw(KEY_HOME_ITEMS_ORDER, array.toString())
+        }
+
     companion object {
         const val DEFAULT_PIN = "1234"
         const val MIN_PIN_LENGTH = 4
@@ -714,6 +785,8 @@ class KioskPreferences(context: Context) {
             return (nowMs + offsetMs) / 86_400_000L
         }
 
+        private const val KEY_HOME_FOLDERS = "home_folders_json"
+        private const val KEY_HOME_ITEMS_ORDER = "home_items_order_json"
         private const val KEY_PIN_HASH = "pin_hash"
         private const val KEY_PIN_SALT = "pin_salt"
         private const val KEY_FAILED_PIN = "failed_pin_attempts"

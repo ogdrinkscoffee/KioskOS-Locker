@@ -177,6 +177,39 @@
     <string name="log_browser_allowlist_fmt">قائمة المتصفح: %1$d نطاق، %2$d كلمة</string>
     <string name="log_passcode_changed">رمز مرور الإدارة اتغيّر</string>
 
+    <!-- Guard Permissions & Services -->
+    <string name="eyebrow_guard_permissions">أذونات التطبيق وحراس النظام</string>
+    <string name="guard_permissions_desc">تطبيقات الحظر بتحتاج إذن الظهور فوق التطبيقات وإمكانية الوصول وسجل الاستخدام لحظر المشتتات بكفاءة.</string>
+    <string name="perm_overlay_title">الظهور فوق التطبيقات الأخرى (Overlay)</string>
+    <string name="perm_overlay_desc">بيسمح لشاشة القفل وتنبيهات الحظر بالظهور فوراً فوق أي تطبيق شغال.</string>
+    <string name="perm_accessibility_title">خدمة حارس إمكانية الوصول</string>
+    <string name="perm_accessibility_desc">بيراقب فتح التطبيقات وعناوين المتصفح لحظر الممنوع فوراً.</string>
+    <string name="perm_usage_title">الوصول لبيانات الاستخدام</string>
+    <string name="perm_usage_desc">بيراقب حدود وقت التطبيقات اليومية لمعرفة التطبيق المفتوح حالياً.</string>
+    <string name="perm_battery_title">استثناء تحسين البطارية</string>
+    <string name="perm_battery_desc">بيضمن إن حراس وخدمات الكشك متتقفلش من خلفية النظام في أندرويد.</string>
+    <string name="perm_status_granted">مُفعّل</string>
+    <string name="perm_status_missing">ناقص — اضغط للتفعيل</string>
+    <string name="perm_grant_action">تفعيل</string>
+
+    <!-- Home Folders & Layout -->
+    <string name="eyebrow_home_layout">مجلدات وترتيب الشاشة الرئيسية</string>
+    <string name="home_layout_desc">جمّع التطبيقات المسموحة في مجلدات عشان الشاشة متكونش زحمة، ورتّب مكان الأيقونات بالسحب.</string>
+    <string name="manage_folders_button">إدارة مجلدات التطبيقات</string>
+    <string name="create_folder_title">إنشاء مجلد تطبيقات</string>
+    <string name="edit_folder_title">تعديل مجلد التطبيقات</string>
+    <string name="folder_name_hint">اسم المجلد (مثال: العمل، أدوات)</string>
+    <string name="folder_apps_hint">اختار التطبيقات المسموحة في المجلد ده</string>
+    <string name="folder_created_toast">تم إنشاء المجلد</string>
+    <string name="folder_updated_toast">تم تحديث المجلد</string>
+    <string name="folder_deleted_toast">تم حذف المجلد</string>
+    <string name="folder_empty">مفيش تطبيقات في المجلد ده</string>
+    <string name="folder_item_count">%1$d تطبيقات</string>
+    <string name="folder_delete">حذف المجلد</string>
+    <string name="folder_create_new">+ مجلد جديد</string>
+    <string name="reorder_icons_button">ترتيب أيقونات الشاشة</string>
+    <string name="reorder_icons_hint">اسحب العناصر لترتيبها على شبكة شاشة الكشك الرئيسية.</string>
+
     <!-- Kiosk Browser -->
     <string name="browser_title">متصفح الكشك</string>
     <string name="browser_url_hint">ادخل نطاق أو رابط مسموح…</string>

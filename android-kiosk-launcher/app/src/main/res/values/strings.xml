@@ -177,6 +177,39 @@
     <string name="log_browser_allowlist_fmt">Browser allowlist: %1$d domain(s), %2$d keyword(s)</string>
     <string name="log_passcode_changed">Admin passcode changed</string>
 
+    <!-- Guard Permissions & Services -->
+    <string name="eyebrow_guard_permissions">App permissions &amp; system guards</string>
+    <string name="guard_permissions_desc">Blocker apps require system overlay, accessibility, and usage access to monitor and enforce lockdown reliably.</string>
+    <string name="perm_overlay_title">Appear on top (Overlay)</string>
+    <string name="perm_overlay_desc">Allows lock screen and tamper shields to display over any active app.</string>
+    <string name="perm_accessibility_title">Accessibility guard service</string>
+    <string name="perm_accessibility_desc">Monitors window switches to block disallowed apps and browser URLs.</string>
+    <string name="perm_usage_title">Usage data access</string>
+    <string name="perm_usage_desc">Enforces daily app time limits and monitors active foreground packages.</string>
+    <string name="perm_battery_title">Battery optimization exemption</string>
+    <string name="perm_battery_desc">Ensures background guards and lock service run without being killed by Android.</string>
+    <string name="perm_status_granted">Granted</string>
+    <string name="perm_status_missing">Missing — Tap to grant</string>
+    <string name="perm_grant_action">Grant</string>
+
+    <!-- Home Folders & Layout -->
+    <string name="eyebrow_home_layout">Home screen folders &amp; layout</string>
+    <string name="home_layout_desc">Group allowed apps into folders to keep the kiosk clean, and drag or reorder home icons.</string>
+    <string name="manage_folders_button">Manage app folders</string>
+    <string name="create_folder_title">Create app folder</string>
+    <string name="edit_folder_title">Edit app folder</string>
+    <string name="folder_name_hint">Folder name (e.g. Work, Utilities)</string>
+    <string name="folder_apps_hint">Select allowed apps for this folder</string>
+    <string name="folder_created_toast">Folder created</string>
+    <string name="folder_updated_toast">Folder updated</string>
+    <string name="folder_deleted_toast">Folder deleted</string>
+    <string name="folder_empty">No apps in this folder</string>
+    <string name="folder_item_count">%1$d apps</string>
+    <string name="folder_delete">Delete folder</string>
+    <string name="folder_create_new">+ New folder</string>
+    <string name="reorder_icons_button">Reorder home icons</string>
+    <string name="reorder_icons_hint">Drag or use arrows to arrange items on the main kiosk screen.</string>
+
     <!-- Kiosk Browser -->
     <string name="browser_title">Kiosk browser</string>
     <string name="browser_url_hint">Enter allowed domain or URL…</string>

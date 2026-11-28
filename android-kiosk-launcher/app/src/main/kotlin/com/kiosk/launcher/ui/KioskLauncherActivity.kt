@@ -21,7 +21,9 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.kiosk.launcher.R
 import com.kiosk.launcher.admin.DevicePolicyHelper
 import com.kiosk.launcher.data.AppEntry
@@ -44,7 +46,8 @@ class KioskLauncherActivity : AppCompatActivity() {
     private lateinit var focus: SelfImprovementRepository
     private val adapter = KioskAppAdapter(
         isProtected = { pkg -> prefs.isAppPasswordRequired(pkg) },
-        onClick = { open(it) }
+        onAppClick = { open(it) },
+        onFolderClick = { openFolder(it) }
     )
 
     private lateinit var clock: TextView
@@ -113,6 +116,26 @@ class KioskLauncherActivity : AppCompatActivity() {
         grid.layoutManager = GridLayoutManager(this, gridColumns())
         grid.adapter = adapter
         grid.addItemDecoration(GridSpacing(this))
+
+        val touchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+            ItemTouchHelper.UP or ItemTouchHelper.DOWN or ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT,
+            0
+        ) {
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean {
+                val fromPos = viewHolder.bindingAdapterPosition
+                val toPos = target.bindingAdapterPosition
+                adapter.moveItem(fromPos, toPos)
+                prefs.homeItemsOrder = adapter.getCurrentItemIds()
+                return true
+            }
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {}
+        })
+        touchHelper.attachToRecyclerView(grid)
 
         openBrowserHomeButton.setOnClickListener {
             startActivity(Intent(this, KioskBrowserActivity::class.java))
@@ -357,7 +380,39 @@ class KioskLauncherActivity : AppCompatActivity() {
 
     private fun renderAppGrid(all: List<AppEntry>) {
         val visible = all.filter { prefs.isAllowed(it.packageName) }
-        adapter.submit(visible)
+        val appMap = visible.associateBy { it.packageName }
+        val folders = prefs.homeFolders()
+        val folderItems = mutableListOf<HomeItem>()
+        val folderedPackages = mutableSetOf<String>()
+
+        for (folder in folders) {
+            val entries = folder.packageNames.mapNotNull { appMap[it] }
+            if (entries.isNotEmpty()) {
+                folderItems.add(HomeItem.Folder(folder, entries))
+                folderedPackages.addAll(folder.packageNames)
+            }
+        }
+
+        val standaloneApps = visible
+            .filter { it.packageName !in folderedPackages }
+            .map { HomeItem.App(it) }
+
+        val allItemsMap = (folderItems + standaloneApps).associateBy { it.id }
+        val order = prefs.homeItemsOrder
+        val orderedItems = mutableListOf<HomeItem>()
+
+        for (id in order) {
+            allItemsMap[id]?.let {
+                orderedItems.add(it)
+            }
+        }
+        for (item in (folderItems + standaloneApps)) {
+            if (item !in orderedItems) {
+                orderedItems.add(item)
+            }
+        }
+
+        adapter.submitItems(orderedItems)
         appCount.text = if (prefs.allowAllApps) {
             getString(R.string.apps_count_all_fmt, visible.size)
         } else {
@@ -366,7 +421,7 @@ class KioskLauncherActivity : AppCompatActivity() {
 
         renderModeBanner(visible)
 
-        val empty = visible.isEmpty()
+        val empty = orderedItems.isEmpty()
         grid.visibility = if (empty) View.GONE else View.VISIBLE
         emptyApps.visibility = if (empty) View.VISIBLE else View.GONE
         if (empty) {
@@ -374,6 +429,29 @@ class KioskLauncherActivity : AppCompatActivity() {
                 if (all.isEmpty()) R.string.no_launchable_apps else R.string.no_allowlisted_apps
             )
         }
+    }
+
+    private fun openFolder(folderItem: HomeItem.Folder) {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_folder_contents, null)
+        val titleView = dialogView.findViewById<TextView>(R.id.folderTitle)
+        val gridView = dialogView.findViewById<RecyclerView>(R.id.folderAppGrid)
+        titleView.text = folderItem.folder.name
+        val folderDialog = MaterialAlertDialogBuilder(this)
+            .setView(dialogView)
+            .setPositiveButton(R.string.done, null)
+            .create()
+
+        val folderAdapter = KioskAppAdapter(
+            isProtected = { pkg -> prefs.isAppPasswordRequired(pkg) },
+            onAppClick = { app ->
+                folderDialog.dismiss()
+                open(app)
+            }
+        )
+        gridView.layoutManager = GridLayoutManager(this, gridColumns())
+        gridView.adapter = folderAdapter
+        folderAdapter.submit(folderItem.entries)
+        folderDialog.show()
     }
 
     // ------------------------------------------------------------------- actions

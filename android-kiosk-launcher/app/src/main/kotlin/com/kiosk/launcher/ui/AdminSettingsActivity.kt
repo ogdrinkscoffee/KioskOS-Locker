@@ -1,12 +1,17 @@
 package com.kiosk.launcher.ui
 
+import android.app.AppOpsManager
 import android.app.admin.DevicePolicyManager
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.os.Process
 import android.provider.Settings
 import android.text.Editable
 import android.text.InputFilter
@@ -22,6 +27,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.widget.NestedScrollView
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
@@ -38,11 +44,13 @@ import com.kiosk.launcher.admin.DevicePolicyHelper
 import com.kiosk.launcher.admin.KioskDeviceAdminReceiver
 import com.kiosk.launcher.data.AppEntry
 import com.kiosk.launcher.data.InstalledAppsRepository
+import com.kiosk.launcher.data.KioskFolder
 import com.kiosk.launcher.data.KioskPreferences
 import com.kiosk.launcher.data.LockScreenShortcuts
 import com.kiosk.launcher.schedule.KioskSchedule
 import com.kiosk.launcher.schedule.ScheduleController
 import com.kiosk.launcher.schedule.ScheduleParse
+import com.kiosk.launcher.service.KioskGuardAccessibilityService
 import com.kiosk.launcher.service.ScreenLockService
 import com.kiosk.launcher.update.UpdateInstaller
 import com.kiosk.launcher.update.UpdateManager
@@ -64,7 +72,8 @@ class AdminSettingsActivity : AppCompatActivity() {
 
     private lateinit var cardOwner: View
     private lateinit var cardSecurity: View
-    private lateinit var cardAdminWindow: View
+    private lateinit var cardGuardPermissions: View
+    private lateinit var cardHomeLayout: View
     private lateinit var cardUpdate: View
     private lateinit var cardMode: View
     private lateinit var cardBrowser: View
@@ -73,7 +82,17 @@ class AdminSettingsActivity : AppCompatActivity() {
     private lateinit var cardSchedule: View
     private lateinit var cardStrongRestrictions: View
     private lateinit var cardLocks: View
-    private lateinit var cardPolicyLog: View
+
+    private lateinit var permOverlayStatus: TextView
+    private lateinit var permOverlayButton: MaterialButton
+    private lateinit var permAccessibilityStatus: TextView
+    private lateinit var permAccessibilityButton: MaterialButton
+    private lateinit var permUsageStatus: TextView
+    private lateinit var permUsageButton: MaterialButton
+    private lateinit var permBatteryStatus: TextView
+    private lateinit var permBatteryButton: MaterialButton
+    private lateinit var manageFoldersButton: MaterialButton
+    private lateinit var reorderHomeIconsButton: MaterialButton
 
     private lateinit var strongRestrictionsContainer: LinearLayout
     private lateinit var locksContainer: LinearLayout
@@ -97,15 +116,11 @@ class AdminSettingsActivity : AppCompatActivity() {
     private lateinit var blockedKeywordsInput: TextInputEditText
     private lateinit var clearPanicButton: View
     private lateinit var modeHint: TextView
-    private lateinit var policyLog: TextView
     private lateinit var defaultLauncherSwitch: SwitchMaterial
     private lateinit var defaultLauncherDetail: TextView
     private lateinit var kioskStateDetail: TextView
     private lateinit var activateAdminButton: MaterialButton
     private lateinit var releaseOwnerButton: View
-
-    private lateinit var adminWindowValue: TextView
-    private lateinit var adminWindowHint: TextView
     private lateinit var updateStatus: TextView
     private lateinit var updateDetail: TextView
     private lateinit var updateProgress: LinearProgressIndicator
@@ -155,7 +170,8 @@ class AdminSettingsActivity : AppCompatActivity() {
         sectionChips = findViewById(R.id.adminSectionChips)
         cardOwner = findViewById(R.id.cardOwner)
         cardSecurity = findViewById(R.id.cardSecurity)
-        cardAdminWindow = findViewById(R.id.cardAdminWindow)
+        cardGuardPermissions = findViewById(R.id.cardGuardPermissions)
+        cardHomeLayout = findViewById(R.id.cardHomeLayout)
         cardUpdate = findViewById(R.id.cardUpdate)
         cardMode = findViewById(R.id.cardMode)
         cardBrowser = findViewById(R.id.cardBrowser)
@@ -164,7 +180,17 @@ class AdminSettingsActivity : AppCompatActivity() {
         cardSchedule = findViewById(R.id.cardSchedule)
         cardStrongRestrictions = findViewById(R.id.cardStrongRestrictions)
         cardLocks = findViewById(R.id.cardLocks)
-        cardPolicyLog = findViewById(R.id.cardPolicyLog)
+
+        permOverlayStatus = findViewById(R.id.permOverlayStatus)
+        permOverlayButton = findViewById(R.id.permOverlayButton)
+        permAccessibilityStatus = findViewById(R.id.permAccessibilityStatus)
+        permAccessibilityButton = findViewById(R.id.permAccessibilityButton)
+        permUsageStatus = findViewById(R.id.permUsageStatus)
+        permUsageButton = findViewById(R.id.permUsageButton)
+        permBatteryStatus = findViewById(R.id.permBatteryStatus)
+        permBatteryButton = findViewById(R.id.permBatteryButton)
+        manageFoldersButton = findViewById(R.id.manageFoldersButton)
+        reorderHomeIconsButton = findViewById(R.id.reorderHomeIconsButton)
 
         strongRestrictionsContainer = findViewById(R.id.strongRestrictionsContainer)
         locksContainer = findViewById(R.id.locksContainer)
@@ -188,7 +214,6 @@ class AdminSettingsActivity : AppCompatActivity() {
         blockedKeywordsInput = findViewById(R.id.blockedKeywordsInput)
         clearPanicButton = findViewById(R.id.clearPanicButton)
         modeHint = findViewById(R.id.modeHint)
-        policyLog = findViewById(R.id.policyLog)
         defaultLauncherSwitch = findViewById(R.id.defaultLauncherSwitch)
         defaultLauncherDetail = findViewById(R.id.defaultLauncherDetail)
         kioskStateDetail = findViewById(R.id.kioskStateDetail)
@@ -196,8 +221,8 @@ class AdminSettingsActivity : AppCompatActivity() {
         releaseOwnerButton = findViewById(R.id.releaseOwnerButton)
         releaseOwnerButton.setOnClickListener { confirmReleaseOwner() }
 
-        adminWindowValue = findViewById(R.id.adminWindowValue)
-        adminWindowHint = findViewById(R.id.adminWindowHint)
+        setupGuardPermissionsUi()
+        setupHomeLayoutUi()
         updateStatus = findViewById(R.id.updateStatus)
         updateDetail = findViewById(R.id.updateDetail)
         updateProgress = findViewById(R.id.updateProgress)
@@ -358,7 +383,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         renderDefaultLauncher()
         renderCustomLockScreenStatus()
         renderRecoveryState()
-        renderAdminWindow()
+        updateGuardPermissionsStatus()
         renderPolicyLog()
         // Jumped here from the launcher's update banner: land on the Security/Update section.
         if (intent?.getIntExtra(EXTRA_UPDATE_VERSION, 0)?.let { it > 0 } == true) {
@@ -394,10 +419,10 @@ class AdminSettingsActivity : AppCompatActivity() {
         val showLocks = showAll || chipId == R.id.chipAdminLocks
 
         cardOwner.visibility = if (showDevice) View.VISIBLE else View.GONE
-        cardPolicyLog.visibility = if (showDevice) View.VISIBLE else View.GONE
 
         cardSecurity.visibility = if (showSecurity) View.VISIBLE else View.GONE
-        cardAdminWindow.visibility = if (showSecurity) View.VISIBLE else View.GONE
+        cardGuardPermissions.visibility = if (showSecurity) View.VISIBLE else View.GONE
+        cardHomeLayout.visibility = if (showSecurity) View.VISIBLE else View.GONE
         cardUpdate.visibility = if (showSecurity) View.VISIBLE else View.GONE
 
         cardMode.visibility = if (showBrowser) View.VISIBLE else View.GONE
@@ -411,17 +436,14 @@ class AdminSettingsActivity : AppCompatActivity() {
         cardStrongRestrictions.visibility = if (showLocks) View.VISIBLE else View.GONE
         cardLocks.visibility = if (showLocks) View.VISIBLE else View.GONE
 
-        val firstVisible = listOf(
-            cardOwner, cardSecurity, cardAdminWindow, cardUpdate,
+        val visibleCards = listOf(
+            cardOwner, cardSecurity, cardGuardPermissions, cardHomeLayout, cardUpdate,
             cardMode, cardBrowser, cardCustomLockScreen,
-            cardAllowlist, cardSchedule, cardStrongRestrictions, cardLocks, cardPolicyLog
-        ).firstOrNull { it.visibility == View.VISIBLE }
+            cardAllowlist, cardSchedule, cardStrongRestrictions, cardLocks
+        )
+        val firstVisible = visibleCards.firstOrNull { it.visibility == View.VISIBLE }
 
-        listOf(
-            cardOwner, cardSecurity, cardAdminWindow, cardUpdate,
-            cardMode, cardBrowser, cardCustomLockScreen,
-            cardAllowlist, cardSchedule, cardStrongRestrictions, cardLocks, cardPolicyLog
-        ).forEach { card ->
+        visibleCards.forEach { card ->
             (card.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
                 lp.topMargin = if (card === firstVisible) 0 else dp(14)
                 card.layoutParams = lp
@@ -593,22 +615,177 @@ class AdminSettingsActivity : AppCompatActivity() {
         renderPolicyLog()
     }
 
-    // ------------------------------------------------------- temporary admin window
-    private fun renderAdminWindow() {
-        val minutes = prefs.adminUnlockMinutes
-        adminWindowValue.text = getString(R.string.admin_window_value_fmt, minutes)
-        val remaining = prefs.adminUnlockRemainingSeconds()
-        adminWindowHint.text = if (remaining > 0) {
-            getString(R.string.admin_window_remaining_fmt, (remaining + 59) / 60)
-        } else {
-            getString(R.string.admin_window_desc)
+    // --------------------------------------------------- guard permissions & folders
+    private fun setupGuardPermissionsUi() {
+        findViewById<View>(R.id.permOverlayRow).setOnClickListener {
+            runCatching {
+                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+            }
+        }
+        permOverlayButton.setOnClickListener {
+            runCatching {
+                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+            }
+        }
+
+        findViewById<View>(R.id.permAccessibilityRow).setOnClickListener {
+            runCatching {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
+        }
+        permAccessibilityButton.setOnClickListener {
+            runCatching {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
+        }
+
+        findViewById<View>(R.id.permUsageRow).setOnClickListener {
+            runCatching {
+                startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+            }
+        }
+        permUsageButton.setOnClickListener {
+            runCatching {
+                startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+            }
+        }
+
+        findViewById<View>(R.id.permBatteryRow).setOnClickListener {
+            runCatching {
+                val powerManager = getSystemService(PowerManager::class.java)
+                if (powerManager != null && !powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                    startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")))
+                } else {
+                    startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                }
+            }
+        }
+        permBatteryButton.setOnClickListener {
+            runCatching {
+                val powerManager = getSystemService(PowerManager::class.java)
+                if (powerManager != null && !powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                    startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")))
+                } else {
+                    startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                }
+            }
         }
     }
 
-    private fun stepAdminWindow(direction: Int) {
-        prefs.adminUnlockMinutes =
-            prefs.adminUnlockMinutes + direction * KioskPreferences.ADMIN_UNLOCK_STEP_MINUTES
-        renderAdminWindow()
+    private fun updateGuardPermissionsStatus() {
+        val hasOverlay = Settings.canDrawOverlays(this)
+        permOverlayStatus.text = getString(if (hasOverlay) R.string.perm_status_granted else R.string.perm_status_missing)
+        permOverlayStatus.setTextColor(ContextCompat.getColor(this, if (hasOverlay) android.R.color.holo_green_dark else android.R.color.holo_red_dark))
+
+        val hasAccess = isAccessibilityServiceEnabled()
+        permAccessibilityStatus.text = getString(if (hasAccess) R.string.perm_status_granted else R.string.perm_status_missing)
+        permAccessibilityStatus.setTextColor(ContextCompat.getColor(this, if (hasAccess) android.R.color.holo_green_dark else android.R.color.holo_red_dark))
+
+        val hasUsage = isUsageStatsGranted()
+        permUsageStatus.text = getString(if (hasUsage) R.string.perm_status_granted else R.string.perm_status_missing)
+        permUsageStatus.setTextColor(ContextCompat.getColor(this, if (hasUsage) android.R.color.holo_green_dark else android.R.color.holo_red_dark))
+
+        val powerManager = getSystemService(PowerManager::class.java)
+        val hasBattery = powerManager != null && powerManager.isIgnoringBatteryOptimizations(packageName)
+        permBatteryStatus.text = getString(if (hasBattery) R.string.perm_status_granted else R.string.perm_status_missing)
+        permBatteryStatus.setTextColor(ContextCompat.getColor(this, if (hasBattery) android.R.color.holo_green_dark else android.R.color.holo_red_dark))
+    }
+
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        val enabled = Settings.Secure.getInt(contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED, 0) == 1
+        if (!enabled) return false
+        val services = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
+        val expectedComponent = ComponentName(this, KioskGuardAccessibilityService::class.java).flattenToString()
+        return services.contains(expectedComponent, ignoreCase = true)
+    }
+
+    private fun isUsageStatsGranted(): Boolean {
+        val appOps = getSystemService(AppOpsManager::class.java) ?: return false
+        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            appOps.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), packageName)
+        } else {
+            @Suppress("DEPRECATION")
+            appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), packageName)
+        }
+        return mode == AppOpsManager.MODE_ALLOWED
+    }
+
+    private fun setupHomeLayoutUi() {
+        manageFoldersButton.setOnClickListener { showManageFoldersDialog() }
+        reorderHomeIconsButton.setOnClickListener {
+            toast(getString(R.string.reorder_icons_hint))
+        }
+    }
+
+    private fun showManageFoldersDialog() {
+        val folders = prefs.homeFolders()
+        val items = mutableListOf<String>()
+        folders.forEach { items.add("📁 ${it.name} (${it.packageNames.size} apps)") }
+        items.add(getString(R.string.folder_create_new))
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.manage_folders_button)
+            .setItems(items.toTypedArray()) { _, which ->
+                if (which == folders.size) {
+                    showEditFolderDialog(null)
+                } else if (which in folders.indices) {
+                    showEditFolderDialog(folders[which])
+                }
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun showEditFolderDialog(folder: com.kiosk.launcher.data.KioskFolder?) {
+        val input = EditText(this).apply {
+            hint = getString(R.string.folder_name_hint)
+            setText(folder?.name.orEmpty())
+            setPadding(dp(20), dp(12), dp(20), dp(12))
+        }
+
+        val allowedPkgs = prefs.allowedPackages().toList()
+        appRepo.launchableAsync { all ->
+            val appMap = all.associateBy { it.packageName }
+            val allowedApps = allowedPkgs.mapNotNull { appMap[it] }
+            val checkedItems = BooleanArray(allowedApps.size) { i ->
+                folder?.packageNames?.contains(allowedApps[i].packageName) == true
+            }
+            val appNames = allowedApps.map { it.label }.toTypedArray()
+
+            runOnUiThread {
+                MaterialAlertDialogBuilder(this)
+                    .setTitle(if (folder == null) R.string.create_folder_title else R.string.edit_folder_title)
+                    .setView(input)
+                    .setMultiChoiceItems(appNames, checkedItems) { _, index, checked ->
+                        checkedItems[index] = checked
+                    }
+                    .setPositiveButton(R.string.save) { _, _ ->
+                        val name = input.text.toString().trim()
+                        if (name.isBlank()) {
+                            toast(getString(R.string.passcode_length_error))
+                            return@setPositiveButton
+                        }
+                        val selectedPkgs = allowedApps.indices.filter { checkedItems[it] }.map { allowedApps[it].packageName }
+                        if (folder == null) {
+                            prefs.createFolder(name, selectedPkgs)
+                            toast(getString(R.string.folder_created_toast))
+                        } else {
+                            prefs.updateFolder(folder.id, name, selectedPkgs)
+                            toast(getString(R.string.folder_updated_toast))
+                        }
+                    }
+                    .apply {
+                        if (folder != null) {
+                            setNeutralButton(R.string.folder_delete) { _, _ ->
+                                prefs.deleteFolder(folder.id)
+                                toast(getString(R.string.folder_deleted_toast))
+                            }
+                        }
+                    }
+                    .setNegativeButton(R.string.cancel, null)
+                    .show()
+            }
+        }
     }
 
     private fun copyProvisionCommand() {

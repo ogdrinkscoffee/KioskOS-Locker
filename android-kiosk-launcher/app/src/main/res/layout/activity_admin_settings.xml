@@ -290,19 +290,9 @@
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/changePinButton"
                             style="@style/Widget.IroncladOS.Button.Outlined"
-                            android:layout_width="0dp"
-                            android:layout_height="match_parent"
-                            android:layout_weight="1"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
                             android:text="@string/change_passcode" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/openSystemSettingsButton"
-                            style="@style/Widget.IroncladOS.Button.Outlined"
-                            android:layout_width="0dp"
-                            android:layout_height="match_parent"
-                            android:layout_marginStart="8dp"
-                            android:layout_weight="1"
-                            android:text="@string/open_system_settings" />
                     </LinearLayout>
 
                     <com.google.android.material.button.MaterialButton
@@ -317,8 +307,9 @@
             </com.google.android.material.card.MaterialCardView>
 
             <!-- Temporary system access window -->
+            <!-- Guard Permissions & Services -->
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardAdminWindow"
+                android:id="@+id/cardGuardPermissions"
                 style="@style/Widget.IroncladOS.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -333,16 +324,223 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/eyebrow_admin_window"
+                        android:text="@string/eyebrow_guard_permissions"
                         android:textAppearance="@style/TextAppearance.IroncladOS.Eyebrow" />
 
                     <TextView
-                        android:id="@+id/adminWindowHint"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
                         android:lineSpacingExtra="3dp"
-                        android:text="@string/admin_window_desc"
+                        android:text="@string/guard_permissions_desc"
+                        android:textAlignment="viewStart"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp" />
+
+                    <!-- Overlay Permission -->
+                    <LinearLayout
+                        android:id="@+id/permOverlayRow"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingTop="6dp"
+                        android:paddingBottom="6dp">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="@string/perm_overlay_title"
+                                android:textColor="@color/text_primary"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/permOverlayStatus"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="@string/perm_status_missing"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/permOverlayButton"
+                            style="@style/Widget.IroncladOS.Button.Outlined"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/perm_grant_action" />
+                    </LinearLayout>
+
+                    <!-- Accessibility Service -->
+                    <LinearLayout
+                        android:id="@+id/permAccessibilityRow"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingTop="6dp"
+                        android:paddingBottom="6dp">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="@string/perm_accessibility_title"
+                                android:textColor="@color/text_primary"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/permAccessibilityStatus"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="@string/perm_status_missing"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/permAccessibilityButton"
+                            style="@style/Widget.IroncladOS.Button.Outlined"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/perm_grant_action" />
+                    </LinearLayout>
+
+                    <!-- Usage Stats Permission -->
+                    <LinearLayout
+                        android:id="@+id/permUsageRow"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingTop="6dp"
+                        android:paddingBottom="6dp">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="@string/perm_usage_title"
+                                android:textColor="@color/text_primary"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/permUsageStatus"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="@string/perm_status_missing"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/permUsageButton"
+                            style="@style/Widget.IroncladOS.Button.Outlined"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/perm_grant_action" />
+                    </LinearLayout>
+
+                    <!-- Battery Optimization -->
+                    <LinearLayout
+                        android:id="@+id/permBatteryRow"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingTop="6dp"
+                        android:paddingBottom="6dp">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="@string/perm_battery_title"
+                                android:textColor="@color/text_primary"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/permBatteryStatus"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="@string/perm_status_missing"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/permBatteryButton"
+                            style="@style/Widget.IroncladOS.Button.Outlined"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/perm_grant_action" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Home Folders & Layout -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardHomeLayout"
+                style="@style/Widget.IroncladOS.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/si_card_padding">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/eyebrow_home_layout"
+                        android:textAppearance="@style/TextAppearance.IroncladOS.Eyebrow" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:lineSpacingExtra="3dp"
+                        android:text="@string/home_layout_desc"
                         android:textAlignment="viewStart"
                         android:textColor="@color/text_secondary"
                         android:textSize="11sp" />
@@ -350,37 +548,25 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:gravity="center_vertical"
+                        android:layout_marginTop="12dp"
                         android:orientation="horizontal">
 
                         <com.google.android.material.button.MaterialButton
-                            android:id="@+id/adminWindowMinus"
+                            android:id="@+id/manageFoldersButton"
                             style="@style/Widget.IroncladOS.Button.Outlined"
-                            android:layout_width="48dp"
-                            android:layout_height="wrap_content"
-                            android:contentDescription="@string/admin_window_minus"
-                            android:text="−" />
-
-                        <TextView
-                            android:id="@+id/adminWindowValue"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:gravity="center"
-                            android:text=""
-                            android:textColor="@color/text_primary"
-                            android:textDirection="ltr"
-                            android:textSize="15sp"
-                            android:textStyle="bold" />
+                            android:text="@string/manage_folders_button" />
 
                         <com.google.android.material.button.MaterialButton
-                            android:id="@+id/adminWindowPlus"
+                            android:id="@+id/reorderHomeIconsButton"
                             style="@style/Widget.IroncladOS.Button.Outlined"
-                            android:layout_width="48dp"
+                            android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:contentDescription="@string/admin_window_plus"
-                            android:text="+" />
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:text="@string/reorder_icons_button" />
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -1112,39 +1298,6 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Policy log -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardPolicyLog"
-                style="@style/Widget.IroncladOS.Card"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="@dimen/si_card_padding">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/eyebrow_policy_activity"
-                        android:textAppearance="@style/TextAppearance.IroncladOS.Eyebrow" />
-
-                    <TextView
-                        android:id="@+id/policyLog"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:fontFamily="monospace"
-                        android:lineSpacingExtra="3dp"
-                        android:text=""
-                        android:textAlignment="viewStart"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="11sp" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 </LinearLayout>
