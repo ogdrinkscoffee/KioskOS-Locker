@@ -238,8 +238,6 @@ class AdminSettingsActivity : AppCompatActivity() {
                 if (updateCustomSourceContainer.visibility == View.VISIBLE) View.GONE else View.VISIBLE
         }
 
-        findViewById<View>(R.id.adminWindowMinus).setOnClickListener { stepAdminWindow(-1) }
-        findViewById<View>(R.id.adminWindowPlus).setOnClickListener { stepAdminWindow(1) }
         updateCheckButton.setOnClickListener { checkForUpdates(manual = true) }
         updateInstallButton.setOnClickListener { installAvailableUpdate() }
         findViewById<View>(R.id.updateFeedSave).setOnClickListener { saveUpdateFeed() }
@@ -262,7 +260,6 @@ class AdminSettingsActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.copyCommandButton).setOnClickListener { copyProvisionCommand() }
         activateAdminButton.setOnClickListener { activateDeviceAdmin() }
-        findViewById<View>(R.id.openSystemSettingsButton).setOnClickListener { openSystemSettings() }
         clearPanicButton.setOnClickListener {
             prefs.clearPanicLockdown()
             policy.applyPolicy()
@@ -309,7 +306,6 @@ class AdminSettingsActivity : AppCompatActivity() {
         renderOwner()
         renderDefaultLauncher()
         renderRecoveryState()
-        renderAdminWindow()
         renderUpdate()
         renderMode()
         renderBrowserToggles()
@@ -603,17 +599,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         clearPanicButton.visibility = if (prefs.isPanicLocked()) View.VISIBLE else View.GONE
     }
 
-    private fun openSystemSettings() {
-        prefs.grantTemporaryAdminWindow(prefs.adminUnlockMinutes)
-        policy.applyPolicy()
-        runCatching {
-            if (policy.isInLockTaskMode()) policy.stopKiosk(this)
-            startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        }
-        toast(getString(R.string.system_settings_unlocked_toast_fmt, prefs.adminUnlockMinutes))
-        renderAdminWindow()
-        renderPolicyLog()
-    }
+
 
     // --------------------------------------------------- guard permissions & folders
     private fun setupGuardPermissionsUi() {
