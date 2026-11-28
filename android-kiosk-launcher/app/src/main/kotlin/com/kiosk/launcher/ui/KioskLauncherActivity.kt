@@ -89,6 +89,7 @@ class KioskLauncherActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        hasAutoLaunchedMode = savedInstanceState?.getBoolean(STATE_AUTO_LAUNCHED_MODE, false) ?: false
         prefs = KioskPreferences(this)
         policy = DevicePolicyHelper(this)
         apps = InstalledAppsRepository(this)
@@ -166,6 +167,11 @@ class KioskLauncherActivity : AppCompatActivity() {
                 )
             }
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(STATE_AUTO_LAUNCHED_MODE, hasAutoLaunchedMode)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -511,11 +517,12 @@ class KioskLauncherActivity : AppCompatActivity() {
         val controller = WindowInsetsControllerCompat(window, window.decorView)
         // Never hide the navigation bar: under lock task it is the Home button SystemUI offers.
         controller.show(WindowInsetsCompat.Type.navigationBars())
-        controller.systemBarsBehavior =
-            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         if (!prefs.statusBarLocked || prefs.isAdminTemporarilyUnlocked()) {
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
             controller.show(WindowInsetsCompat.Type.statusBars())
         } else {
+            controller.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             controller.hide(WindowInsetsCompat.Type.statusBars())
         }
     }
@@ -547,6 +554,8 @@ class KioskLauncherActivity : AppCompatActivity() {
     }
 
     private companion object {
+        const val STATE_AUTO_LAUNCHED_MODE = "auto_launched_mode"
+
         /** Launcher-side update check is quiet and rate-limited; Admin can force one. */
         const val UPDATE_CHECK_INTERVAL_MS = 12L * 60L * 60L * 1000L
     }

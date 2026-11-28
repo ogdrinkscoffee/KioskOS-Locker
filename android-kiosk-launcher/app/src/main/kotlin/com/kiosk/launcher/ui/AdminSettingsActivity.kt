@@ -27,6 +27,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -160,6 +161,11 @@ class AdminSettingsActivity : AppCompatActivity() {
     private var editingWeekendAllowlist = false
     private var syncingScheduleSwitch = false
     private var selectedSectionId: Int = R.id.chipAdminAll
+
+    private val homeRoleLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            reconcileDefaultLauncherResult()
+        }
 
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
     private val handler = Handler(Looper.getMainLooper())
@@ -421,24 +427,22 @@ class AdminSettingsActivity : AppCompatActivity() {
         // Adopt the opt-in only once Android really resolves Home to this app, so a
         // dismissed system prompt cannot leave an enabled kiosk that owns nothing.
         if (pendingHomeRequest) {
-            pendingHomeRequest = false
-            if (policy.isDefaultLauncher && prefs.kioskEnabled != true) {
-                prefs.kioskEnabled = true
-                prefs.logPolicy(getString(R.string.log_default_launcher_on))
-            }
+            reconcileDefaultLauncherResult()
+            updateGuardPermissionsStatus()
+        } else {
+            // Coming back from the system Home picker can change which policy applies.
+            policy.applyPolicy()
+            ScreenLockService.sync(this)
+            renderOwner()
+            renderDefaultLauncher()
+            renderCustomLockScreenStatus()
+            renderCustomLockScreenSummary()
+            renderRecoveryState()
+            renderAdminWindow()
+            scheduleAdminWindowTick()
+            updateGuardPermissionsStatus()
+            renderPolicyLog()
         }
-        // Coming back from the system Home picker can change which policy applies.
-        policy.applyPolicy()
-        ScreenLockService.sync(this)
-        renderOwner()
-        renderDefaultLauncher()
-        renderCustomLockScreenStatus()
-        renderCustomLockScreenSummary()
-        renderRecoveryState()
-        renderAdminWindow()
-        scheduleAdminWindowTick()
-        updateGuardPermissionsStatus()
-        renderPolicyLog()
         // Jumped here from the launcher's update banner: land on the Security/Update section.
         if (intent?.getIntExtra(EXTRA_UPDATE_VERSION, 0)?.let { it > 0 } == true) {
             intent?.removeExtra(EXTRA_UPDATE_VERSION)
@@ -621,7 +625,7 @@ class AdminSettingsActivity : AppCompatActivity() {
             return
         }
         pendingHomeRequest = true
-        if (!openDefaultLauncherSettings(policy.homePickerIntent())) {
+        if (!openDefaultLauncherPicker(policy.homePickerIntent())) {
             pendingHomeRequest = false
             toast(getString(R.string.default_launcher_manual))
             renderDefaultLauncher()
@@ -640,7 +644,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         renderDefaultLauncher()
         renderCustomLockScreenStatus()
         renderPolicyLog()
-        if (cleared) {
+        if (cleared && !policy.isDefaultLauncher) {
             prefs.logPolicy(getString(R.string.log_default_launcher_off))
             toast(getString(R.string.default_launcher_cleared))
             return
@@ -649,12 +653,50 @@ class AdminSettingsActivity : AppCompatActivity() {
         toast(getString(R.string.default_launcher_manual_off))
     }
 
+    private fun openDefaultLauncherPicker(intent: Intent): Boolean {
+        prepareSystemSettingsUnlock(showUnlockedToast = false)
+        if (runCatching { homeRoleLauncher.launch(intent); true }.getOrDefault(false)) {
+            return true
+        }
+        return runCatching {
+            startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
+            true
+        }.getOrDefault(false)
+    }
+
     private fun openDefaultLauncherSettings(intent: Intent): Boolean =
         openSystemSettings(
             targetIntent = intent,
             fallbackIntent = Intent(Settings.ACTION_HOME_SETTINGS),
             showUnlockedToast = false
         )
+
+    private fun reconcileDefaultLauncherResult() {
+        val hadPending = pendingHomeRequest
+        pendingHomeRequest = false
+        if (policy.isDefaultLauncher) {
+            if (prefs.kioskEnabled != true) {
+                prefs.kioskEnabled = true
+                prefs.logPolicy(getString(R.string.log_default_launcher_on))
+            }
+            if (hadPending) {
+                toast(getString(R.string.default_launcher_set))
+                if (prefs.isAdminTemporarilyUnlocked()) {
+                    prefs.endTemporaryAdminWindow()
+                }
+            }
+        }
+        policy.applyPolicy()
+        ScreenLockService.sync(this)
+        renderOwner()
+        renderDefaultLauncher()
+        renderCustomLockScreenStatus()
+        renderCustomLockScreenSummary()
+        renderRecoveryState()
+        renderAdminWindow()
+        scheduleAdminWindowTick()
+        renderPolicyLog()
+    }
 
     private fun renderRecoveryState() {
         clearPanicButton.visibility = if (prefs.isPanicLocked()) View.VISIBLE else View.GONE
@@ -720,15 +762,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Opens an Android Settings screen cleanly while Admin Settings is open by granting the
-     * configured temporary admin unlock window, releasing lock task mode, and re-applying policy.
-     */
-    private fun openSystemSettings(
-        targetIntent: Intent,
-        fallbackIntent: Intent? = Intent(Settings.ACTION_SETTINGS),
-        showUnlockedToast: Boolean = true
-    ): Boolean {
+    private fun prepareSystemSettingsUnlock(showUnlockedToast: Boolean) {
         val minutes = prefs.adminUnlockMinutes
         val wasUnlocked = prefs.isAdminTemporarilyUnlocked()
         prefs.grantTemporaryAdminWindow(minutes)
@@ -742,6 +776,18 @@ class AdminSettingsActivity : AppCompatActivity() {
         if (showUnlockedToast && !wasUnlocked) {
             toast(getString(R.string.system_settings_unlocked_toast_fmt, minutes))
         }
+    }
+
+    /**
+     * Opens an Android Settings screen cleanly while Admin Settings is open by granting the
+     * configured temporary admin unlock window, releasing lock task mode, and re-applying policy.
+     */
+    private fun openSystemSettings(
+        targetIntent: Intent,
+        fallbackIntent: Intent? = Intent(Settings.ACTION_SETTINGS),
+        showUnlockedToast: Boolean = true
+    ): Boolean {
+        prepareSystemSettingsUnlock(showUnlockedToast)
         val launched = runCatching { startActivity(targetIntent); true }.getOrDefault(false) ||
             (fallbackIntent != null && runCatching { startActivity(fallbackIntent); true }.getOrDefault(false))
         if (!launched) {

@@ -458,13 +458,14 @@ class DevicePolicyHelper(context: Context) {
     val isDefaultLauncher: Boolean
         get() = homePackage == appContext.packageName
 
-    /** True when a different app owns Home, so no kiosk policy may be enforced. */
+    /** True when a different launcher app owns Home, so no kiosk policy may be enforced. */
     private val anotherLauncherOwnsHome: Boolean
-        get() = homePackage?.let { it != appContext.packageName } == true
+        get() = homePackage?.let { it != appContext.packageName && it != ANDROID_RESOLVER_PACKAGE } == true
 
     /**
      * Pins Ironclad OS as Home. Only a device owner can do this silently; returns false
-     * otherwise (or when Android refuses), so callers can fall back to the system UI.
+     * otherwise, when Android refuses, or when Android still does not resolve Home to this app,
+     * so callers can fall back to the system picker UI.
      */
     fun pinAsHomeLauncher(): Boolean {
         if (!isDeviceOwner) return false
@@ -473,12 +474,14 @@ class DevicePolicyHelper(context: Context) {
                 addCategory(Intent.CATEGORY_HOME)
                 addCategory(Intent.CATEGORY_DEFAULT)
             }
+            dpm.clearPackagePersistentPreferredActivities(admin, appContext.packageName)
             dpm.addPersistentPreferredActivity(
                 admin,
                 filter,
                 ComponentName(appContext, KioskLauncherActivity::class.java)
             )
-        }.isSuccess
+            isDefaultLauncher
+        }.getOrDefault(false)
     }
 
     /** Drops the device-owner Home pin. Returns false when not the owner. */
@@ -566,6 +569,8 @@ class DevicePolicyHelper(context: Context) {
     }
 
     companion object {
+        private const val ANDROID_RESOLVER_PACKAGE = "android"
+
         const val PROVISION_COMMAND =
             "adb shell dpm set-device-owner com.kiosk.launcher/.admin.KioskDeviceAdminReceiver"
 
