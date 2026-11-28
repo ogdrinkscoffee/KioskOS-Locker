@@ -1,0 +1,492 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_customizer_sheet"
+    android:orientation="vertical"
+    android:paddingTop="10dp">
+
+    <!-- Grab handle -->
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:background="#4DFFFFFF" />
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="14dp"
+        android:paddingBottom="8dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/lock_customizer_title"
+                android:textAlignment="viewStart"
+                android:textColor="#F8FAFC"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/lock_customizer_subtitle"
+                android:textAlignment="viewStart"
+                android:textColor="#94A3B8"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/custResetButton"
+            style="@style/Widget.IroncladOS.Button.Text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/lock_customizer_reset"
+            android:textColor="#94A3B8" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/custDoneButton"
+            style="@style/Widget.IroncladOS.Button.Text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/done"
+            android:textColor="#2DD4BF" />
+    </LinearLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:overScrollMode="never">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="26dp">
+
+            <!-- Wallpaper / Backdrop Theme -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:letterSpacing="0.1"
+                android:text="@string/lock_cust_theme_label"
+                android:textAllCaps="true"
+                android:textColor="#94A3B8"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:overScrollMode="never"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:id="@+id/custThemeContainer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal" />
+            </HorizontalScrollView>
+
+            <!-- Accent Color -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:letterSpacing="0.1"
+                android:text="@string/lock_cust_accent_label"
+                android:textAllCaps="true"
+                android:textColor="#94A3B8"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:overScrollMode="never"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:id="@+id/custAccentContainer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal" />
+            </HorizontalScrollView>
+
+            <!-- Clock Style -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:letterSpacing="0.1"
+                android:text="@string/lock_cust_clock_label"
+                android:textAllCaps="true"
+                android:textColor="#94A3B8"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/custClockStyleGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:selectionRequired="true"
+                app:singleSelection="true">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/custClockEditorial"
+                    style="@style/Widget.IroncladOS.SegmentedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:minHeight="38dp"
+                    android:text="@string/lock_clock_editorial"
+                    android:textColor="#E2E8F0"
+                    android:textSize="11sp"
+                    app:strokeColor="#38FFFFFF" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/custClockBold"
+                    style="@style/Widget.IroncladOS.SegmentedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:minHeight="38dp"
+                    android:text="@string/lock_clock_bold"
+                    android:textColor="#E2E8F0"
+                    android:textSize="11sp"
+                    app:strokeColor="#38FFFFFF" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/custClockStacked"
+                    style="@style/Widget.IroncladOS.SegmentedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:minHeight="38dp"
+                    android:text="@string/lock_clock_stacked"
+                    android:textColor="#E2E8F0"
+                    android:textSize="11sp"
+                    app:strokeColor="#38FFFFFF" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/custClockCompact"
+                    style="@style/Widget.IroncladOS.SegmentedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:minHeight="38dp"
+                    android:text="@string/lock_clock_compact"
+                    android:textColor="#E2E8F0"
+                    android:textSize="11sp"
+                    app:strokeColor="#38FFFFFF" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <!-- Clock time switches -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/lock_clock_24h"
+                    android:textAlignment="viewStart"
+                    android:textColor="#E2E8F0"
+                    android:textSize="13sp" />
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/custClock24hSwitch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/lock_clock_seconds"
+                    android:textAlignment="viewStart"
+                    android:textColor="#E2E8F0"
+                    android:textSize="13sp" />
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/custClockSecondsSwitch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <!-- Card Surface & Corner Roundness -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:letterSpacing="0.1"
+                android:text="@string/lock_cust_surface_label"
+                android:textAllCaps="true"
+                android:textColor="#94A3B8"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/custCardStyleGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:selectionRequired="true"
+                app:singleSelection="true">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/custCardFrosted"
+                    style="@style/Widget.IroncladOS.SegmentedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:minHeight="38dp"
+                    android:text="@string/lock_card_frosted"
+                    android:textColor="#E2E8F0"
+                    android:textSize="11sp"
+                    app:strokeColor="#38FFFFFF" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/custCardTinted"
+                    style="@style/Widget.IroncladOS.SegmentedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:minHeight="38dp"
+                    android:text="@string/lock_card_tinted"
+                    android:textColor="#E2E8F0"
+                    android:textSize="11sp"
+                    app:strokeColor="#38FFFFFF" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/custCardSolid"
+                    style="@style/Widget.IroncladOS.SegmentedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:minHeight="38dp"
+                    android:text="@string/lock_card_solid"
+                    android:textColor="#E2E8F0"
+                    android:textSize="11sp"
+                    app:strokeColor="#38FFFFFF" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/custCardOutline"
+                    style="@style/Widget.IroncladOS.SegmentedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:minHeight="38dp"
+                    android:text="@string/lock_card_outline"
+                    android:textColor="#E2E8F0"
+                    android:textSize="11sp"
+                    app:strokeColor="#38FFFFFF" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/custCornerGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:selectionRequired="true"
+                app:singleSelection="true">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/custCornerSharp"
+                    style="@style/Widget.IroncladOS.SegmentedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:minHeight="36dp"
+                    android:text="@string/lock_corner_sharp"
+                    android:textColor="#E2E8F0"
+                    android:textSize="11sp"
+                    app:strokeColor="#38FFFFFF" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/custCornerRounded"
+                    style="@style/Widget.IroncladOS.SegmentedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:minHeight="36dp"
+                    android:text="@string/lock_corner_rounded"
+                    android:textColor="#E2E8F0"
+                    android:textSize="11sp"
+                    app:strokeColor="#38FFFFFF" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/custCornerPill"
+                    style="@style/Widget.IroncladOS.SegmentedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:minHeight="36dp"
+                    android:text="@string/lock_corner_pill"
+                    android:textColor="#E2E8F0"
+                    android:textSize="11sp"
+                    app:strokeColor="#38FFFFFF" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <!-- Global Uniform Widget Size -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:letterSpacing="0.1"
+                    android:text="@string/lock_cust_global_size_label"
+                    android:textAlignment="viewStart"
+                    android:textAllCaps="true"
+                    android:textColor="#94A3B8"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/custGlobalSizeMode"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#2DD4BF"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/custGlobalSizeGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:selectionRequired="false"
+                app:singleSelection="true">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/custAllSmall"
+                    style="@style/Widget.IroncladOS.SegmentedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:minHeight="38dp"
+                    android:text="@string/lock_size_all_small"
+                    android:textColor="#E2E8F0"
+                    android:textSize="11sp"
+                    app:strokeColor="#38FFFFFF" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/custAllMedium"
+                    style="@style/Widget.IroncladOS.SegmentedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:minHeight="38dp"
+                    android:text="@string/lock_size_all_medium"
+                    android:textColor="#E2E8F0"
+                    android:textSize="11sp"
+                    app:strokeColor="#38FFFFFF" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/custAllLarge"
+                    style="@style/Widget.IroncladOS.SegmentedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:minHeight="38dp"
+                    android:text="@string/lock_size_all_large"
+                    android:textColor="#E2E8F0"
+                    android:textSize="11sp"
+                    app:strokeColor="#38FFFFFF" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <!-- Individual Widgets (Enable, Resize S/M/L, Reorder) -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:letterSpacing="0.1"
+                android:text="@string/lock_cust_widgets_label"
+                android:textAllCaps="true"
+                android:textColor="#94A3B8"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:id="@+id/custWidgetsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:orientation="vertical" />
+
+            <!-- Custom Lock Screen Customize Button Visibility -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/lock_show_customize_btn_title"
+                        android:textAlignment="viewStart"
+                        android:textColor="#F8FAFC"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/lock_show_customize_btn_desc"
+                        android:textAlignment="viewStart"
+                        android:textColor="#94A3B8"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/custShowCustomizeSwitch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</LinearLayout>

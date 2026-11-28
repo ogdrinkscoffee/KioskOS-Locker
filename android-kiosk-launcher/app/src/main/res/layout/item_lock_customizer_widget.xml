@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="8dp"
+    android:background="@drawable/bg_glass_card"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/custWidgetIcon"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:importantForAccessibility="no"
+            app:tint="#2DD4BF" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/custWidgetTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textAlignment="viewStart"
+                android:textColor="#F8FAFC"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/custWidgetDesc"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:textAlignment="viewStart"
+                android:textColor="#94A3B8"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/custWidgetSwitch"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp" />
+    </LinearLayout>
+
+    <!-- Per-widget Size (S / M / L) & Reorder Controls -->
+    <LinearLayout
+        android:id="@+id/custWidgetControlsRow"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/custWidgetSizeGroup"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            app:selectionRequired="true"
+            app:singleSelection="true">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/custSizeSmall"
+                style="@style/Widget.IroncladOS.SegmentedButton"
+                android:layout_width="0dp"
+                android:layout_height="34dp"
+                android:layout_weight="1"
+                android:minHeight="34dp"
+                android:text="@string/lock_size_small_short"
+                android:textColor="#E2E8F0"
+                android:textSize="11sp"
+                app:strokeColor="#38FFFFFF" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/custSizeMedium"
+                style="@style/Widget.IroncladOS.SegmentedButton"
+                android:layout_width="0dp"
+                android:layout_height="34dp"
+                android:layout_weight="1"
+                android:minHeight="34dp"
+                android:text="@string/lock_size_medium_short"
+                android:textColor="#E2E8F0"
+                android:textSize="11sp"
+                app:strokeColor="#38FFFFFF" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/custSizeLarge"
+                style="@style/Widget.IroncladOS.SegmentedButton"
+                android:layout_width="0dp"
+                android:layout_height="34dp"
+                android:layout_weight="1"
+                android:minHeight="34dp"
+                android:text="@string/lock_size_large_short"
+                android:textColor="#E2E8F0"
+                android:textSize="11sp"
+                app:strokeColor="#38FFFFFF" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+
+        <ImageButton
+            android:id="@+id/custWidgetMoveUp"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_glass_pill"
+            android:contentDescription="@string/lock_widget_move_up"
+            android:padding="7dp"
+            android:src="@drawable/ic_chevron_up"
+            app:tint="#E2E8F0" />
+
+        <ImageButton
+            android:id="@+id/custWidgetMoveDown"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/bg_glass_pill"
+            android:contentDescription="@string/lock_widget_move_down"
+            android:padding="7dp"
+            android:src="@drawable/ic_chevron_down"
+            app:tint="#E2E8F0" />
+    </LinearLayout>
+</LinearLayout>

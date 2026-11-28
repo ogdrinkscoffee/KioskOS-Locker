@@ -536,4 +536,126 @@
     <string name="browser_reload">Reload</string>
     <string name="browser_allowed_sites_label">Allowed sites:</string>
     <string name="browser_no_domains_empty">No allowed domains configured yet.\nOpen Admin → Mode &amp; Browser to add websites.</string>
+
+    <!-- Lock Screen Customization & Extended Widgets -->
+    <string name="lock_customize_action">Customize lock screen</string>
+    <string name="lock_open_customizer_button">Customize theme, clock &amp; widgets…</string>
+    <string name="lock_customizer_title">Customize Lock Screen</string>
+    <string name="lock_customizer_subtitle">Changes apply live with consistent widget sizing</string>
+    <string name="lock_customizer_reset">Reset</string>
+    <string name="lock_cust_theme_label">Backdrop theme</string>
+    <string name="lock_cust_accent_label">Accent color</string>
+    <string name="lock_cust_clock_label">Clock style</string>
+    <string name="lock_cust_surface_label">Widget glass &amp; corners</string>
+    <string name="lock_cust_global_size_label">Widget size (uniform or custom)</string>
+    <string name="lock_cust_widgets_label">Widgets &amp; order</string>
+    <string name="lock_theme_midnight">Midnight</string>
+    <string name="lock_theme_aurora">Aurora</string>
+    <string name="lock_theme_obsidian">Obsidian</string>
+    <string name="lock_theme_amethyst">Amethyst</string>
+    <string name="lock_theme_solar">Solar</string>
+    <string name="lock_theme_amoled">AMOLED</string>
+    <string name="lock_accent_teal">Teal</string>
+    <string name="lock_accent_sky">Sky</string>
+    <string name="lock_accent_indigo">Indigo</string>
+    <string name="lock_accent_emerald">Emerald</string>
+    <string name="lock_accent_amber">Amber</string>
+    <string name="lock_accent_rose">Rose</string>
+    <string name="lock_accent_snow">Snow</string>
+    <string name="lock_clock_editorial">Editorial</string>
+    <string name="lock_clock_bold">Bold</string>
+    <string name="lock_clock_stacked">Stacked</string>
+    <string name="lock_clock_compact">Compact</string>
+    <string name="lock_clock_24h">24-hour clock format</string>
+    <string name="lock_clock_seconds">Show seconds</string>
+    <string name="lock_card_frosted">Frosted</string>
+    <string name="lock_card_tinted">Tinted</string>
+    <string name="lock_card_solid">Solid</string>
+    <string name="lock_card_outline">Outline</string>
+    <string name="lock_corner_sharp">Sharp</string>
+    <string name="lock_corner_rounded">Rounded</string>
+    <string name="lock_corner_pill">Pill</string>
+    <string name="lock_size_small_short">1×1 S</string>
+    <string name="lock_size_medium_short">2×1 M</string>
+    <string name="lock_size_large_short">2×2 L</string>
+    <string name="lock_size_all_small">All Small</string>
+    <string name="lock_size_all_medium">All Medium</string>
+    <string name="lock_size_all_large">All Large</string>
+    <string name="lock_size_mode_small">Uniform Small</string>
+    <string name="lock_size_mode_medium">Uniform Medium</string>
+    <string name="lock_size_mode_large">Uniform Large</string>
+    <string name="lock_size_mode_mixed">Mixed Custom</string>
+    <string name="lock_widget_move_up">Move widget up</string>
+    <string name="lock_widget_move_down">Move widget down</string>
+    <string name="lock_show_customize_btn_title">Show customize button on lock screen</string>
+    <string name="lock_show_customize_btn_desc">Lets Admin PIN open the live customizer directly from the lock screen</string>
+    <string name="lock_admin_summary_fmt">Theme: %1$s · %2$d/%3$d widgets active · %4$s</string>
+
+    <string name="lock_widget_habits_title">Daily habits</string>
+    <string name="lock_widget_habits_desc">Today\'s habit completion percentage and next pending habit</string>
+    <string name="lock_widget_tasks_title">Action tasks</string>
+    <string name="lock_widget_tasks_desc">Open tasks count, priority badge, and top pending task</string>
+    <string name="lock_widget_focus_title">Deep work focus</string>
+    <string name="lock_widget_focus_desc">Today\'s deep focus minutes, sessions, and 60m goal progress</string>
+    <string name="lock_widget_goals_title">Goal milestones</string>
+    <string name="lock_widget_goals_desc">Active goal progress bar and upcoming target date</string>
+    <string name="lock_widget_schedule_title">Kiosk schedule</string>
+    <string name="lock_widget_schedule_desc">Current schedule window, next transition time, and allowed apps</string>
+    <string name="lock_widget_shield_title">Device shield</string>
+    <string name="lock_widget_shield_desc">Device owner enforcement, protected apps, and tamper alerts</string>
+
+    <string name="lock_badge_charging">CHARGING</string>
+    <string name="lock_badge_ready">READY</string>
+    <string name="lock_battery_source_ac">AC fast charge</string>
+    <string name="lock_battery_source_usb">USB power</string>
+    <string name="lock_battery_source_wireless">Wireless charge</string>
+    <string name="lock_battery_source_battery">On battery</string>
+    <string name="lock_battery_footer_fmt">%1$s · %2$d°C</string>
+
+    <string name="lock_widget_streak_best_urges_fmt">Best %1$dd · %2$d urges resisted</string>
+    <string name="lock_badge_logged">LOGGED</string>
+    <string name="lock_badge_today">TODAY</string>
+    <string name="lock_streak_milestone_fmt">Milestone progress: %1$d / %2$d clean days</string>
+
+    <string name="lock_habits_none_value">No habits</string>
+    <string name="lock_habits_none_detail">Add daily habits in Focus &amp; Growth</string>
+    <string name="lock_habits_value_fmt">%1$d / %2$d done</string>
+    <string name="lock_habits_all_done">All habits completed today</string>
+    <string name="lock_habits_next_fmt">Next: %1$s</string>
+
+    <string name="lock_tasks_none_value">No tasks</string>
+    <string name="lock_tasks_none_detail">Queue action items in Focus &amp; Growth</string>
+    <string name="lock_tasks_open_fmt">%1$d open</string>
+    <string name="lock_tasks_all_done">All queued tasks completed</string>
+    <string name="lock_tasks_high_badge_fmt">%1$d HIGH</string>
+
+    <string name="lock_focus_minutes_fmt">%1$dm today</string>
+    <string name="lock_focus_sessions_fmt">%1$d focus session(s) logged</string>
+    <string name="lock_focus_goal_met">Daily 60m deep work goal reached</string>
+    <string name="lock_focus_goal_remaining_fmt">%1$dm left to hit 60m daily goal</string>
+
+    <string name="lock_goals_none_value">No goals yet</string>
+    <string name="lock_goals_none_detail">Set milestones in Focus &amp; Growth</string>
+    <string name="lock_goals_milestones_fmt">%1$d/%2$d milestones completed</string>
+    <string name="lock_goals_count_fmt">%1$d active goal(s)</string>
+
+    <string name="lock_schedule_always_on">24/7 Kiosk</string>
+    <string name="lock_schedule_apps_fmt">%1$d app(s) allowed now</string>
+    <string name="lock_badge_24_7">ALWAYS</string>
+    <string name="lock_schedule_kiosk_hours">Kiosk hours</string>
+    <string name="lock_schedule_normal_hours">Normal phone</string>
+    <string name="lock_schedule_next_flip_fmt">Next change at %1$s</string>
+    <string name="lock_schedule_no_flip">No upcoming switch</string>
+    <string name="lock_badge_active">ACTIVE</string>
+    <string name="lock_badge_paused">PAUSED</string>
+
+    <string name="lock_shield_enforced">Device Owner</string>
+    <string name="lock_shield_preview">Preview Mode</string>
+    <string name="lock_shield_detail_fmt">%1$d PIN apps · %2$d alerts</string>
+    <string name="lock_badge_owner">LOCKED</string>
+    <string name="lock_badge_preview">PREVIEW</string>
+    <string name="lock_shield_guard_on">Window guard active</string>
+    <string name="lock_shield_guard_off">Window guard off</string>
+    <string name="lock_shield_feeds_blocked">Reels/Shorts blocked</string>
+    <string name="lock_shield_feeds_open">Feeds unfiltered</string>
 </resources>

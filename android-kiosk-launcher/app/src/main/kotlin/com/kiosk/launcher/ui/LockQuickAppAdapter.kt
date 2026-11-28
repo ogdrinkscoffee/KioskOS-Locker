@@ -1,5 +1,6 @@
 package com.kiosk.launcher.ui
 
+import android.graphics.drawable.Drawable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -11,6 +12,7 @@ import com.kiosk.launcher.data.AppEntry
 
 class LockQuickAppAdapter(
     private val isProtected: (String) -> Boolean,
+    private val cardBackgroundProvider: () -> Drawable,
     private val onClick: (AppEntry) -> Unit
 ) : RecyclerView.Adapter<LockQuickAppAdapter.QuickHolder>() {
 
@@ -32,6 +34,7 @@ class LockQuickAppAdapter(
 
     override fun onBindViewHolder(holder: QuickHolder, position: Int) {
         val entry = items[position]
+        holder.itemView.background = cardBackgroundProvider()
         holder.icon.setImageDrawable(entry.icon)
         holder.label.text = entry.label
         holder.lockBadge.visibility = if (isProtected(entry.packageName)) View.VISIBLE else View.GONE

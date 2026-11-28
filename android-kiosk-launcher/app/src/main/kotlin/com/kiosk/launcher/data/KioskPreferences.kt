@@ -243,6 +243,65 @@ class KioskPreferences(context: Context) {
         get() = prefs.getString(KEY_LOCK_SCREEN_NOTE, "") ?: ""
         set(value) { prefs.edit().putString(KEY_LOCK_SCREEN_NOTE, value.trim()).apply() }
 
+    var lockTheme: String
+        get() = prefs.getString(KEY_LOCK_THEME, LockScreenConfig.LockTheme.MIDNIGHT.id)
+            ?: LockScreenConfig.LockTheme.MIDNIGHT.id
+        set(value) { prefs.edit().putString(KEY_LOCK_THEME, value).apply() }
+
+    var lockAccent: String
+        get() = prefs.getString(KEY_LOCK_ACCENT, LockScreenConfig.LockAccent.TEAL.id)
+            ?: LockScreenConfig.LockAccent.TEAL.id
+        set(value) { prefs.edit().putString(KEY_LOCK_ACCENT, value).apply() }
+
+    var lockClockStyle: String
+        get() = prefs.getString(KEY_LOCK_CLOCK_STYLE, LockScreenConfig.LockClockStyle.EDITORIAL.id)
+            ?: LockScreenConfig.LockClockStyle.EDITORIAL.id
+        set(value) { prefs.edit().putString(KEY_LOCK_CLOCK_STYLE, value).apply() }
+
+    var lockCardStyle: String
+        get() = prefs.getString(KEY_LOCK_CARD_STYLE, LockScreenConfig.LockCardStyle.FROSTED.id)
+            ?: LockScreenConfig.LockCardStyle.FROSTED.id
+        set(value) { prefs.edit().putString(KEY_LOCK_CARD_STYLE, value).apply() }
+
+    var lockCornerStyle: String
+        get() = prefs.getString(KEY_LOCK_CORNER_STYLE, LockScreenConfig.LockCornerStyle.ROUNDED.id)
+            ?: LockScreenConfig.LockCornerStyle.ROUNDED.id
+        set(value) { prefs.edit().putString(KEY_LOCK_CORNER_STYLE, value).apply() }
+
+    var lockClock24Hour: Boolean
+        get() = bool(KEY_LOCK_CLOCK_24H, true)
+        set(value) = setBool(KEY_LOCK_CLOCK_24H, value)
+
+    var lockShowSeconds: Boolean
+        get() = bool(KEY_LOCK_SHOW_SECONDS, false)
+        set(value) = setBool(KEY_LOCK_SHOW_SECONDS, value)
+
+    var lockShowCustomizeButton: Boolean
+        get() = bool(KEY_LOCK_SHOW_CUSTOMIZE_BTN, true)
+        set(value) = setBool(KEY_LOCK_SHOW_CUSTOMIZE_BTN, value)
+
+    fun lockWidgetSlots(): List<LockScreenConfig.LockWidgetSlot> {
+        val fallback = LockScreenConfig.defaultSlots(
+            batteryEnabled = lockWidgetBattery,
+            statsEnabled = lockWidgetStats,
+            noteEnabled = lockWidgetNote
+        )
+        return LockScreenConfig.decodeSlots(prefs.getString(KEY_LOCK_WIDGET_SLOTS, null), fallback)
+    }
+
+    fun setLockWidgetSlots(slots: List<LockScreenConfig.LockWidgetSlot>) {
+        val encoded = LockScreenConfig.encodeSlots(slots)
+        val battery = slots.firstOrNull { it.type == LockScreenConfig.LockWidgetType.BATTERY }?.enabled ?: true
+        val stats = slots.firstOrNull { it.type == LockScreenConfig.LockWidgetType.STREAK }?.enabled ?: true
+        val note = slots.firstOrNull { it.type == LockScreenConfig.LockWidgetType.NOTE }?.enabled ?: true
+        prefs.edit()
+            .putString(KEY_LOCK_WIDGET_SLOTS, encoded)
+            .putBoolean(KEY_LOCK_WIDGET_BATTERY, battery)
+            .putBoolean(KEY_LOCK_WIDGET_STATS, stats)
+            .putBoolean(KEY_LOCK_WIDGET_NOTE, note)
+            .apply()
+    }
+
     /**
      * Explicit record that this device was set up as a kiosk. Null only on installs that
      * predate the flag; the next cold start resolves it once with [migrateKioskState].
@@ -802,6 +861,15 @@ class KioskPreferences(context: Context) {
         private const val KEY_LOCK_WIDGET_STATS = "lock_widget_stats"
         private const val KEY_LOCK_WIDGET_NOTE = "lock_widget_note"
         private const val KEY_LOCK_SCREEN_NOTE = "lock_screen_note"
+        private const val KEY_LOCK_THEME = "lock_screen_theme"
+        private const val KEY_LOCK_ACCENT = "lock_screen_accent"
+        private const val KEY_LOCK_CLOCK_STYLE = "lock_screen_clock_style"
+        private const val KEY_LOCK_CARD_STYLE = "lock_screen_card_style"
+        private const val KEY_LOCK_CORNER_STYLE = "lock_screen_corner_style"
+        private const val KEY_LOCK_CLOCK_24H = "lock_screen_clock_24h"
+        private const val KEY_LOCK_SHOW_SECONDS = "lock_screen_show_seconds"
+        private const val KEY_LOCK_SHOW_CUSTOMIZE_BTN = "lock_screen_show_customize_btn"
+        private const val KEY_LOCK_WIDGET_SLOTS = "lock_screen_widget_slots"
         private const val KEY_LOCK_QUICK_APPS = "lock_screen_quick_apps"
         private const val KEY_LOCK_SCREEN_QUICK_LAUNCH = "lock_screen_quick_launch"
         private const val KEY_LOCK_SCREEN_PENDING = "lock_screen_pending"

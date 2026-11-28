@@ -99,6 +99,9 @@ class AdminSettingsActivity : AppCompatActivity() {
     private lateinit var browserTogglesContainer: LinearLayout
     private lateinit var customLockContainer: LinearLayout
     private lateinit var customLockStatus: TextView
+    private lateinit var customLockSummary: TextView
+    private lateinit var adminLockGlobalSizeGroup: MaterialButtonToggleGroup
+    private lateinit var lockCustomizeSheetButton: MaterialButton
     private lateinit var lockNoteInput: TextInputEditText
     private lateinit var lockQuickAppsButton: MaterialButton
     private lateinit var appPinStatus: TextView
@@ -197,6 +200,9 @@ class AdminSettingsActivity : AppCompatActivity() {
         browserTogglesContainer = findViewById(R.id.browserTogglesContainer)
         customLockContainer = findViewById(R.id.customLockContainer)
         customLockStatus = findViewById(R.id.customLockStatus)
+        customLockSummary = findViewById(R.id.customLockSummary)
+        adminLockGlobalSizeGroup = findViewById(R.id.adminLockGlobalSizeGroup)
+        lockCustomizeSheetButton = findViewById(R.id.lockCustomizeSheetButton)
         lockNoteInput = findViewById(R.id.lockNoteInput)
         lockQuickAppsButton = findViewById(R.id.lockQuickAppsButton)
         appPinStatus = findViewById(R.id.appPinStatus)
@@ -255,6 +261,11 @@ class AdminSettingsActivity : AppCompatActivity() {
         findViewById<View>(R.id.appPinButton).setOnClickListener { changeAppAccessPin() }
         findViewById<View>(R.id.lockNoteSave).setOnClickListener { saveLockNote() }
         lockQuickAppsButton.setOnClickListener { editQuickLaunchApps() }
+        lockCustomizeSheetButton.setOnClickListener {
+            LockScreenCustomizerSheet(this, prefs) {
+                renderCustomLockScreenSummary()
+            }.show()
+        }
         findViewById<View>(R.id.lockPreviewButton).setOnClickListener {
             KioskLockScreenActivity.launch(this, preview = true)
         }
@@ -378,6 +389,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         renderOwner()
         renderDefaultLauncher()
         renderCustomLockScreenStatus()
+        renderCustomLockScreenSummary()
         renderRecoveryState()
         updateGuardPermissionsStatus()
         renderPolicyLog()
@@ -1182,6 +1194,8 @@ class AdminSettingsActivity : AppCompatActivity() {
         target.addView(row)
     }
 
+    private var syncingAdminLockSize = false
+
     // -------------------------------------------------------- custom lock screen
     private fun renderCustomLockScreen() {
         customLockContainer.removeAllViews()
@@ -1200,28 +1214,61 @@ class AdminSettingsActivity : AppCompatActivity() {
             renderCustomLockScreenStatus()
             renderPolicyLog()
         }
-        addToggle(
-            customLockContainer,
-            getString(R.string.lock_widget_battery_title),
-            getString(R.string.lock_widget_battery_desc),
-            prefs.lockWidgetBattery
-        ) { prefs.lockWidgetBattery = it }
-        addToggle(
-            customLockContainer,
-            getString(R.string.lock_widget_stats_title),
-            getString(R.string.lock_widget_stats_desc),
-            prefs.lockWidgetStats
-        ) { prefs.lockWidgetStats = it }
-        addToggle(
-            customLockContainer,
-            getString(R.string.lock_widget_note_title),
-            getString(R.string.lock_widget_note_desc),
-            prefs.lockWidgetNote
-        ) { prefs.lockWidgetNote = it }
+
+        adminLockGlobalSizeGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (syncingAdminLockSize || !isChecked) return@addOnButtonCheckedListener
+            val targetSize = when (checkedId) {
+                R.id.adminLockSizeMedium -> com.kiosk.launcher.data.LockScreenConfig.LockWidgetSize.MEDIUM
+                R.id.adminLockSizeLarge -> com.kiosk.launcher.data.LockScreenConfig.LockWidgetSize.LARGE
+                else -> com.kiosk.launcher.data.LockScreenConfig.LockWidgetSize.SMALL
+            }
+            val updated = com.kiosk.launcher.data.LockScreenConfig.applyGlobalSize(
+                prefs.lockWidgetSlots(),
+                targetSize
+            )
+            prefs.setLockWidgetSlots(updated)
+            renderCustomLockScreenSummary()
+        }
 
         lockNoteInput.setText(prefs.lockScreenNote)
         renderCustomLockScreenStatus()
+        renderCustomLockScreenSummary()
         updateQuickAppsButtonLabel()
+    }
+
+    private fun renderCustomLockScreenSummary() {
+        val slots = prefs.lockWidgetSlots()
+        val enabledCount = slots.count { it.enabled }
+        val uniform = com.kiosk.launcher.data.LockScreenConfig.uniformSizeOrNull(slots)
+        syncingAdminLockSize = true
+        when (uniform) {
+            com.kiosk.launcher.data.LockScreenConfig.LockWidgetSize.SMALL ->
+                adminLockGlobalSizeGroup.check(R.id.adminLockSizeSmall)
+            com.kiosk.launcher.data.LockScreenConfig.LockWidgetSize.MEDIUM ->
+                adminLockGlobalSizeGroup.check(R.id.adminLockSizeMedium)
+            com.kiosk.launcher.data.LockScreenConfig.LockWidgetSize.LARGE ->
+                adminLockGlobalSizeGroup.check(R.id.adminLockSizeLarge)
+            null -> adminLockGlobalSizeGroup.clearChecked()
+        }
+        syncingAdminLockSize = false
+
+        val theme = com.kiosk.launcher.data.LockScreenConfig.LockTheme.fromId(prefs.lockTheme)
+        val themeName = getString(LockScreenCustomizerSheet.themeLabelRes(theme))
+        val sizeLabel = getString(
+            when (uniform) {
+                com.kiosk.launcher.data.LockScreenConfig.LockWidgetSize.SMALL -> R.string.lock_size_mode_small
+                com.kiosk.launcher.data.LockScreenConfig.LockWidgetSize.MEDIUM -> R.string.lock_size_mode_medium
+                com.kiosk.launcher.data.LockScreenConfig.LockWidgetSize.LARGE -> R.string.lock_size_mode_large
+                null -> R.string.lock_size_mode_mixed
+            }
+        )
+        customLockSummary.text = getString(
+            R.string.lock_admin_summary_fmt,
+            themeName,
+            enabledCount,
+            slots.size,
+            sizeLabel
+        )
     }
 
     private fun renderCustomLockScreenStatus() {

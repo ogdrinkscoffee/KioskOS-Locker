@@ -535,4 +535,126 @@
     <string name="browser_reload">تحديث</string>
     <string name="browser_allowed_sites_label">المواقع المسموحة:</string>
     <string name="browser_no_domains_empty">مفيش مواقع مسموحة متضافة لسه.\nافتح الإدارة → الوضع والمتصفح عشان تضيف مواقع.</string>
+
+    <!-- Lock Screen Customization & Extended Widgets -->
+    <string name="lock_customize_action">تخصيص شاشة القفل</string>
+    <string name="lock_open_customizer_button">تخصيص الثيم والساعة والودجات…</string>
+    <string name="lock_customizer_title">تخصيص شاشة القفل</string>
+    <string name="lock_customizer_subtitle">التعديلات بتتطبق فوراً مع توحيد مقاس الودجات</string>
+    <string name="lock_customizer_reset">استرجاع</string>
+    <string name="lock_cust_theme_label">خلفية الشاشة</string>
+    <string name="lock_cust_accent_label">اللون المميز</string>
+    <string name="lock_cust_clock_label">شكل الساعة</string>
+    <string name="lock_cust_surface_label">شكل الكروت والحواف</string>
+    <string name="lock_cust_global_size_label">مقاس الودجات (موحد أو مخصص)</string>
+    <string name="lock_cust_widgets_label">الودجات وترتيبها</string>
+    <string name="lock_theme_midnight">منتصف الليل</string>
+    <string name="lock_theme_aurora">الشفق</string>
+    <string name="lock_theme_obsidian">أوبسيديان</string>
+    <string name="lock_theme_amethyst">أميثيست</string>
+    <string name="lock_theme_solar">شمسي</string>
+    <string name="lock_theme_amoled">AMOLED</string>
+    <string name="lock_accent_teal">تركواز</string>
+    <string name="lock_accent_sky">سماوي</string>
+    <string name="lock_accent_indigo">نيلي</string>
+    <string name="lock_accent_emerald">زمردي</string>
+    <string name="lock_accent_amber">كهرماني</string>
+    <string name="lock_accent_rose">وردي</string>
+    <string name="lock_accent_snow">أبيض</string>
+    <string name="lock_clock_editorial">عصري</string>
+    <string name="lock_clock_bold">عريض</string>
+    <string name="lock_clock_stacked">رأسي</string>
+    <string name="lock_clock_compact">مدمج</string>
+    <string name="lock_clock_24h">نظام 24 ساعة</string>
+    <string name="lock_clock_seconds">إظهار الثواني</string>
+    <string name="lock_card_frosted">زجاجي</string>
+    <string name="lock_card_tinted">ملون</string>
+    <string name="lock_card_solid">داكن</string>
+    <string name="lock_card_outline">محدد</string>
+    <string name="lock_corner_sharp">حاد</string>
+    <string name="lock_corner_rounded">ناعم</string>
+    <string name="lock_corner_pill">دائري</string>
+    <string name="lock_size_small_short">1×1 ص</string>
+    <string name="lock_size_medium_short">2×1 و</string>
+    <string name="lock_size_large_short">2×2 ك</string>
+    <string name="lock_size_all_small">الكل صغير</string>
+    <string name="lock_size_all_medium">الكل وسط</string>
+    <string name="lock_size_all_large">الكل كبير</string>
+    <string name="lock_size_mode_small">مقاس صغير موحد</string>
+    <string name="lock_size_mode_medium">مقاس وسط موحد</string>
+    <string name="lock_size_mode_large">مقاس كبير موحد</string>
+    <string name="lock_size_mode_mixed">مقاس مخصص</string>
+    <string name="lock_widget_move_up">طلّع الودجت لفوق</string>
+    <string name="lock_widget_move_down">نزّل الودجت لتحت</string>
+    <string name="lock_show_customize_btn_title">إظهار زر التخصيص على شاشة القفل</string>
+    <string name="lock_show_customize_btn_desc">بيفتح التخصيص المباشر من شاشة القفل بعد رمز الإدارة</string>
+    <string name="lock_admin_summary_fmt">الثيم: %1$s · %2$d/%3$d ودجات مفعلة · %4$s</string>
+
+    <string name="lock_widget_habits_title">العادات اليومية</string>
+    <string name="lock_widget_habits_desc">نسبة إنجاز عادات النهارده والهدف اللي عليه الدور</string>
+    <string name="lock_widget_tasks_title">المهام اليومية</string>
+    <string name="lock_widget_tasks_desc">عدد المهام المفتوحة والأولوية العالية وأهم مهمة</string>
+    <string name="lock_widget_focus_title">التركيز العميق</string>
+    <string name="lock_widget_focus_desc">دقايق التركيز النهارده والجلسات وتقدم هدف 60 دقيقة</string>
+    <string name="lock_widget_goals_title">مراحل الأهداف</string>
+    <string name="lock_widget_goals_desc">نسبة تقدم الهدف النشط وتاريخ التسليم المستهدف</string>
+    <string name="lock_widget_schedule_title">جدول الكشك</string>
+    <string name="lock_widget_schedule_desc">الحالة الحالية ومعاد التحويل الجاي وعدد التطبيقات</string>
+    <string name="lock_widget_shield_title">درع الجهاز</string>
+    <string name="lock_widget_shield_desc">حالة مالك الجهاز والتطبيقات المحمية وتنبيهات العبث</string>
+
+    <string name="lock_badge_charging">بيشحن</string>
+    <string name="lock_badge_ready">جاهز</string>
+    <string name="lock_battery_source_ac">شحن سريع AC</string>
+    <string name="lock_battery_source_usb">شحن USB</string>
+    <string name="lock_battery_source_wireless">شحن لاسلكي</string>
+    <string name="lock_battery_source_battery">على البطارية</string>
+    <string name="lock_battery_footer_fmt">%1$s · %2$d°C</string>
+
+    <string name="lock_widget_streak_best_urges_fmt">الأحسن %1$d يوم · %2$d رغبة قاومتها</string>
+    <string name="lock_badge_logged">اتسجل</string>
+    <string name="lock_badge_today">النهارده</string>
+    <string name="lock_streak_milestone_fmt">تقدم المرحلة: %1$d / %2$d يوم نظيف</string>
+
+    <string name="lock_habits_none_value">مفيش عادات</string>
+    <string name="lock_habits_none_detail">ضيف عادات يومية من التركيز والنمو</string>
+    <string name="lock_habits_value_fmt">خلصت %1$d / %2$d</string>
+    <string name="lock_habits_all_done">كل عادات النهارده خلصت</string>
+    <string name="lock_habits_next_fmt">الجاية: %1$s</string>
+
+    <string name="lock_tasks_none_value">مفيش مهام</string>
+    <string name="lock_tasks_none_detail">ضيف مهام من قسم التركيز والنمو</string>
+    <string name="lock_tasks_open_fmt">%1$d مهمة مفتوحة</string>
+    <string name="lock_tasks_all_done">كل المهام الحالية خلصت</string>
+    <string name="lock_tasks_high_badge_fmt">%1$d مهمة</string>
+
+    <string name="lock_focus_minutes_fmt">%1$d د النهارده</string>
+    <string name="lock_focus_sessions_fmt">%1$d جلسة تركيز متسجلة</string>
+    <string name="lock_focus_goal_met">حققت هدف 60 دقيقة تركيز النهارده</string>
+    <string name="lock_focus_goal_remaining_fmt">فاضل %1$d د على هدف 60 دقيقة</string>
+
+    <string name="lock_goals_none_value">مفيش أهداف</string>
+    <string name="lock_goals_none_detail">حدد أهداف ومراحل من التركيز والنمو</string>
+    <string name="lock_goals_milestones_fmt">خلصت %1$d/%2$d مراحل</string>
+    <string name="lock_goals_count_fmt">%1$d أهداف نشطة</string>
+
+    <string name="lock_schedule_always_on">كشك 24/7</string>
+    <string name="lock_schedule_apps_fmt">%1$d تطبيق مسموح دلوقتي</string>
+    <string name="lock_badge_24_7">دايماً</string>
+    <string name="lock_schedule_kiosk_hours">ساعات الكشك</string>
+    <string name="lock_schedule_normal_hours">موبايل عادي</string>
+    <string name="lock_schedule_next_flip_fmt">التغيير الجاي الساعة %1$s</string>
+    <string name="lock_schedule_no_flip">مفيش تغيير قريب</string>
+    <string name="lock_badge_active">شغال</string>
+    <string name="lock_badge_paused">متوقف</string>
+
+    <string name="lock_shield_enforced">مالك الجهاز</string>
+    <string name="lock_shield_preview">وضع المعاينة</string>
+    <string name="lock_shield_detail_fmt">%1$d تطبيق برمز · %2$d تنبيهات</string>
+    <string name="lock_badge_owner">مقفول</string>
+    <string name="lock_badge_preview">معاينة</string>
+    <string name="lock_shield_guard_on">حارس النوافذ شغال</string>
+    <string name="lock_shield_guard_off">حارس النوافذ مقفول</string>
+    <string name="lock_shield_feeds_blocked">حظر Reels/Shorts شغال</string>
+    <string name="lock_shield_feeds_open">الفيديوهات القصيرة مفتوحة</string>
 </resources>
