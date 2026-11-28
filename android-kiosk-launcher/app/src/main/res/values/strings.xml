@@ -114,6 +114,8 @@
     <string name="admin_window_remaining_fmt">Open now — %1$d min left. Closes on its own.</string>
     <string name="admin_window_minus">Shorter window</string>
     <string name="admin_window_plus">Longer window</string>
+    <string name="admin_window_relock_now">Re-lock system access now</string>
+    <string name="system_settings_unavailable">Unable to open System Settings on this device</string>
 
     <string name="eyebrow_kiosk_mode">Kiosk mode</string>
     <string name="mode_multi">Multi-app</string>

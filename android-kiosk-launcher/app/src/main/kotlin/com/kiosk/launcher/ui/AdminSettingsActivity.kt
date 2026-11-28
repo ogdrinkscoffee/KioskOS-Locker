@@ -10,6 +10,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.os.Process
 import android.provider.Settings
@@ -72,6 +74,7 @@ class AdminSettingsActivity : AppCompatActivity() {
 
     private lateinit var cardOwner: View
     private lateinit var cardSecurity: View
+    private lateinit var cardAdminWindow: View
     private lateinit var cardGuardPermissions: View
     private lateinit var cardHomeLayout: View
     private lateinit var cardUpdate: View
@@ -82,6 +85,13 @@ class AdminSettingsActivity : AppCompatActivity() {
     private lateinit var cardSchedule: View
     private lateinit var cardStrongRestrictions: View
     private lateinit var cardLocks: View
+
+    private lateinit var adminWindowStatus: TextView
+    private lateinit var adminWindowMinusButton: MaterialButton
+    private lateinit var adminWindowDurationText: TextView
+    private lateinit var adminWindowPlusButton: MaterialButton
+    private lateinit var openSystemSettingsButton: MaterialButton
+    private lateinit var relockSystemAccessButton: MaterialButton
 
     private lateinit var permOverlayStatus: TextView
     private lateinit var permOverlayButton: MaterialButton
@@ -152,6 +162,22 @@ class AdminSettingsActivity : AppCompatActivity() {
     private var selectedSectionId: Int = R.id.chipAdminAll
 
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+    private val handler = Handler(Looper.getMainLooper())
+    private val adminWindowTick = object : Runnable {
+        override fun run() {
+            if (!prefs.isAdminTemporarilyUnlocked()) {
+                if (prefs.adminUnlockedUntilMs > 0L) {
+                    prefs.endTemporaryAdminWindow()
+                    policy.applyPolicy()
+                    renderPolicyLog()
+                }
+                renderAdminWindow()
+                return
+            }
+            renderAdminWindow()
+            handler.postDelayed(this, 5_000L)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -165,6 +191,14 @@ class AdminSettingsActivity : AppCompatActivity() {
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
         toolbar.setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material)
         toolbar.setNavigationOnClickListener { finish() }
+        toolbar.setOnMenuItemClickListener { item ->
+            if (item.itemId == R.id.actionOpenSystemSettings) {
+                openSystemSettings(Intent(Settings.ACTION_SETTINGS), fallbackIntent = null)
+                true
+            } else {
+                false
+            }
+        }
 
         adminScroll = findViewById(R.id.adminScroll)
         applyEdgeToEdge(toolbar, adminScroll)
@@ -173,6 +207,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         sectionChips = findViewById(R.id.adminSectionChips)
         cardOwner = findViewById(R.id.cardOwner)
         cardSecurity = findViewById(R.id.cardSecurity)
+        cardAdminWindow = findViewById(R.id.cardAdminWindow)
         cardGuardPermissions = findViewById(R.id.cardGuardPermissions)
         cardHomeLayout = findViewById(R.id.cardHomeLayout)
         cardUpdate = findViewById(R.id.cardUpdate)
@@ -183,6 +218,13 @@ class AdminSettingsActivity : AppCompatActivity() {
         cardSchedule = findViewById(R.id.cardSchedule)
         cardStrongRestrictions = findViewById(R.id.cardStrongRestrictions)
         cardLocks = findViewById(R.id.cardLocks)
+
+        adminWindowStatus = findViewById(R.id.adminWindowStatus)
+        adminWindowMinusButton = findViewById(R.id.adminWindowMinusButton)
+        adminWindowDurationText = findViewById(R.id.adminWindowDurationText)
+        adminWindowPlusButton = findViewById(R.id.adminWindowPlusButton)
+        openSystemSettingsButton = findViewById(R.id.openSystemSettingsButton)
+        relockSystemAccessButton = findViewById(R.id.relockSystemAccessButton)
 
         permOverlayStatus = findViewById(R.id.permOverlayStatus)
         permOverlayButton = findViewById(R.id.permOverlayButton)
@@ -227,6 +269,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         releaseOwnerButton = findViewById(R.id.releaseOwnerButton)
         releaseOwnerButton.setOnClickListener { confirmReleaseOwner() }
 
+        setupAdminWindowUi()
         setupGuardPermissionsUi()
         setupHomeLayoutUi()
         updateStatus = findViewById(R.id.updateStatus)
@@ -317,6 +360,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         renderOwner()
         renderDefaultLauncher()
         renderRecoveryState()
+        renderAdminWindow()
         renderUpdate()
         renderMode()
         renderBrowserToggles()
@@ -391,6 +435,8 @@ class AdminSettingsActivity : AppCompatActivity() {
         renderCustomLockScreenStatus()
         renderCustomLockScreenSummary()
         renderRecoveryState()
+        renderAdminWindow()
+        scheduleAdminWindowTick()
         updateGuardPermissionsStatus()
         renderPolicyLog()
         // Jumped here from the launcher's update banner: land on the Security/Update section.
@@ -400,6 +446,11 @@ class AdminSettingsActivity : AppCompatActivity() {
             applySectionFilter(R.id.chipAdminSecurity, resetScroll = true)
             if (availableUpdate == null) checkForUpdates(manual = true)
         }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        handler.removeCallbacks(adminWindowTick)
     }
 
     private fun applyResponsiveWidth() {
@@ -429,6 +480,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         cardOwner.visibility = if (showDevice) View.VISIBLE else View.GONE
 
         cardSecurity.visibility = if (showSecurity) View.VISIBLE else View.GONE
+        cardAdminWindow.visibility = if (showDevice || showSecurity) View.VISIBLE else View.GONE
         cardGuardPermissions.visibility = if (showSecurity) View.VISIBLE else View.GONE
         cardHomeLayout.visibility = if (showSecurity) View.VISIBLE else View.GONE
         cardUpdate.visibility = if (showSecurity) View.VISIBLE else View.GONE
@@ -445,7 +497,7 @@ class AdminSettingsActivity : AppCompatActivity() {
         cardLocks.visibility = if (showLocks) View.VISIBLE else View.GONE
 
         val visibleCards = listOf(
-            cardOwner, cardSecurity, cardGuardPermissions, cardHomeLayout, cardUpdate,
+            cardOwner, cardSecurity, cardAdminWindow, cardGuardPermissions, cardHomeLayout, cardUpdate,
             cardMode, cardBrowser, cardCustomLockScreen,
             cardAllowlist, cardSchedule, cardStrongRestrictions, cardLocks
         )
@@ -597,77 +649,151 @@ class AdminSettingsActivity : AppCompatActivity() {
         toast(getString(R.string.default_launcher_manual_off))
     }
 
-    private fun openDefaultLauncherSettings(intent: Intent): Boolean {
-        if (policy.isInLockTaskMode()) {
-            prefs.grantTemporaryAdminWindow(prefs.adminUnlockMinutes)
-            policy.applyPolicy()
-            policy.stopKiosk(this)
-        }
-        return runCatching { startActivity(intent); true }.getOrDefault(false) ||
-            runCatching { startActivity(Intent(Settings.ACTION_HOME_SETTINGS)); true }.getOrDefault(false)
-    }
+    private fun openDefaultLauncherSettings(intent: Intent): Boolean =
+        openSystemSettings(
+            targetIntent = intent,
+            fallbackIntent = Intent(Settings.ACTION_HOME_SETTINGS),
+            showUnlockedToast = false
+        )
 
     private fun renderRecoveryState() {
         clearPanicButton.visibility = if (prefs.isPanicLocked()) View.VISIBLE else View.GONE
     }
 
+    // ------------------------------------------- temporary system settings access
+    private fun setupAdminWindowUi() {
+        adminWindowMinusButton.setOnClickListener {
+            val cur = prefs.adminUnlockMinutes
+            val next = if (cur <= KioskPreferences.ADMIN_UNLOCK_STEP_MINUTES) {
+                KioskPreferences.MIN_ADMIN_UNLOCK_MINUTES
+            } else {
+                ((cur - 1) / KioskPreferences.ADMIN_UNLOCK_STEP_MINUTES) *
+                    KioskPreferences.ADMIN_UNLOCK_STEP_MINUTES
+            }
+            prefs.adminUnlockMinutes = next
+            renderAdminWindow()
+        }
+        adminWindowPlusButton.setOnClickListener {
+            val cur = prefs.adminUnlockMinutes
+            val next = if (cur < KioskPreferences.ADMIN_UNLOCK_STEP_MINUTES) {
+                KioskPreferences.ADMIN_UNLOCK_STEP_MINUTES
+            } else {
+                cur + KioskPreferences.ADMIN_UNLOCK_STEP_MINUTES
+            }
+            prefs.adminUnlockMinutes = next
+            renderAdminWindow()
+        }
+        openSystemSettingsButton.setOnClickListener {
+            openSystemSettings(Intent(Settings.ACTION_SETTINGS), fallbackIntent = null)
+        }
+        relockSystemAccessButton.setOnClickListener {
+            prefs.endTemporaryAdminWindow()
+            policy.applyPolicy()
+            renderAdminWindow()
+            renderPolicyLog()
+            toast(getString(R.string.admin_window_closed))
+        }
+    }
 
+    private fun renderAdminWindow() {
+        val minutes = prefs.adminUnlockMinutes
+        adminWindowDurationText.text = getString(R.string.admin_window_value_fmt, minutes)
+        adminWindowMinusButton.isEnabled = minutes > KioskPreferences.MIN_ADMIN_UNLOCK_MINUTES
+        adminWindowPlusButton.isEnabled = minutes < KioskPreferences.MAX_ADMIN_UNLOCK_MINUTES
+
+        val unlocked = prefs.isAdminTemporarilyUnlocked()
+        if (unlocked) {
+            val remainingMins = ((prefs.adminUnlockRemainingSeconds() + 59) / 60).coerceAtLeast(1)
+            adminWindowStatus.visibility = View.VISIBLE
+            adminWindowStatus.text = getString(R.string.admin_window_remaining_fmt, remainingMins)
+            relockSystemAccessButton.visibility = View.VISIBLE
+        } else {
+            adminWindowStatus.visibility = View.GONE
+            relockSystemAccessButton.visibility = View.GONE
+        }
+    }
+
+    private fun scheduleAdminWindowTick() {
+        handler.removeCallbacks(adminWindowTick)
+        if (prefs.isAdminTemporarilyUnlocked()) {
+            handler.postDelayed(adminWindowTick, 5_000L)
+        }
+    }
+
+    /**
+     * Opens an Android Settings screen cleanly while Admin Settings is open by granting the
+     * configured temporary admin unlock window, releasing lock task mode, and re-applying policy.
+     */
+    private fun openSystemSettings(
+        targetIntent: Intent,
+        fallbackIntent: Intent? = Intent(Settings.ACTION_SETTINGS),
+        showUnlockedToast: Boolean = true
+    ): Boolean {
+        val minutes = prefs.adminUnlockMinutes
+        val wasUnlocked = prefs.isAdminTemporarilyUnlocked()
+        prefs.grantTemporaryAdminWindow(minutes)
+        policy.applyPolicy()
+        if (policy.isInLockTaskMode()) {
+            policy.stopKiosk(this)
+        }
+        renderAdminWindow()
+        scheduleAdminWindowTick()
+        renderPolicyLog()
+        if (showUnlockedToast && !wasUnlocked) {
+            toast(getString(R.string.system_settings_unlocked_toast_fmt, minutes))
+        }
+        val launched = runCatching { startActivity(targetIntent); true }.getOrDefault(false) ||
+            (fallbackIntent != null && runCatching { startActivity(fallbackIntent); true }.getOrDefault(false))
+        if (!launched) {
+            toast(getString(R.string.system_settings_unavailable))
+        }
+        return launched
+    }
 
     // --------------------------------------------------- guard permissions & folders
     private fun setupGuardPermissionsUi() {
-        findViewById<View>(R.id.permOverlayRow).setOnClickListener {
-            runCatching {
-                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
-            }
+        val openOverlay = {
+            openSystemSettings(
+                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")),
+                fallbackIntent = Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:$packageName")
+                )
+            )
+            Unit
         }
-        permOverlayButton.setOnClickListener {
-            runCatching {
-                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
-            }
-        }
+        findViewById<View>(R.id.permOverlayRow).setOnClickListener { openOverlay() }
+        permOverlayButton.setOnClickListener { openOverlay() }
 
-        findViewById<View>(R.id.permAccessibilityRow).setOnClickListener {
-            runCatching {
-                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-            }
+        val openAccessibility = {
+            openSystemSettings(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            Unit
         }
-        permAccessibilityButton.setOnClickListener {
-            runCatching {
-                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-            }
-        }
+        findViewById<View>(R.id.permAccessibilityRow).setOnClickListener { openAccessibility() }
+        permAccessibilityButton.setOnClickListener { openAccessibility() }
 
-        findViewById<View>(R.id.permUsageRow).setOnClickListener {
-            runCatching {
-                startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-            }
+        val openUsage = {
+            openSystemSettings(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+            Unit
         }
-        permUsageButton.setOnClickListener {
-            runCatching {
-                startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-            }
-        }
+        findViewById<View>(R.id.permUsageRow).setOnClickListener { openUsage() }
+        permUsageButton.setOnClickListener { openUsage() }
 
-        findViewById<View>(R.id.permBatteryRow).setOnClickListener {
-            runCatching {
-                val powerManager = getSystemService(PowerManager::class.java)
-                if (powerManager != null && !powerManager.isIgnoringBatteryOptimizations(packageName)) {
-                    startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")))
-                } else {
-                    startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
-                }
+        val openBattery = {
+            val powerManager = getSystemService(PowerManager::class.java)
+            val primary = if (powerManager != null && !powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
+            } else {
+                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
             }
+            openSystemSettings(
+                primary,
+                fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+            )
+            Unit
         }
-        permBatteryButton.setOnClickListener {
-            runCatching {
-                val powerManager = getSystemService(PowerManager::class.java)
-                if (powerManager != null && !powerManager.isIgnoringBatteryOptimizations(packageName)) {
-                    startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")))
-                } else {
-                    startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
-                }
-            }
-        }
+        findViewById<View>(R.id.permBatteryRow).setOnClickListener { openBattery() }
+        permBatteryButton.setOnClickListener { openBattery() }
     }
 
     private fun updateGuardPermissionsStatus() {
@@ -1124,14 +1250,10 @@ class AdminSettingsActivity : AppCompatActivity() {
             prefs.guardEnabled = enabled
             prefs.logPolicy(getString(if (enabled) R.string.log_guard_enabled else R.string.log_guard_disabled))
             if (enabled) {
-                if (policy.isInLockTaskMode()) {
-                    prefs.grantTemporaryAdminWindow(prefs.adminUnlockMinutes)
-                    policy.applyPolicy()
-                    policy.stopKiosk(this)
-                }
-                runCatching {
-                    startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                }
+                openSystemSettings(
+                    Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS),
+                    showUnlockedToast = false
+                )
                 toast(getString(R.string.accessibility_prompt_toast))
             }
             renderPolicyLog()

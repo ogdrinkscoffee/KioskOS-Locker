@@ -114,6 +114,8 @@
     <string name="admin_window_remaining_fmt">مفتوح دلوقتي — باقي %1$d دقيقة. هيقفل لوحده.</string>
     <string name="admin_window_minus">مدة أقصر</string>
     <string name="admin_window_plus">مدة أطول</string>
+    <string name="admin_window_relock_now">اقفل وصول النظام دلوقتي</string>
+    <string name="system_settings_unavailable">تعذر فتح إعدادات النظام على الجهاز ده</string>
 
     <string name="eyebrow_kiosk_mode">وضع الكشك</string>
     <string name="mode_multi">تطبيقات كتير</string>

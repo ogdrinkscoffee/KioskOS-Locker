@@ -12,6 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:minHeight="?attr/actionBarSize"
+        app:menu="@menu/menu_admin_settings"
         app:title="@string/admin_title" />
 
     <HorizontalScrollView
@@ -307,6 +308,113 @@
             </com.google.android.material.card.MaterialCardView>
 
             <!-- Temporary system access window -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardAdminWindow"
+                style="@style/Widget.IroncladOS.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/si_card_padding">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/eyebrow_admin_window"
+                        android:textAppearance="@style/TextAppearance.IroncladOS.Eyebrow" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:lineSpacingExtra="3dp"
+                        android:text="@string/admin_window_desc"
+                        android:textAlignment="viewStart"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp" />
+
+                    <TextView
+                        android:id="@+id/adminWindowStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textAlignment="viewStart"
+                        android:textColor="@color/accent"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/adminWindowMinusButton"
+                            style="@style/Widget.IroncladOS.Button.Outlined"
+                            android:layout_width="48dp"
+                            android:layout_height="44dp"
+                            android:contentDescription="@string/admin_window_minus"
+                            android:minWidth="48dp"
+                            android:minHeight="44dp"
+                            android:paddingStart="0dp"
+                            android:paddingEnd="0dp"
+                            android:text="−"
+                            android:textSize="16sp" />
+
+                        <TextView
+                            android:id="@+id/adminWindowDurationText"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/adminWindowPlusButton"
+                            style="@style/Widget.IroncladOS.Button.Outlined"
+                            android:layout_width="48dp"
+                            android:layout_height="44dp"
+                            android:contentDescription="@string/admin_window_plus"
+                            android:minWidth="48dp"
+                            android:minHeight="44dp"
+                            android:paddingStart="0dp"
+                            android:paddingEnd="0dp"
+                            android:text="+"
+                            android:textSize="16sp" />
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/openSystemSettingsButton"
+                        style="@style/Widget.IroncladOS.Button"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/open_system_settings"
+                        app:icon="@drawable/ic_settings"
+                        app:iconGravity="textStart"
+                        app:iconPadding="8dp"
+                        app:iconSize="18dp"
+                        app:iconTint="@color/on_brand" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/relockSystemAccessButton"
+                        style="@style/Widget.IroncladOS.Button.Outlined"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/admin_window_relock_now"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
             <!-- Guard Permissions & Services -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardGuardPermissions"
