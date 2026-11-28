@@ -22,19 +22,24 @@ import org.robolectric.annotation.Config
 class LockTaskFeaturesTest {
 
     private val home = DevicePolicyManager.LOCK_TASK_FEATURE_HOME
+    private val overview = DevicePolicyManager.LOCK_TASK_FEATURE_OVERVIEW
     private val systemInfo = DevicePolicyManager.LOCK_TASK_FEATURE_SYSTEM_INFO
     private val notifications = DevicePolicyManager.LOCK_TASK_FEATURE_NOTIFICATIONS
     private val keyguard = DevicePolicyManager.LOCK_TASK_FEATURE_KEYGUARD
     private val blockStart = DevicePolicyManager.LOCK_TASK_FEATURE_BLOCK_ACTIVITY_START_IN_TASK
 
     @Test
-    fun homeStaysAvailableWhateverTheTogglesSay() {
+    fun homeAndOverviewStayAvailableWhateverTheTogglesSay() {
         for (statusBar in booleanArrayOf(false, true)) {
             for (keyguardOff in booleanArrayOf(false, true)) {
                 val flags = LockTaskFeatures.compute(statusBar, keyguardOff, true)
                 assertTrue(
                     "Home must stay usable (statusBar=$statusBar keyguardOff=$keyguardOff)",
                     flags and home != 0
+                )
+                assertTrue(
+                    "Overview must stay usable alongside Home (statusBar=$statusBar keyguardOff=$keyguardOff)",
+                    flags and overview != 0
                 )
             }
         }
@@ -61,13 +66,17 @@ class LockTaskFeaturesTest {
     }
 
     @Test
-    fun blockedActivityStartsAreRequestedExplicitly() {
+    fun blockedActivityStartsAreRequestedExplicitlyOnAndroid11Plus() {
         assertTrue(
-            LockTaskFeatures.compute(true, true, blockActivityStartInTask = true) and blockStart != 0
+            LockTaskFeatures.compute(true, true, blockActivityStartInTask = true, sdkInt = Build.VERSION_CODES.R) and blockStart != 0
         )
         assertEquals(
             0,
-            LockTaskFeatures.compute(true, true, blockActivityStartInTask = false) and blockStart
+            LockTaskFeatures.compute(true, true, blockActivityStartInTask = true, sdkInt = Build.VERSION_CODES.Q) and blockStart
+        )
+        assertEquals(
+            0,
+            LockTaskFeatures.compute(true, true, blockActivityStartInTask = false, sdkInt = Build.VERSION_CODES.R) and blockStart
         )
     }
 

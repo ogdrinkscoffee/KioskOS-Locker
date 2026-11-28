@@ -12,9 +12,10 @@ import android.os.Build
  * the status bar stayed hidden after being switched off, and the lock screen could never
  * appear while the kiosk was pinned.
  *
- * Home is always enabled: inside lock task it only returns to the default launcher, which
- * is this app, so it is an exit from an app back to the grid — not an escape hatch.
- * Kept free of Android calls (only inlined int constants) so the mapping is unit-testable.
+ * Home and Overview (Recents) are both kept enabled: inside lock task Home returns to the
+ * default launcher (this app), Overview stays scoped strictly to allowlisted lock-task apps,
+ * and Android's gesture navigation swiping requires both flags so swiping works alongside the
+ * 3-button bar. Kept free of Android calls so the mapping is unit-testable.
  */
 object LockTaskFeatures {
 
@@ -29,6 +30,7 @@ object LockTaskFeatures {
         if (sdkInt < Build.VERSION_CODES.P) return 0
 
         var flags = DevicePolicyManager.LOCK_TASK_FEATURE_HOME or
+            DevicePolicyManager.LOCK_TASK_FEATURE_OVERVIEW or
             DevicePolicyManager.LOCK_TASK_FEATURE_GLOBAL_ACTIONS
 
         if (!statusBarLocked) {
@@ -43,7 +45,7 @@ object LockTaskFeatures {
             flags = flags or DevicePolicyManager.LOCK_TASK_FEATURE_KEYGUARD
         }
 
-        if (blockActivityStartInTask) {
+        if (blockActivityStartInTask && sdkInt >= Build.VERSION_CODES.R) {
             flags = flags or DevicePolicyManager.LOCK_TASK_FEATURE_BLOCK_ACTIVITY_START_IN_TASK
         }
 

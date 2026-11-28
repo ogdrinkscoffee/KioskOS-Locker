@@ -323,16 +323,40 @@ class KioskLockScreenActivity : AppCompatActivity() {
             window.addFlags(WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD)
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
     }
 
     private fun setupInsetsAndSystemBars() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         syncSystemBars()
         val root = findViewById<View>(R.id.lockRoot)
-        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+        val content = findViewById<View>(R.id.lockContent)
+        val baseLeft = content.paddingLeft
+        val baseTop = content.paddingTop
+        val baseRight = content.paddingRight
+        val baseBottom = content.paddingBottom
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
             val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
-            val nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
-            view.setPadding(cutout.left, cutout.top, cutout.right, nav.bottom + cutout.bottom)
+            val status = insets.getInsetsIgnoringVisibility(WindowInsetsCompat.Type.statusBars())
+            val nav = insets.getInsetsIgnoringVisibility(WindowInsetsCompat.Type.navigationBars())
+            content.setPadding(
+                baseLeft + maxOf(cutout.left, nav.left),
+                baseTop + maxOf(cutout.top, status.top),
+                baseRight + maxOf(cutout.right, nav.right),
+                baseBottom + maxOf(cutout.bottom, nav.bottom)
+            )
             insets
         }
     }
