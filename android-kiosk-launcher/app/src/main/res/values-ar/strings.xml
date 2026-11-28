@@ -6,6 +6,7 @@
     <!-- Common actions -->
     <string name="cancel">إلغاء</string>
     <string name="save">احفظ</string>
+    <string name="done">تم</string>
     <string name="add">ضيف</string>
     <string name="delete">شيل</string>
     <string name="unlock">افتح</string>
